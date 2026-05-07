@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
+import { Route as DriverOccurrencesRouteImport } from './routes/driver.occurrences'
 import { Route as DriverDeliveriesRouteImport } from './routes/driver.deliveries'
 
 const LoginRoute = LoginRouteImport.update({
@@ -29,6 +30,11 @@ const DriverIndexRoute = DriverIndexRouteImport.update({
   path: '/driver/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DriverOccurrencesRoute = DriverOccurrencesRouteImport.update({
+  id: '/driver/occurrences',
+  path: '/driver/occurrences',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DriverDeliveriesRoute = DriverDeliveriesRouteImport.update({
   id: '/driver/deliveries',
   path: '/driver/deliveries',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/driver/deliveries': typeof DriverDeliveriesRoute
+  '/driver/occurrences': typeof DriverOccurrencesRoute
   '/driver/': typeof DriverIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/driver/deliveries': typeof DriverDeliveriesRoute
+  '/driver/occurrences': typeof DriverOccurrencesRoute
   '/driver': typeof DriverIndexRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,33 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/driver/deliveries': typeof DriverDeliveriesRoute
+  '/driver/occurrences': typeof DriverOccurrencesRoute
   '/driver/': typeof DriverIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/driver/deliveries' | '/driver/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/driver/deliveries'
+    | '/driver/occurrences'
+    | '/driver/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/driver/deliveries' | '/driver'
-  id: '__root__' | '/' | '/login' | '/driver/deliveries' | '/driver/'
+  to: '/' | '/login' | '/driver/deliveries' | '/driver/occurrences' | '/driver'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/driver/deliveries'
+    | '/driver/occurrences'
+    | '/driver/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   DriverDeliveriesRoute: typeof DriverDeliveriesRoute
+  DriverOccurrencesRoute: typeof DriverOccurrencesRoute
   DriverIndexRoute: typeof DriverIndexRoute
 }
 
@@ -92,6 +113,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/driver/occurrences': {
+      id: '/driver/occurrences'
+      path: '/driver/occurrences'
+      fullPath: '/driver/occurrences'
+      preLoaderRoute: typeof DriverOccurrencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/driver/deliveries': {
       id: '/driver/deliveries'
       path: '/driver/deliveries'
@@ -106,6 +134,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   DriverDeliveriesRoute: DriverDeliveriesRoute,
+  DriverOccurrencesRoute: DriverOccurrencesRoute,
   DriverIndexRoute: DriverIndexRoute,
 }
 export const routeTree = rootRouteImport
