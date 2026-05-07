@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as DriverProfileRouteImport } from './routes/driver.profile'
 import { Route as DriverOccurrencesRouteImport } from './routes/driver.occurrences'
 import { Route as DriverDeliveriesRouteImport } from './routes/driver.deliveries'
@@ -30,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
 const DriverIndexRoute = DriverIndexRouteImport.update({
   id: '/driver/',
   path: '/driver/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DriverProfileRoute = DriverProfileRouteImport.update({
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/driver/deliveries': typeof DriverDeliveriesRoute
   '/driver/occurrences': typeof DriverOccurrencesRoute
   '/driver/profile': typeof DriverProfileRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/driver/': typeof DriverIndexRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/driver/deliveries': typeof DriverDeliveriesRoute
   '/driver/occurrences': typeof DriverOccurrencesRoute
   '/driver/profile': typeof DriverProfileRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/driver': typeof DriverIndexRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/driver/deliveries': typeof DriverDeliveriesRoute
   '/driver/occurrences': typeof DriverOccurrencesRoute
   '/driver/profile': typeof DriverProfileRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/driver/': typeof DriverIndexRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/driver/deliveries'
     | '/driver/occurrences'
     | '/driver/profile'
+    | '/invite/$token'
     | '/driver/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/driver/deliveries'
     | '/driver/occurrences'
     | '/driver/profile'
+    | '/invite/$token'
     | '/driver'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/driver/deliveries'
     | '/driver/occurrences'
     | '/driver/profile'
+    | '/invite/$token'
     | '/driver/'
   fileRoutesById: FileRoutesById
 }
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   DriverDeliveriesRoute: typeof DriverDeliveriesRoute
   DriverOccurrencesRoute: typeof DriverOccurrencesRoute
   DriverProfileRoute: typeof DriverProfileRoute
+  InviteTokenRoute: typeof InviteTokenRoute
   DriverIndexRoute: typeof DriverIndexRoute
 }
 
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/driver'
       fullPath: '/driver/'
       preLoaderRoute: typeof DriverIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/driver/profile': {
@@ -182,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   DriverDeliveriesRoute: DriverDeliveriesRoute,
   DriverOccurrencesRoute: DriverOccurrencesRoute,
   DriverProfileRoute: DriverProfileRoute,
+  InviteTokenRoute: InviteTokenRoute,
   DriverIndexRoute: DriverIndexRoute,
 }
 export const routeTree = rootRouteImport
