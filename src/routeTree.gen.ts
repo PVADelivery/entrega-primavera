@@ -9,38 +9,140 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DriverIndexRouteImport } from './routes/driver.index'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as DriverProfileRouteImport } from './routes/driver.profile'
+import { Route as DriverOccurrencesRouteImport } from './routes/driver.occurrences'
+import { Route as DriverDeliveriesRouteImport } from './routes/driver.deliveries'
+import { Route as DriverChatRouteImport } from './routes/driver.chat'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DriverIndexRoute = DriverIndexRouteImport.update({
+  id: '/driver/',
+  path: '/driver/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverProfileRoute = DriverProfileRouteImport.update({
+  id: '/driver/profile',
+  path: '/driver/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverOccurrencesRoute = DriverOccurrencesRouteImport.update({
+  id: '/driver/occurrences',
+  path: '/driver/occurrences',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverDeliveriesRoute = DriverDeliveriesRouteImport.update({
+  id: '/driver/deliveries',
+  path: '/driver/deliveries',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverChatRoute = DriverChatRouteImport.update({
+  id: '/driver/chat',
+  path: '/driver/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/driver/chat': typeof DriverChatRoute
+  '/driver/deliveries': typeof DriverDeliveriesRoute
+  '/driver/occurrences': typeof DriverOccurrencesRoute
+  '/driver/profile': typeof DriverProfileRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/driver/': typeof DriverIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/driver/chat': typeof DriverChatRoute
+  '/driver/deliveries': typeof DriverDeliveriesRoute
+  '/driver/occurrences': typeof DriverOccurrencesRoute
+  '/driver/profile': typeof DriverProfileRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/driver': typeof DriverIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/driver/chat': typeof DriverChatRoute
+  '/driver/deliveries': typeof DriverDeliveriesRoute
+  '/driver/occurrences': typeof DriverOccurrencesRoute
+  '/driver/profile': typeof DriverProfileRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/driver/': typeof DriverIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/driver/chat'
+    | '/driver/deliveries'
+    | '/driver/occurrences'
+    | '/driver/profile'
+    | '/invite/$token'
+    | '/driver/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/driver/chat'
+    | '/driver/deliveries'
+    | '/driver/occurrences'
+    | '/driver/profile'
+    | '/invite/$token'
+    | '/driver'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/driver/chat'
+    | '/driver/deliveries'
+    | '/driver/occurrences'
+    | '/driver/profile'
+    | '/invite/$token'
+    | '/driver/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  DriverChatRoute: typeof DriverChatRoute
+  DriverDeliveriesRoute: typeof DriverDeliveriesRoute
+  DriverOccurrencesRoute: typeof DriverOccurrencesRoute
+  DriverProfileRoute: typeof DriverProfileRoute
+  InviteTokenRoute: typeof InviteTokenRoute
+  DriverIndexRoute: typeof DriverIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +150,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/driver/': {
+      id: '/driver/'
+      path: '/driver'
+      fullPath: '/driver/'
+      preLoaderRoute: typeof DriverIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver/profile': {
+      id: '/driver/profile'
+      path: '/driver/profile'
+      fullPath: '/driver/profile'
+      preLoaderRoute: typeof DriverProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver/occurrences': {
+      id: '/driver/occurrences'
+      path: '/driver/occurrences'
+      fullPath: '/driver/occurrences'
+      preLoaderRoute: typeof DriverOccurrencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver/deliveries': {
+      id: '/driver/deliveries'
+      path: '/driver/deliveries'
+      fullPath: '/driver/deliveries'
+      preLoaderRoute: typeof DriverDeliveriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver/chat': {
+      id: '/driver/chat'
+      path: '/driver/chat'
+      fullPath: '/driver/chat'
+      preLoaderRoute: typeof DriverChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  DriverChatRoute: DriverChatRoute,
+  DriverDeliveriesRoute: DriverDeliveriesRoute,
+  DriverOccurrencesRoute: DriverOccurrencesRoute,
+  DriverProfileRoute: DriverProfileRoute,
+  InviteTokenRoute: InviteTokenRoute,
+  DriverIndexRoute: DriverIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
