@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Bike } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function DriverHeader() {
   const { user } = useAuth();
@@ -56,20 +57,27 @@ export function DriverHeader() {
 
   return (
     <header
-      className="rounded-b-3xl px-5 pb-6 pt-8 text-primary-foreground"
+      className="rounded-b-3xl px-5 pb-8 pt-8 text-primary-foreground"
       style={{ background: "var(--gradient-hero)" }}
     >
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-xs opacity-90">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-xs font-medium opacity-80">
             <Bike className="h-4 w-4" />
             <span>RotaPro Entregador</span>
           </div>
-          <h1 className="mt-1 text-2xl font-semibold">Olá, {name.split(" ")[0]}</h1>
+          <h1 className="mt-1 truncate text-2xl font-bold tracking-tight">
+            Olá, {name.split(" ")[0]}
+          </h1>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-xs opacity-90">{online ? "Online" : "Offline"}</span>
-          <Switch checked={online} onCheckedChange={toggle} />
+        <div className="flex items-center gap-2">
+          <ThemeToggle variant="onPrimary" />
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide opacity-80">
+              {online ? "Online" : "Offline"}
+            </span>
+            <Switch checked={online} onCheckedChange={toggle} />
+          </div>
         </div>
       </div>
     </header>
