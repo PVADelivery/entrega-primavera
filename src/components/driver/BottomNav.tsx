@@ -22,12 +22,22 @@ export function BottomNav() {
               key={to}
               to={to}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-xs transition-colors",
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                "group relative flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] transition-colors",
+                active ? "text-primary" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className={cn("h-5 w-5", active && "stroke-[2.5]")} />
-              <span className="font-medium">{label}</span>
+              <span
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
+                  active ? "bg-primary/15" : "bg-transparent group-hover:bg-secondary",
+                )}
+              >
+                <Icon className={cn("h-5 w-5", active && "stroke-[2.4]")} />
+              </span>
+              <span className={cn("font-semibold", active && "text-foreground")}>{label}</span>
+              {active && (
+                <span className="absolute -top-px h-0.5 w-8 rounded-full bg-primary" aria-hidden />
+              )}
             </Link>
           );
         })}
