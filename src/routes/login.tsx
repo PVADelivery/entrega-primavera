@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Bike } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/driver/ThemeToggle";
+import logoPrimavera from "@/assets/primavera-logo.png";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -57,13 +57,11 @@ function LoginPage() {
       </div>
 
       <div className="mb-6 text-center">
-        <div
-          className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl text-primary-foreground shadow-[var(--shadow-elegant)]"
-          style={{ background: "var(--gradient-primary)" }}
-        >
-          <Bike className="h-8 w-8" />
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight">RotaPro Entregador</h1>
+        <img
+          src={logoPrimavera}
+          alt="Primavera Delivery"
+          className="mx-auto mb-3 h-28 w-auto rounded-2xl shadow-[var(--shadow-elegant)]"
+        />
         <p className="mt-1 text-sm text-muted-foreground">Suas entregas, sua rota.</p>
       </div>
       <Card className="w-full max-w-sm rounded-2xl border-border/60 p-6 shadow-[var(--shadow-card)]">
