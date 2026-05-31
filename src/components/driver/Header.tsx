@@ -64,9 +64,7 @@ export function DriverHeader() {
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs font-semibold tracking-wide opacity-90">
             <img src={iconPrimavera} alt="Primavera Delivery" className="h-6 w-6 rounded-full object-contain" />
-            <span>
-              <span className="font-bold">Delivery</span> Primavera
-            </span>
+            <span><span className="font-bold">Primavera</span> Delivery</span>
           </div>
           <h1 className="mt-1 truncate text-2xl font-bold tracking-tight">
             Olá, {name.split(" ")[0]}
