@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/driver/ThemeToggle";
-import logoPrimavera from "@/assets/primavera-logo.png";
+import iconPrimavera from "@/assets/primavera-icon.png";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -56,12 +56,15 @@ function LoginPage() {
         <ThemeToggle />
       </div>
 
-      <div className="mb-6 text-center">
+      <div className="mb-6 flex flex-col items-center text-center">
         <img
-          src={logoPrimavera}
+          src={iconPrimavera}
           alt="Primavera Delivery"
-          className="mx-auto mb-3 h-28 w-auto rounded-2xl shadow-[var(--shadow-elegant)]"
+          className="mb-3 h-24 w-24 rounded-full object-contain shadow-[var(--shadow-elegant)]"
         />
+        <h1 className="text-2xl font-bold tracking-tight">
+          <span className="text-primary">Delivery</span> Primavera
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">Suas entregas, sua rota.</p>
       </div>
       <Card className="w-full max-w-sm rounded-2xl border-border/60 p-6 shadow-[var(--shadow-card)]">
