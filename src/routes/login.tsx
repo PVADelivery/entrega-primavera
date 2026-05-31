@@ -64,7 +64,7 @@ function LoginPage() {
               className="h-10 w-10 object-contain"
             />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Delivery Primavera</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Primavera Delivery</h1>
         </div>
 
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
