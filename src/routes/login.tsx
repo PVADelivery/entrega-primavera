@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Bike } from "lucide-react";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/driver/ThemeToggle";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -50,18 +51,22 @@ function LoginPage() {
   }
 
   return (
-    <div
-      className="flex min-h-screen flex-col items-center justify-center px-4"
-      style={{ background: "var(--gradient-hero)" }}
-    >
-      <div className="mb-6 text-center text-primary-foreground">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
-          <Bike className="h-7 w-7" />
-        </div>
-        <h1 className="text-2xl font-bold">RotaPro Entregador</h1>
-        <p className="mt-1 text-sm opacity-90">Suas entregas, sua rota.</p>
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 text-foreground">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
       </div>
-      <Card className="w-full max-w-sm rounded-2xl p-6 shadow-[var(--shadow-elegant)]">
+
+      <div className="mb-6 text-center">
+        <div
+          className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl text-primary-foreground shadow-[var(--shadow-elegant)]"
+          style={{ background: "var(--gradient-primary)" }}
+        >
+          <Bike className="h-8 w-8" />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight">RotaPro Entregador</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Suas entregas, sua rota.</p>
+      </div>
+      <Card className="w-full max-w-sm rounded-2xl border-border/60 p-6 shadow-[var(--shadow-card)]">
         <div className="mb-4 flex gap-2">
           <Button
             type="button"

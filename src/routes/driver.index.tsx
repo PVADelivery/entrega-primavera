@@ -140,10 +140,12 @@ function DriverHome() {
 
 function Mini({ icon, label, value, money = true }: { icon: React.ReactNode; label: string; value: number; money?: boolean }) {
   return (
-    <div className="rounded-xl bg-secondary/60 p-2">
-      <div className="flex items-center justify-center text-muted-foreground">{icon}</div>
-      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold text-foreground">
+    <div className="rounded-xl border border-border/60 bg-secondary/60 p-2">
+      <div className="flex items-center justify-center text-primary">{icon}</div>
+      <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-sm font-bold text-foreground">
         {money ? `R$ ${Number(value).toFixed(2)}` : value}
       </p>
     </div>

@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 
 const labels: Record<string, { text: string; cls: string }> = {
-  pending: { text: "Disponível", cls: "bg-primary/15 text-primary" },
-  broadcasted: { text: "Divulgada", cls: "bg-primary/15 text-primary" },
-  accepted: { text: "Aceita", cls: "bg-blue-500/15 text-blue-600" },
-  collecting: { text: "Coletando", cls: "bg-amber-500/15 text-amber-600" },
-  in_transit: { text: "Em rota", cls: "bg-amber-500/15 text-amber-600" },
-  delivered: { text: "Entregue", cls: "bg-emerald-500/15 text-emerald-600" },
+  pending: { text: "Disponível", cls: "bg-primary text-primary-foreground" },
+  broadcasted: { text: "Divulgada", cls: "bg-primary text-primary-foreground" },
+  accepted: { text: "Aceita", cls: "bg-primary/20 text-foreground border border-primary/40" },
+  collecting: { text: "Coletando", cls: "bg-primary/20 text-foreground border border-primary/40" },
+  in_transit: { text: "Em rota", cls: "bg-primary/20 text-foreground border border-primary/40" },
+  delivered: { text: "Entregue", cls: "bg-secondary text-foreground" },
   cancelled: { text: "Cancelada", cls: "bg-destructive/15 text-destructive" },
   returned: { text: "Devolvida", cls: "bg-muted text-muted-foreground" },
 };
