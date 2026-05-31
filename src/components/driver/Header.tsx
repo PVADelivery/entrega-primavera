@@ -3,8 +3,8 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Bike } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
+import iconPrimavera from "@/assets/primavera-icon.png";
 
 export function DriverHeader() {
   const { user } = useAuth();
@@ -63,8 +63,8 @@ export function DriverHeader() {
       <div className="flex items-center justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs font-medium opacity-80">
-            <Bike className="h-4 w-4" />
-            <span>RotaPro Entregador</span>
+            <img src={iconPrimavera} alt="" className="h-5 w-auto" />
+            <span>Primavera Delivery</span>
           </div>
           <h1 className="mt-1 truncate text-2xl font-bold tracking-tight">
             Olá, {name.split(" ")[0]}
