@@ -1,0 +1,4 @@
+
+/* Ocultar Badge Lovable */
+#lovable-badge-container, .lovable-badge-container, div[id^='lovable-badge'], div[id*='lovable'] { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
+
