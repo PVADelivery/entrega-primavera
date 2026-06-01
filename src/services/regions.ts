@@ -126,3 +126,8 @@ export function useDeleteRegion() {
     },
   });
 }
+
+export async function updateRegionPrice(id: string, price: number) {
+  const { error } = await supabase.from('regions').update({ price } as any).eq('id', id);
+  if (error) throw error;
+}
