@@ -9,7 +9,7 @@ export interface Delivery {
   address: string;
   latitude: number | null;
   longitude: number | null;
-  status: "pending" | "accepted" | "collecting" | "in_route" | "completed" | "cancelled";
+  status: "pending" | "accepted" | "collecting" | "in_transit" | "delivered" | "cancelled" | "broadcasted" | "returned";
   value: number;
   commission: number;
   notes: string | null;
@@ -38,7 +38,7 @@ export async function fetchMyActiveDeliveries(driverId: string): Promise<Deliver
     .from("deliveries")
     .select("*")
     .eq("driver_id", driverId)
-    .in("status", ["accepted", "collecting", "in_route"])
+    .in("status", ["accepted", "collecting", "in_transit"])
     .order("accepted_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as Delivery[];
@@ -49,7 +49,7 @@ export async function fetchMyHistory(driverId: string): Promise<Delivery[]> {
     .from("deliveries")
     .select("*")
     .eq("driver_id", driverId)
-    .in("status", ["completed", "cancelled"])
+    .in("status", ["delivered", "cancelled"])
     .order("updated_at", { ascending: false })
     .limit(50);
   if (error) throw error;
@@ -67,8 +67,8 @@ export async function acceptDelivery(deliveryId: string, driverId: string) {
 
 const nextStatus: Record<string, Delivery["status"]> = {
   accepted: "collecting",
-  collecting: "in_route",
-  in_route: "completed",
+  collecting: "in_transit",
+  in_transit: "delivered",
 };
 
 export async function advanceDelivery(delivery: Delivery) {
@@ -116,7 +116,7 @@ export async function fetchEarnings(driverId: string) {
     .from("deliveries")
     .select("commission, completed_at")
     .eq("driver_id", driverId)
-    .eq("status", "completed")
+    .eq("status", "delivered")
     .not("completed_at", "is", null);
   if (error) throw error;
   const now = new Date();
