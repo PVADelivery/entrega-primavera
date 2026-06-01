@@ -394,3 +394,115 @@ export function useDeliveryTracking(orderId?: string | null) {
 
   return { order, delivery: (order as any)?.deliveries };
 }
+
+export async function fetchAvailableDeliveries() {
+  const { data, error } = await supabase
+    .from("deliveries")
+    .select("*")
+    .eq("status", "pending")
+    .is("driver_id", null)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []);
+}
+
+export async function fetchMyActiveDeliveries(driverId: string) {
+  const { data, error } = await supabase
+    .from("deliveries")
+    .select("*")
+    .eq("driver_id", driverId)
+    .in("status", ["accepted", "collecting", "in_transit"])
+    .order("accepted_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []);
+}
+
+export async function fetchMyHistory(driverId: string) {
+  const { data, error } = await supabase
+    .from("deliveries")
+    .select("*")
+    .eq("driver_id", driverId)
+    .in("status", ["completed", "cancelled", "delivered"])
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data ?? []);
+}
+
+export async function acceptDelivery(deliveryId: string, driverId: string) {
+  const { error } = await supabase
+    .from("deliveries")
+    .update({ driver_id: driverId, status: "accepted", accepted_at: new Date().toISOString() } as any)
+    .eq("id", deliveryId)
+    .is("driver_id", null);
+  if (error) throw error;
+}
+
+const nextStatus: Record<string, string> = {
+  accepted: "collecting",
+  collecting: "in_transit",
+  in_transit: "completed",
+};
+
+export async function advanceDelivery(delivery: any) {
+  const next = nextStatus[delivery.status];
+  if (!next) return;
+  const { error } = await supabase.from("deliveries").update({ status: next as any }).eq("id", delivery.id);
+  if (error) throw error;
+}
+
+export async function cancelDelivery(deliveryId: string) {
+  const { error } = await supabase
+    .from("deliveries")
+    .update({ status: "cancelled" as any })
+    .eq("id", deliveryId);
+  if (error) throw error;
+}
+
+export async function getDriverIdFromUser(userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("delivery_drivers")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export async function ensureDriverRow(userId: string, regionId?: string | null) {
+  const { data } = await supabase
+    .from("delivery_drivers")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (data) return data.id;
+  const { data: created, error } = await supabase
+    .from("delivery_drivers")
+    .insert({ user_id: userId, region_id: regionId ?? null })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return created.id;
+}
+
+export async function fetchEarnings(driverId: string) {
+  const { data, error } = await supabase
+    .from("deliveries")
+    .select("commission, completed_at, delivered_at")
+    .eq("driver_id", driverId)
+    .in("status", ["completed", "delivered"]);
+  if (error) throw error;
+  const now = new Date();
+  const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startWeek = startDay - now.getDay() * 86400000;
+  const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  let day = 0, week = 0, month = 0, total = 0;
+  for (const r of data ?? []) {
+    const t = new Date((r.completed_at || r.delivered_at) as string).getTime();
+    const c = Number(r.commission ?? 0);
+    total += c;
+    if (t >= startMonth) month += c;
+    if (t >= startWeek) week += c;
+    if (t >= startDay) day += c;
+  }
+  return { day, week, month, total, count: data?.length ?? 0 };
+}
