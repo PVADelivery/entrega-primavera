@@ -15,7 +15,7 @@ interface Props {
 const nextLabels: Record<string, string> = {
   accepted: "Cheguei na loja",
   collecting: "Coletado, indo entregar",
-  in_transit: "Concluir entrega",
+  in_route: "Concluir entrega",
 };
 
 export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending }: Props) {
@@ -58,7 +58,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               {next}
             </Button>
           )}
-          {onCancel && delivery.status !== "delivered" && delivery.status !== "cancelled" && (
+          {onCancel && delivery.status !== "completed" && delivery.status !== "cancelled" && (
             <Button variant="outline" disabled={pending} onClick={onCancel}>
               Cancelar
             </Button>
