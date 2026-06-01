@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { DriverShell } from "@/components/driver/DriverShell";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { ensureDriverRow } from "@/services/deliveries";
 import { toast } from "sonner";
-import { LogOut } from "lucide-react";
+import { LogOut, Sun, Moon } from "lucide-react";
 
 export const Route = createFileRoute("/driver/profile")({
   component: ProfilePage,
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/driver/profile")({
 
 function ProfilePage() {
   const { user, signOut } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -119,13 +121,18 @@ function ProfilePage() {
           {saving ? "Salvando..." : "Salvar alterações"}
         </Button>
 
-        <Button
-          variant="outline"
-          className="mt-3 w-full text-destructive hover:text-destructive"
-          onClick={handleSignOut}
-        >
-          <LogOut className="mr-2 h-4 w-4" /> Sair
-        </Button>
+        <div className="mt-3 flex items-center gap-2">
+          <Button variant="outline" className="w-full flex-1" onClick={toggle}>
+            {theme === "dark" ? <><Sun className="mr-2 h-4 w-4" /> Claro</> : <><Moon className="mr-2 h-4 w-4" /> Escuro</>}
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full flex-1 text-destructive hover:text-destructive"
+            onClick={handleSignOut}
+          >
+            <LogOut className="mr-2 h-4 w-4" /> Sair
+          </Button>
+        </div>
       </div>
     </DriverShell>
   );
