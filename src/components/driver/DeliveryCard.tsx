@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Wallet, ArrowRight } from "lucide-react";
+import { MapPin, Wallet, ArrowRight, Eye } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import type { Delivery } from "@/services/deliveries";
 
@@ -69,7 +69,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
           </div>
         </div>
 
-        {(onAccept || (next && onAdvance) || onCancel) && (
+        {(onAccept || (next && onAdvance) || onCancel || (!onAccept && !onAdvance)) && (
           <div className="mt-4 flex gap-2">
             {onAccept && (
               <Button
@@ -92,6 +92,15 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 onClick={onAdvance}
               >
                 {next}
+              </Button>
+            )}
+            {!onAccept && !onAdvance && (
+              <Button
+                variant="outline"
+                className="h-11 flex-1 rounded-xl font-semibold shadow-sm"
+                onClick={() => (window.location.href = `/driver/delivery/${delivery.id}`)}
+              >
+                <Eye className="mr-2 h-4 w-4" /> Detalhes
               </Button>
             )}
             {onCancel && delivery.status !== "delivered" && delivery.status !== "cancelled" && (
