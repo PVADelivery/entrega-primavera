@@ -57,28 +57,61 @@ export function DriverHeader() {
 
   return (
     <header
-      className="rounded-b-3xl px-5 pb-8 pt-8 text-primary-foreground"
+      className="relative overflow-hidden rounded-b-[2rem] px-5 pb-14 pt-8 text-white"
       style={{ background: "var(--gradient-hero)" }}
     >
-      <div className="flex items-center justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-xs font-semibold tracking-wide opacity-90">
-            <img src={iconPrimavera} alt="Primavera Delivery" className="h-6 w-6 rounded-full object-contain" />
-            <span><span className="font-bold">Primavera</span> Delivery</span>
+      {/* gold glow */}
+      <div
+        className="pointer-events-none absolute -top-24 right-[-30%] h-72 w-72 rounded-full opacity-30 blur-3xl"
+        style={{ background: "var(--gradient-gold)" }}
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
+        style={{ background: "linear-gradient(90deg, transparent, oklch(0.82 0.13 86 / 0.6), transparent)" }}
+        aria-hidden
+      />
+
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span
+            className="flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-white/15"
+            style={{ background: "oklch(0 0 0 / 0.4)" }}
+          >
+            <img src={iconPrimavera} alt="Primavera Delivery" className="h-6 w-6 object-contain" />
+          </span>
+          <div className="leading-tight">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
+              Primavera
+            </p>
+            <p className="text-sm font-bold tracking-tight text-gold-gradient">
+              Delivery
+            </p>
           </div>
-          <h1 className="mt-1 truncate text-2xl font-bold tracking-tight">
-            Olá, {name.split(" ")[0]}
-          </h1>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-3">
           <ThemeToggle variant="onPrimary" />
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide opacity-80">
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 backdrop-blur">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400 shadow-[0_0_8px_currentColor]" : "bg-white/40"}`}
+              aria-hidden
+            />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-white/85">
               {online ? "Online" : "Offline"}
             </span>
             <Switch checked={online} onCheckedChange={toggle} />
           </div>
         </div>
+      </div>
+
+      <div className="relative mt-6">
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/55">
+          Bem-vindo de volta
+        </p>
+        <h1 className="mt-1 truncate font-display text-3xl font-bold tracking-tight">
+          Olá, <span className="text-gold-gradient">{name.split(" ")[0]}</span>
+        </h1>
       </div>
     </header>
   );
