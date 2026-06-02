@@ -15,33 +15,18 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/driver`,
-            data: { full_name: name },
-          },
-        });
-        if (error) throw error;
-        toast.success("Cadastro criado! Verifique seu email.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        toast.success("Bem-vindo!");
-        navigate({ to: "/driver" });
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      toast.success("Bem-vindo!");
+      navigate({ to: "/driver" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao autenticar");
     } finally {
@@ -71,25 +56,13 @@ function LoginPage() {
           Painel do Entregador
         </p>
         <h2 className="text-4xl font-bold leading-tight tracking-tight">
-          {mode === "login" ? "Entrar na conta" : "Criar conta"}
+          Entrar na conta
         </h2>
         <p className="mt-2 text-base text-muted-foreground">
-          {mode === "login" ? "Bom te ver de novo." : "Cadastre-se para começar a entregar."}
+          Bom te ver de novo.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-          {mode === "signup" && (
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium">Nome completo</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="h-14 rounded-full border-border/60 bg-transparent px-5 text-base"
-              />
-            </div>
-          )}
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
             <Input
@@ -118,19 +91,12 @@ function LoginPage() {
             disabled={loading}
             className="h-14 w-full rounded-full text-base font-semibold"
           >
-            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+            {loading ? "Aguarde..." : "Entrar"}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          {mode === "login" ? "Não tem conta?" : "Já tem conta?"}{" "}
-          <button
-            type="button"
-            onClick={() => setMode(mode === "login" ? "signup" : "login")}
-            className="font-semibold text-primary hover:underline"
-          >
-            {mode === "login" ? "Criar uma" : "Entrar"}
-          </button>
+          Acesso exclusivo para entregadores parceiros.
         </p>
       </div>
     </div>
