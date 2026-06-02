@@ -13,34 +13,40 @@ const items = [
 export function BottomNav() {
   const { pathname } = useLocation();
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-md items-center justify-between px-2 py-2">
-        {items.map(({ to, label, icon: Icon }) => {
-          const active = pathname === to || (to !== "/driver" && pathname.startsWith(to));
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={cn(
-                "group relative flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] transition-colors",
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span
+    <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-3 pt-2">
+      <div className="mx-auto max-w-md">
+        <div
+          className="relative flex items-center justify-between rounded-2xl border border-border/60 bg-card/85 px-2 py-1.5 shadow-[var(--shadow-card)] backdrop-blur-xl"
+        >
+          {items.map(({ to, label, icon: Icon }) => {
+            const active = pathname === to || (to !== "/driver" && pathname.startsWith(to));
+            return (
+              <Link
+                key={to}
+                to={to}
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
-                  active ? "bg-primary/15" : "bg-transparent group-hover:bg-secondary",
+                  "group relative flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[10px] transition-colors",
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon className={cn("h-5 w-5", active && "stroke-[2.4]")} />
-              </span>
-              <span className={cn("font-semibold", active && "text-foreground")}>{label}</span>
-              {active && (
-                <span className="absolute -top-px h-0.5 w-8 rounded-full bg-primary" aria-hidden />
-              )}
-            </Link>
-          );
-        })}
+                <span
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
+                    active
+                      ? "text-primary-foreground shadow-[var(--shadow-elegant)]"
+                      : "bg-transparent group-hover:bg-secondary/70",
+                  )}
+                  style={active ? { background: "var(--gradient-gold)" } : undefined}
+                >
+                  <Icon className={cn("h-[18px] w-[18px]", active && "stroke-[2.4]")} />
+                </span>
+                <span className={cn("font-semibold tracking-tight", active && "text-foreground")}>
+                  {label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </nav>
   );
