@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Wallet } from "lucide-react";
+import { MapPin, Wallet, ArrowRight } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import type { Delivery } from "@/services/deliveries";
 
@@ -21,50 +21,92 @@ const nextLabels: Record<string, string> = {
 export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending }: Props) {
   const next = nextLabels[delivery.status];
   return (
-    <Card className="group relative overflow-hidden rounded-2xl border-border/60 bg-card p-4 shadow-[var(--shadow-card)] transition-all hover:border-primary/40">
-      <span className="absolute inset-y-0 left-0 w-1 bg-primary/80" aria-hidden />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-foreground">{delivery.customer_name}</p>
-          <p className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="line-clamp-2">{delivery.address}</span>
-          </p>
+    <Card className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-0 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-elegant)]">
+      {/* gold accent line */}
+      <span
+        className="absolute inset-y-0 left-0 w-[3px]"
+        style={{ background: "var(--gradient-gold)" }}
+        aria-hidden
+      />
+      <div className="p-4 pl-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-display text-base font-bold tracking-tight text-foreground">
+              {delivery.customer_name}
+            </p>
+            <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
+              <span className="line-clamp-2">{delivery.address}</span>
+            </p>
+          </div>
+          <StatusBadge status={delivery.status} />
         </div>
-        <StatusBadge status={delivery.status} />
-      </div>
 
-      <div className="mt-3 flex items-center justify-between rounded-xl bg-secondary/60 px-3 py-2 text-sm">
-        <div className="flex items-center gap-1.5 font-bold text-foreground">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Wallet className="h-3.5 w-3.5" />
-          </span>
-          R$ {Number(delivery.commission ?? 0).toFixed(2)}
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-border/40 bg-secondary/40 px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <span
+              className="flex h-7 w-7 items-center justify-center rounded-full text-primary-foreground shadow-sm"
+              style={{ background: "var(--gradient-gold)" }}
+            >
+              <Wallet className="h-3.5 w-3.5" />
+            </span>
+            <div className="leading-tight">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Comissão
+              </p>
+              <p className="font-display text-base font-bold tracking-tight text-foreground">
+                R$ {Number(delivery.commission ?? 0).toFixed(2)}
+              </p>
+            </div>
+          </div>
+          <div className="text-right leading-tight">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Pedido
+            </p>
+            <p className="text-sm font-semibold text-foreground/80">
+              R$ {Number(delivery.value ?? 0).toFixed(2)}
+            </p>
+          </div>
         </div>
-        <span className="text-xs font-medium text-muted-foreground">
-          Pedido R$ {Number(delivery.value ?? 0).toFixed(2)}
-        </span>
-      </div>
 
-      {(onAccept || (next && onAdvance) || onCancel) && (
-        <div className="mt-4 flex gap-2">
-          {onAccept && (
-            <Button className="flex-1 font-semibold" disabled={pending} onClick={onAccept}>
-              {pending ? "Aceitando..." : "Aceitar entrega"}
-            </Button>
-          )}
-          {next && onAdvance && (
-            <Button className="flex-1 font-semibold" disabled={pending} onClick={onAdvance}>
-              {next}
-            </Button>
-          )}
-          {onCancel && delivery.status !== "completed" && delivery.status !== "cancelled" && (
-            <Button variant="outline" disabled={pending} onClick={onCancel}>
-              Cancelar
-            </Button>
-          )}
-        </div>
-      )}
+        {(onAccept || (next && onAdvance) || onCancel) && (
+          <div className="mt-4 flex gap-2">
+            {onAccept && (
+              <Button
+                className="group/btn h-11 flex-1 rounded-xl font-semibold shadow-[var(--shadow-elegant)] transition-all"
+                disabled={pending}
+                onClick={onAccept}
+              >
+                {pending ? "Aceitando..." : (
+                  <>
+                    Aceitar entrega
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
+                  </>
+                )}
+              </Button>
+            )}
+            {next && onAdvance && (
+              <Button
+                className="h-11 flex-1 rounded-xl font-semibold"
+                disabled={pending}
+                onClick={onAdvance}
+              >
+                {next}
+              </Button>
+            )}
+            {onCancel && delivery.status !== "delivered" && delivery.status !== "cancelled" && (
+              <Button
+                variant="outline"
+                className="h-11 rounded-xl"
+                disabled={pending}
+                onClick={onCancel}
+              >
+                Cancelar
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
