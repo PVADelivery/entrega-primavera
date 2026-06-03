@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Wallet, ArrowRight, Eye } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
-import type { Delivery } from "@/services/deliveries";
+import type { DeliveryWithRelations as Delivery } from "@/services/deliveries";
 
 interface Props {
   delivery: Delivery;
@@ -34,10 +34,23 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             <p className="truncate font-display text-base font-bold tracking-tight text-foreground">
               {delivery.customer_name}
             </p>
-            <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
-              <span className="line-clamp-2">{delivery.address}</span>
-            </p>
+            {delivery.pickup_address ? (
+              <>
+                <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
+                  <span className="line-clamp-2"><span className="font-medium text-foreground">Coletar em:</span> {delivery.pickup_address}</span>
+                </p>
+                <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
+                  <span className="line-clamp-2"><span className="font-medium text-foreground">Entregar em:</span> {delivery.address}</span>
+                </p>
+              </>
+            ) : (
+              <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
+                <span className="line-clamp-2">{delivery.address}</span>
+              </p>
+            )}
           </div>
           <StatusBadge status={delivery.status} />
         </div>

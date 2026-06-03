@@ -22,7 +22,7 @@ function createSupabaseClient() {
     auth: {
       storage: typeof window !== 'undefined' ? localStorage : undefined,
       persistSession: true,
-      autoRefreshToken: true,
+      autoRefreshToken: false,
     }
   });
 }

@@ -29,6 +29,25 @@ export function DriverHeader() {
     })();
   }, [user]);
 
+  useEffect(() => {
+    let watchId: number;
+    if (online && user && navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          supabase
+            .from("delivery_drivers")
+            .update({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
+            .eq("user_id", user.id);
+        },
+        (err) => console.error("Error watching position", err),
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+      );
+    }
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [online, user]);
+
   async function toggle(value: boolean) {
     if (!user) return;
     setOnline(value);
@@ -41,17 +60,6 @@ export function DriverHeader() {
       setOnline(!value);
     } else {
       toast.success(value ? "Você está online" : "Você está offline");
-      if (value && navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            supabase
-              .from("delivery_drivers")
-              .update({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
-              .eq("user_id", user.id);
-          },
-          () => {}
-        );
-      }
     }
   }
 
