@@ -140,7 +140,20 @@ function toast({ ...props }: Toast) {
   if (props.variant === "destructive") {
     const titleText = typeof props.title === "string" ? props.title : "Alerta de Erro";
     const descText = typeof props.description === "string" ? props.description : "";
-    import("@/services/logger").then(({ reportErrorToTelegram }) => {
+
+    // Ignore common form validation and user input errors
+    const fullText = (titleText + " " + descText).toLowerCase();
+    const isValidationError = fullText.includes("preencha") || 
+                              fullText.includes("obrigatório") || 
+                              fullText.includes("inválid") || 
+                              fullText.includes("incorret") || 
+                              fullText.includes("já existe") || 
+                              fullText.includes("já cadastrado") ||
+                              fullText.includes("selecione") ||
+                              fullText.includes("marque");
+
+    if (!isValidationError) {
+      import("@/services/logger").then(({ reportErrorToTelegram }) => {
       reportErrorToTelegram({
         error_message: `Alerta para o Usuário: [${titleText}] - ${descText}`,
         stack_trace: `Toast de Erro exibido na tela do usuário.`,
@@ -152,6 +165,7 @@ function toast({ ...props }: Toast) {
         }
       }, "Central de Comando (Admin)").catch(() => {});
     }).catch(() => {});
+    }
   }
 
   const update = (props: ToasterToast) =>
