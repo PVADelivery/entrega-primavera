@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/driver/ThemeToggle";
-import iconPrimavera from "@/assets/primavera-icon-v2.png";
+import iconPrimavera from "@/assets/primavera-icon-v3.png";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
