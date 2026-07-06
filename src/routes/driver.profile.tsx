@@ -207,9 +207,9 @@ function ProfilePage() {
 
   return (
     <DriverShell>
-      <div className="min-h-screen pb-24 bg-slate-50 dark:bg-zinc-950">
-        <div className="relative bg-zinc-900 dark:bg-zinc-900 -mx-4 -mt-4 rounded-b-[2.5rem] shadow-xl overflow-hidden pb-8">
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/20 to-transparent opacity-20" />
+      <div className="min-h-screen pb-24 bg-background">
+        <div className="relative bg-zinc-900 -mx-4 -mt-4 rounded-b-[2.5rem] shadow-[var(--shadow-elegant)] overflow-hidden pb-8">
+          <div className="absolute inset-0 bg-[var(--gradient-hero)] opacity-50" />
           
           <div className="relative z-10 px-6 pt-12">
             <div className="flex items-center justify-between mb-8">
@@ -268,15 +268,15 @@ function ProfilePage() {
         </div>
 
         <div className="px-5 -mt-6 relative z-20">
-          <div className="bg-white dark:bg-zinc-900 rounded-[2rem] p-5 shadow-sm border border-slate-100 dark:border-zinc-800 mb-6">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800/50">
-              <h3 className="text-sm font-black text-slate-800 dark:text-zinc-100 uppercase tracking-widest flex items-center gap-2">
+          <div className="bg-card rounded-[2rem] p-5 shadow-[var(--shadow-card)] border border-border/40 mb-6">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/40">
+              <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-primary" /> Painel Financeiro
               </h3>
               <select 
                 value={period} 
                 onChange={(e) => setPeriod(e.target.value)}
-                className="bg-slate-50 dark:bg-zinc-800 border-none text-slate-600 dark:text-zinc-300 text-xs font-bold rounded-xl px-3 py-1.5 outline-none cursor-pointer"
+                className="bg-secondary/50 border-none text-muted-foreground text-xs font-bold rounded-xl px-3 py-1.5 outline-none cursor-pointer focus:ring-1 focus:ring-primary"
               >
                 <option value="today">Hoje</option>
                 <option value="yesterday">Ontem</option>
@@ -291,96 +291,99 @@ function ProfilePage() {
                 type="date" 
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-zinc-800 rounded-xl px-4 py-3 text-sm font-bold text-foreground mb-4 outline-none"
+                className="w-full bg-secondary/50 rounded-xl px-4 py-3 text-sm font-bold text-foreground mb-4 outline-none border border-border/40"
               />
             )}
 
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl p-5 mb-4 border border-emerald-100 dark:border-emerald-900/50">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">Seu Ganho Líquido</p>
-                  <p className="text-[11px] font-medium text-emerald-700/70 dark:text-emerald-400/70">Livre de taxas</p>
+            <div className="relative rounded-2xl p-5 mb-4 border border-border/40 overflow-hidden">
+              <div className="absolute inset-0 opacity-10 bg-[var(--gradient-gold)]" />
+              <div className="relative z-10">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Seu Ganho Líquido</p>
+                    <p className="text-[11px] font-medium text-muted-foreground">Livre de taxas</p>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                    <TrendingUp className="h-4 w-4" />
+                  </div>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <TrendingUp className="h-4 w-4" />
-                </div>
+                <p className="text-4xl font-black text-foreground tracking-tighter">
+                  <span className="text-lg font-bold mr-1 opacity-70">R$</span>
+                  <span className="text-gold-gradient">{driverStats.netEarnings.toFixed(2).replace('.', ',')}</span>
+                </p>
               </div>
-              <p className="text-4xl font-black text-emerald-700 dark:text-emerald-400 tracking-tighter">
-                <span className="text-lg font-bold mr-1 opacity-70">R$</span>
-                {driverStats.netEarnings.toFixed(2).replace('.', ',')}
-              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl p-4 border border-slate-100 dark:border-zinc-800/50 flex flex-col justify-between">
-                <Package className="h-5 w-5 text-slate-400 dark:text-zinc-500 mb-3" />
+              <div className="bg-secondary/30 rounded-2xl p-4 border border-border/40 flex flex-col justify-between">
+                <Package className="h-5 w-5 text-primary mb-3" />
                 <div>
-                  <p className="text-xl font-black text-slate-800 dark:text-zinc-100">{driverStats.periodDeliveries}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Corridas Concluídas</p>
+                  <p className="text-xl font-black text-foreground">{driverStats.periodDeliveries}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Corridas Concluídas</p>
                 </div>
               </div>
 
-              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-2xl p-4 border border-blue-100 dark:border-blue-900/30 flex flex-col justify-between">
-                <Wallet className="h-5 w-5 text-blue-400 mb-3" />
+              <div className="bg-secondary/30 rounded-2xl p-4 border border-border/40 flex flex-col justify-between">
+                <Wallet className="h-5 w-5 text-primary mb-3" />
                 <div>
-                  <p className="text-xl font-black text-blue-600 dark:text-blue-500 truncate">
+                  <p className="text-xl font-black text-foreground truncate">
                     R$ {driverStats.grossEarnings.toFixed(2).replace('.', ',')}
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400/80 mt-1">Taxas Recebidas</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Taxas Recebidas</p>
                 </div>
               </div>
 
-              <div className="bg-rose-50 dark:bg-rose-950/20 rounded-2xl p-4 border border-rose-100 dark:border-rose-900/30 flex flex-col justify-between">
-                <ArrowUpRight className="h-5 w-5 text-rose-400 mb-3" />
+              <div className="bg-secondary/30 rounded-2xl p-4 border border-border/40 flex flex-col justify-between">
+                <ArrowUpRight className="h-5 w-5 text-destructive mb-3" />
                 <div>
-                  <p className="text-xl font-black text-rose-600 dark:text-rose-500 truncate">
+                  <p className="text-xl font-black text-destructive truncate">
                     - R$ {driverStats.platformFee.toFixed(2).replace('.', ',')}
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-500 dark:text-rose-400/80 mt-1">Devido ao App</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Devido ao App</p>
                 </div>
               </div>
 
-              <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-2xl p-4 border border-slate-100 dark:border-zinc-800/50 flex flex-col justify-between">
-                <Star className="h-5 w-5 text-amber-400 mb-3" />
+              <div className="bg-secondary/30 rounded-2xl p-4 border border-border/40 flex flex-col justify-between">
+                <Star className="h-5 w-5 text-primary mb-3" />
                 <div>
-                  <p className="text-xl font-black text-slate-800 dark:text-zinc-100">{driverStats.deliveries}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Total Histórico</p>
+                  <p className="text-xl font-black text-foreground">{driverStats.deliveries}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Histórico</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-5 p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 flex flex-col gap-2">
+            <div className="mt-5 p-4 rounded-xl bg-secondary/30 border border-border/40 flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-                <h4 className="text-xs font-black uppercase text-slate-700 dark:text-zinc-300">Entenda seus ganhos</h4>
+                <AlertTriangle className="h-4 w-4 text-primary shrink-0" />
+                <h4 className="text-xs font-black uppercase text-foreground">Entenda seus ganhos</h4>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed font-medium">
-                Você recebe <strong className="text-slate-700 dark:text-zinc-200">100% da Taxa de Entrega</strong> paga pelo cliente. A plataforma cobra apenas <strong className="text-slate-700 dark:text-zinc-200">R$ {driverStats.commissionRate.toFixed(2).replace('.', ',')}</strong> de repasse por cada entrega concluída.
+              <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                Você recebe <strong className="text-foreground">100% da Taxa de Entrega</strong> paga pelo cliente. A plataforma cobra apenas <strong className="text-foreground">R$ {driverStats.commissionRate.toFixed(2).replace('.', ',')}</strong> de repasse por cada entrega concluída.
               </p>
             </div>
           </div>
 
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-3 ml-4">Legal & Conta</h3>
-          <div className="bg-white dark:bg-zinc-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-zinc-800 overflow-hidden mb-6">
-            <button onClick={() => {}} className="w-full flex items-center gap-4 px-6 py-4 border-b border-slate-100 dark:border-zinc-800/50 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
-              <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                <FileText className="h-4 w-4 text-slate-500 dark:text-zinc-400" />
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3 ml-4">Legal & Conta</h3>
+          <div className="bg-card rounded-[2rem] shadow-[var(--shadow-card)] border border-border/40 overflow-hidden mb-6">
+            <button onClick={() => {}} className="w-full flex items-center gap-4 px-6 py-4 border-b border-border/40 hover:bg-secondary/50 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                <FileText className="h-4 w-4 text-muted-foreground" />
               </div>
-              <span className="flex-1 text-sm font-bold text-slate-700 dark:text-zinc-300 text-left">Termos de Uso</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-zinc-600" />
+              <span className="flex-1 text-sm font-bold text-foreground text-left">Termos de Uso</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
             </button>
-            <button onClick={() => {}} className="w-full flex items-center gap-4 px-6 py-4 border-b border-slate-100 dark:border-zinc-800/50 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
-              <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                <ShieldCheck className="h-4 w-4 text-slate-500 dark:text-zinc-400" />
+            <button onClick={() => {}} className="w-full flex items-center gap-4 px-6 py-4 border-b border-border/40 hover:bg-secondary/50 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                <ShieldCheck className="h-4 w-4 text-muted-foreground" />
               </div>
-              <span className="flex-1 text-sm font-bold text-slate-700 dark:text-zinc-300 text-left">Política de Privacidade</span>
-              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-zinc-600" />
+              <span className="flex-1 text-sm font-bold text-foreground text-left">Política de Privacidade</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
             </button>
-            <button onClick={async () => { await signOut(); navigate({ to: "/login" }); }} className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
-              <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                <LogOut className="h-4 w-4 text-slate-500 dark:text-zinc-400" />
+            <button onClick={async () => { await signOut(); navigate({ to: "/login" }); }} className="w-full flex items-center gap-4 px-6 py-4 hover:bg-secondary/50 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                <LogOut className="h-4 w-4 text-muted-foreground" />
               </div>
-              <span className="flex-1 text-sm font-bold text-slate-700 dark:text-zinc-300 text-left">Sair da Conta</span>
+              <span className="flex-1 text-sm font-bold text-foreground text-left">Sair da Conta</span>
             </button>
           </div>
 
@@ -412,38 +415,38 @@ function ProfilePage() {
       </div>
 
       <Sheet open={editing} onOpenChange={setEditing}>
-        <SheetContent side="bottom" hideClose className="h-auto max-h-[85vh] rounded-t-[2.5rem] border-none p-0 bg-white dark:bg-zinc-900 shadow-2xl">
+        <SheetContent side="bottom" hideClose className="h-auto max-h-[85vh] rounded-t-[2.5rem] border-none p-0 bg-card shadow-[var(--shadow-elegant)]">
           <SheetTitle className="sr-only">Editar Perfil</SheetTitle>
           <SheetDescription className="sr-only">Formulário para editar nome e telefone do entregador</SheetDescription>
           <div className="flex flex-col">
-            <div className="w-12 h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-full mx-auto mt-4 mb-2" />
-            <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100 dark:border-zinc-800">
-              <h3 className="text-xl font-black text-slate-800 dark:text-zinc-100 tracking-tight">Editar Perfil</h3>
-              <button onClick={() => setEditing(false)} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors">
-                <X className="h-5 w-5 text-slate-500 dark:text-zinc-400" />
+            <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mt-4 mb-2" />
+            <div className="p-6 pb-4 flex items-center justify-between border-b border-border/40">
+              <h3 className="text-xl font-black text-foreground tracking-tight">Editar Perfil</h3>
+              <button onClick={() => setEditing(false)} className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors">
+                <X className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
             <div className="p-6 space-y-5">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">Nome Completo</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Nome Completo</label>
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <input
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 rounded-[1.5rem] border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 font-bold text-slate-800 dark:text-zinc-100 outline-none focus:border-primary focus:bg-white dark:focus:bg-zinc-900 transition-all"
+                    className="w-full pl-12 pr-4 py-3.5 rounded-[1.5rem] border border-border bg-secondary/50 font-bold text-foreground outline-none focus:border-primary focus:bg-background transition-all"
                     placeholder="Seu nome"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-2">WhatsApp</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">WhatsApp</label>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <input
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 rounded-[1.5rem] border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 font-bold text-slate-800 dark:text-zinc-100 outline-none focus:border-primary focus:bg-white dark:focus:bg-zinc-900 transition-all"
+                    className="w-full pl-12 pr-4 py-3.5 rounded-[1.5rem] border border-border bg-secondary/50 font-bold text-foreground outline-none focus:border-primary focus:bg-background transition-all"
                     placeholder="(00) 00000-0000"
                   />
                 </div>
