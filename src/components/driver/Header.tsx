@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ThemeToggle } from "./ThemeToggle";
-import iconPrimavera from "@/assets/primavera-icon.png";
+import iconPrimavera from "@/assets/primavera-icon-v2.png";
 
 export function DriverHeader() {
   const { user } = useAuth();
