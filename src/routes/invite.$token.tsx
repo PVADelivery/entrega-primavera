@@ -26,15 +26,15 @@ function InvitePage() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase
-        .from("driver_invites")
-        .select("region_id, used_at, expires_at, email")
+        .from("invitations")
+        .select("status, expires_at, email")
         .eq("token", token)
         .maybeSingle();
-      if (!data || data.used_at || (data.expires_at && new Date(data.expires_at) < new Date())) {
+      if (!data || data.status === 'accepted' || (data.expires_at && new Date(data.expires_at) < new Date())) {
         setValid(false);
         return;
       }
-      setRegionId(data.region_id);
+      setRegionId(null);
       if (data.email) setEmail(data.email);
       setValid(true);
     })();
@@ -57,7 +57,7 @@ function InvitePage() {
       if (userId) {
         await supabase.from("user_roles").insert({ user_id: userId, role: "driver" });
         await supabase.from("delivery_drivers").insert({ user_id: userId, region_id: regionId });
-        await supabase.from("driver_invites").update({ used_at: new Date().toISOString() }).eq("token", token);
+        await supabase.from("invitations").update({ status: 'accepted' }).eq("token", token);
       }
       toast.success("Cadastro feito! Faça login para começar.");
       navigate({ to: "/login" });
