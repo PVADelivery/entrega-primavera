@@ -21,7 +21,7 @@ import { TrendingUp, Package2, CalendarDays, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
-  head: () => ({ meta: [{ title: "Início — RotaPro Entregador" }] }),
+  head: () => ({ meta: [{ title: "Início — Primavera Delivery Entregador" }] }),
 });
 
 function DriverHome() {

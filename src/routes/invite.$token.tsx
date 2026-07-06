@@ -10,7 +10,7 @@ import { Bike } from "lucide-react";
 
 export const Route = createFileRoute("/invite/$token")({
   component: InvitePage,
-  head: () => ({ meta: [{ title: "Convite — RotaPro" }] }),
+  head: () => ({ meta: [{ title: "Convite — Primavera Delivery" }] }),
 });
 
 function InvitePage() {

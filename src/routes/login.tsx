@@ -10,7 +10,7 @@ import iconPrimavera from "@/assets/primavera-icon.png";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
-  head: () => ({ meta: [{ title: "Entrar — RotaPro Entregador" }] }),
+  head: () => ({ meta: [{ title: "Entrar — Primavera Delivery Entregador" }] }),
 });
 
 function LoginPage() {

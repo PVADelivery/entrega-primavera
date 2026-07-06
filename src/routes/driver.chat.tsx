@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/driver/chat")({
   component: ChatPage,
-  head: () => ({ meta: [{ title: "Chat — RotaPro" }] }),
+  head: () => ({ meta: [{ title: "Chat — Primavera Delivery" }] }),
 });
 
 interface ChatMessage {

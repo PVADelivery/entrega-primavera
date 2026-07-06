@@ -9,7 +9,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
-const STORAGE_KEY = "rotapro-theme";
+const STORAGE_KEY = "primaveradelivery-theme";
 
 function applyTheme(theme: Theme) {
   if (typeof document === "undefined") return;

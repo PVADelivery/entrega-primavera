@@ -15,7 +15,7 @@ import { LogOut, Sun, Moon } from "lucide-react";
 
 export const Route = createFileRoute("/driver/profile")({
   component: ProfilePage,
-  head: () => ({ meta: [{ title: "Perfil — RotaPro" }] }),
+  head: () => ({ meta: [{ title: "Perfil — Primavera Delivery" }] }),
 });
 
 function ProfilePage() {
