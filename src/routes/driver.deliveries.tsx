@@ -36,11 +36,6 @@ function DeliveriesPage() {
     ensureDriverRow(user.id).then(setDriverId).catch(() => {});
   }, [user]);
 
-  const available = useQuery({
-    queryKey: ["deliveries", "available"],
-    queryFn: fetchAvailableDeliveries,
-    enabled: !!driverId,
-  });
   const active = useQuery({
     queryKey: ["deliveries", "active", driverId],
     queryFn: () => (driverId ? fetchMyActiveDeliveries(driverId) : Promise.resolve([])),
@@ -114,31 +109,13 @@ function DeliveriesPage() {
 
   return (
     <DriverShell>
-      <div className="px-4 pt-6">
-        <h1 className="text-2xl font-bold text-foreground">Entregas</h1>
-        <Tabs defaultValue="available" className="mt-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="available">Disponíveis</TabsTrigger>
+      <div className="px-4 pt-6 pb-24">
+        <h1 className="text-2xl font-black text-foreground">Minhas Entregas</h1>
+        <Tabs defaultValue="active" className="mt-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="active">Em rota</TabsTrigger>
             <TabsTrigger value="history">Histórico</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="available" className="mt-4 space-y-3">
-            {available.isLoading ? (
-              <Skeleton className="h-32 rounded-2xl" />
-            ) : !available.data?.length ? (
-              <Empty msg="Nenhuma entrega disponível agora." />
-            ) : (
-              available.data.map((d) => (
-                <DeliveryCard
-                  key={d.id}
-                  delivery={d}
-                  onAccept={() => handleAccept(d.id)}
-                  pending={pending === d.id}
-                />
-              ))
-            )}
-          </TabsContent>
 
           <TabsContent value="active" className="mt-4 space-y-3">
             {active.isLoading ? (
