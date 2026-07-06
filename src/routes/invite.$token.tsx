@@ -55,7 +55,7 @@ function InvitePage() {
       if (error) throw error;
       const userId = data.user?.id;
       if (userId) {
-        await supabase.from("user_roles").insert({ user_id: userId, role: "driver" });
+        await supabase.from("user_roles").upsert({ user_id: userId, role: "driver" }, { onConflict: "user_id" });
         await supabase.from("delivery_drivers").insert({ user_id: userId, region_id: regionId });
         await supabase.from("invitations").update({ status: 'accepted' }).eq("token", token);
       }
