@@ -23,7 +23,7 @@ export function ThemeToggle({ className, variant = "default" }: Props) {
       className={cn(
         "relative inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all active:scale-95",
         variant === "onPrimary"
-          ? "border-foreground/20 bg-foreground/10 text-foreground hover:bg-foreground/15"
+          ? "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
           : "border-border bg-card text-foreground hover:bg-secondary shadow-sm",
         className,
       )}
