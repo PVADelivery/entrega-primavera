@@ -56,7 +56,8 @@ export function DriverHeader() {
       .update({ is_online: value, online: value })
       .eq("user_id", user.id);
     if (error) {
-      toast.error("Não foi possível atualizar o status");
+      console.error("Status update error:", error);
+      toast.error("Erro: " + error.message);
       setOnline(!value);
     } else {
       toast.success(value ? "Você está online" : "Você está offline");
