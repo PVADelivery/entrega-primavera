@@ -127,6 +127,8 @@ function InvitePage() {
       if (signInData.user) {
         try {
            await supabase.from("delivery_drivers").update({ 
+             full_name: formData.fullName,
+             phone: formData.phone,
              vehicle: formData.vehicle, 
              license_plate: formData.licensePlate.toUpperCase() 
            } as any).eq("user_id", signInData.user.id);
