@@ -98,38 +98,42 @@ function InvitePage() {
     }
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Use accept-invitation Edge Function to ensure correct creation (bypassing RLS)
+      const { data: result, error: invokeError } = await supabase.functions.invoke("accept-invitation", {
+        body: {
+          token,
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.fullName,
+          phone: formData.phone,
+          document: formData.document,
+          // We pass vehicle and licensePlate in case the backend uses them
+          vehicle: formData.vehicle,
+          license_plate: formData.licensePlate.toUpperCase(),
+        },
+      });
+
+      if (invokeError) throw invokeError;
+      if (result?.error) throw new Error(result.error);
+
+      // Log in the user locally
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            phone: formData.phone,
-            document: formData.document,
-            vehicle: formData.vehicle,
-            license_plate: formData.licensePlate.toUpperCase(),
-          }
+      });
+      if (signInError) throw signInError;
+
+      // Update vehicle data via authenticated client since the edge function might have created an empty row
+      if (signInData.user) {
+        try {
+           await supabase.from("delivery_drivers").update({ 
+             vehicle_type: formData.vehicle as any, 
+             vehicle_plate: formData.licensePlate.toUpperCase() 
+           }).eq("user_id", signInData.user.id);
+        } catch (drvErr) {
+           console.error("Erro ao salvar dados do veiculo:", drvErr);
         }
-      });
-
-      if (authError) throw authError;
-      
-      const userId = authData.user?.id;
-      if (!userId) {
-        throw new Error("Não foi possível criar sua conta. Verifique se este email já está em uso.");
       }
-
-      // Finalizar cadastro no banco
-      await supabase.from("user_roles").upsert({ user_id: userId, role: "driver" }, { onConflict: "user_id" });
-      await supabase.from("delivery_drivers").insert({ 
-        user_id: userId, 
-        full_name: formData.fullName,
-        phone: formData.phone,
-        document: formData.document,
-        vehicle_type: formData.vehicle,
-        vehicle_plate: formData.licensePlate.toUpperCase()
-      });
-      await supabase.from("invitations").update({ status: 'accepted' }).eq("token", token);
 
       toast.success("Bem-vindo à equipe! Cadastro finalizado com sucesso.");
       
