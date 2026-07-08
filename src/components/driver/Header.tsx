@@ -53,7 +53,7 @@ export function DriverHeader() {
     setOnline(value);
     const { error } = await supabase
       .from("delivery_drivers")
-      .update({ is_online: value, online: value })
+      .update({ is_online: value } as any)
       .eq("user_id", user.id);
     if (error) {
       console.error("Status update error:", error);
