@@ -44,9 +44,20 @@ function DriverHome() {
   const available = useQuery({
     queryKey: ["deliveries", "available", driverServiceTypes],
     queryFn: async () => {
-      const isDeliveryDriver = driverServiceTypes.includes("delivery_moto") || driverServiceTypes.includes("delivery_car");
+      const isDeliveryDriver = 
+        driverServiceTypes.includes("delivery_moto") || 
+        driverServiceTypes.includes("delivery_car") ||
+        driverServiceTypes.includes("delivery_carro_aberto");
       if (!isDeliveryDriver) return [];
-      return fetchAvailableDeliveries();
+      
+      const raw = await fetchAvailableDeliveries();
+      return raw.filter((del: any) => {
+        const requestedVehicle = del.vehicle_type || "moto";
+        if (requestedVehicle === "moto" && driverServiceTypes.includes("delivery_moto")) return true;
+        if (requestedVehicle === "carro" && driverServiceTypes.includes("delivery_car")) return true;
+        if (requestedVehicle === "carro_aberto" && driverServiceTypes.includes("delivery_carro_aberto")) return true;
+        return false;
+      });
     },
     enabled: !!driverId,
   });

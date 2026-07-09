@@ -471,6 +471,7 @@ function ProfilePage() {
                   {[
                     { value: "delivery_moto", label: "🏍️ Entregar (Moto)" },
                     { value: "delivery_car", label: "🚗 Entregar (Carro)" },
+                    { value: "delivery_carro_aberto", label: "🛻 Entregar (Carro Aberto)" },
                     { value: "taxi", label: "🚖 Táxi" },
                     { value: "mototaxi", label: "🏍️ Moto Táxi" },
                   ].map((item) => {
