@@ -28,22 +28,69 @@ function DriverHome() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [driverId, setDriverId] = useState<string | null>(null);
+  const [driverServiceTypes, setDriverServiceTypes] = useState<string[]>([]);
   const [pending, setPending] = useState<string | null>(null);
+  const [pendingRide, setPendingRide] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    ensureDriverRow(user.id).then(setDriverId).catch(() => {});
+    ensureDriverRow(user.id).then(async (id) => {
+      setDriverId(id);
+      const { data } = await supabase.from("delivery_drivers").select("service_types").eq("user_id", user.id).maybeSingle();
+      if (data?.service_types) setDriverServiceTypes(data.service_types);
+    }).catch(() => {});
   }, [user]);
 
   const available = useQuery({
-    queryKey: ["deliveries", "available"],
-    queryFn: fetchAvailableDeliveries,
+    queryKey: ["deliveries", "available", driverServiceTypes],
+    queryFn: async () => {
+      const isDeliveryDriver = driverServiceTypes.includes("delivery_moto") || driverServiceTypes.includes("delivery_car");
+      if (!isDeliveryDriver) return [];
+      return fetchAvailableDeliveries();
+    },
     enabled: !!driverId,
   });
 
   const active = useQuery({
     queryKey: ["deliveries", "active", driverId],
     queryFn: () => (driverId ? fetchMyActiveDeliveries(driverId) : Promise.resolve([])),
+    enabled: !!driverId,
+  });
+
+  // Consultas de Corridas de Táxi/Moto Táxi
+  const isTaxiOrMotoTaxi = driverServiceTypes.includes("taxi") || driverServiceTypes.includes("mototaxi");
+
+  const availableRides = useQuery({
+    queryKey: ["rides", "available", driverServiceTypes],
+    queryFn: async () => {
+      const types = [];
+      if (driverServiceTypes.includes("taxi")) types.push("taxi");
+      if (driverServiceTypes.includes("mototaxi")) types.push("mototaxi");
+      if (types.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from("ride_requests")
+        .select("*")
+        .eq("status", "pending")
+        .is("driver_id", null)
+        .in("vehicle_type", types);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!driverId && isTaxiOrMotoTaxi,
+  });
+
+  const activeRides = useQuery({
+    queryKey: ["rides", "active", driverId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ride_requests")
+        .select("*")
+        .eq("driver_id", driverId)
+        .in("status", ["accepted", "in_progress"]);
+      if (error) throw error;
+      return data ?? [];
+    },
     enabled: !!driverId,
   });
 
@@ -60,6 +107,9 @@ function DriverHome() {
       .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
         qc.invalidateQueries({ queryKey: ["deliveries"] });
         qc.invalidateQueries({ queryKey: ["earnings"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => {
+        qc.invalidateQueries({ queryKey: ["rides"] });
       })
       .subscribe();
     return () => {
@@ -78,6 +128,46 @@ function DriverHome() {
       toast.error("Não foi possível aceitar (já foi pega por outro?)");
     } finally {
       setPending(null);
+    }
+  }
+
+  async function handleAcceptRide(id: string) {
+    if (!driverId) return;
+    setPendingRide(id);
+    try {
+      const { error } = await supabase
+        .from("ride_requests")
+        .update({ driver_id: driverId, status: "accepted", updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .is("driver_id", null);
+      if (error) throw error;
+      toast.success("Corrida aceita!");
+      qc.invalidateQueries({ queryKey: ["rides"] });
+    } catch {
+      toast.error("Não foi possível aceitar a corrida.");
+    } finally {
+      setPendingRide(null);
+    }
+  }
+
+  async function handleAdvanceRide(id: string, currentStatus: string) {
+    const nextStatusMap: Record<string, string> = {
+      accepted: "in_progress",
+      in_progress: "completed",
+    };
+    const next = nextStatusMap[currentStatus];
+    if (!next) return;
+    
+    try {
+      const { error } = await supabase
+        .from("ride_requests")
+        .update({ status: next, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      toast.success(next === "completed" ? "Corrida concluída!" : "Corrida iniciada!");
+      qc.invalidateQueries({ queryKey: ["rides"] });
+    } catch {
+      toast.error("Erro ao atualizar status da corrida.");
     }
   }
 
@@ -128,6 +218,81 @@ function DriverHome() {
             {active.data.map((d) => (
               <DeliveryCard key={d.id} delivery={d} />
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Corridas de Táxi/Moto Táxi em Andamento */}
+      {activeRides.data && activeRides.data.length > 0 && (
+        <section className="mt-8 px-4">
+          <SectionTitle title="Corridas em andamento" badge={`${activeRides.data.length}`} />
+          <div className="mt-3 space-y-3">
+            {activeRides.data.map((r) => (
+              <Card key={r.id} className="p-4 rounded-2xl border border-border/40 shadow-sm space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                    {r.vehicle_type === "taxi" ? "🚗 Táxi" : "🏍️ Moto Táxi"}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-500">R$ {Number(r.price).toFixed(2)}</span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Passageiro:</strong> {r.customer_name}</p>
+                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Origem:</strong> {r.pickup_address}</p>
+                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Destino:</strong> {r.dropoff_address}</p>
+                  {r.notes && <p className="text-xs text-muted-foreground italic">"{r.notes}"</p>}
+                </div>
+                <button
+                  onClick={() => handleAdvanceRide(r.id, r.status)}
+                  className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all"
+                >
+                  {r.status === "accepted" ? "Iniciar Corrida" : "Concluir Corrida"}
+                </button>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Corridas Disponíveis */}
+      {isTaxiOrMotoTaxi && (
+        <section className="mt-8 px-4">
+          <SectionTitle
+            title="Corridas Disponíveis"
+            badge={availableRides.data?.length ? `${availableRides.data.length} nova${availableRides.data.length > 1 ? "s" : ""}` : undefined}
+          />
+          <div className="mt-3">
+            {availableRides.isLoading ? (
+              <Skeleton className="h-32 rounded-2xl" />
+            ) : !availableRides.data?.length ? (
+              <Card className="rounded-2xl border-dashed border-border/60 bg-card/40 p-6 text-center">
+                <p className="text-xs text-muted-foreground">Sem corridas de Táxi ou Moto Táxi disponíveis</p>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {availableRides.data.map((r) => (
+                  <Card key={r.id} className="p-4 rounded-2xl border border-border/40 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                        {r.vehicle_type === "taxi" ? "🚗 Solicitação de Táxi" : "🏍️ Solicitação de Moto Táxi"}
+                      </span>
+                      <span className="text-xs font-bold text-emerald-500">R$ {Number(r.price).toFixed(2)}</span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Passageiro:</strong> {r.customer_name}</p>
+                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Origem:</strong> {r.pickup_address}</p>
+                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Destino:</strong> {r.dropoff_address}</p>
+                    </div>
+                    <button
+                      onClick={() => handleAcceptRide(r.id)}
+                      disabled={pendingRide === r.id}
+                      className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all disabled:opacity-50"
+                    >
+                      {pendingRide === r.id ? "Aceitando..." : "Aceitar Corrida"}
+                    </button>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}

@@ -75,11 +75,14 @@ function ProfilePage() {
     try {
       const { data: driver } = await supabase
         .from("delivery_drivers")
-        .select("id, rating, is_online, commission_rate")
+        .select("id, rating, is_online, commission_rate, service_types")
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (driver) {
+        if (driver.service_types) {
+          setServiceTypes(driver.service_types);
+        }
         const DELIVERED_STATUSES = ["delivered", "completed"] as any;
 
         const { count: totalCount } = await supabase
@@ -170,14 +173,24 @@ function ProfilePage() {
     }
   };
 
+  const [serviceTypes, setServiceTypes] = useState<string[]>(["delivery_moto"]);
+
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!user) return;
     setSaving(true);
     try {
+      // 1. Atualiza dados de perfil
       await supabase
         .from("profiles")
         .upsert({ user_id: user.id, full_name: fullName.trim(), phone }, { onConflict: "user_id" });
+      
+      // 2. Atualiza os tipos de serviço executados pelo motorista
+      await supabase
+        .from("delivery_drivers")
+        .update({ service_types: serviceTypes })
+        .eq("user_id", user.id);
+
       setProfile({ ...profile, full_name: fullName.trim(), phone });
       toast.success("Perfil atualizado!");
       setEditing(false);
@@ -451,6 +464,41 @@ function ProfilePage() {
                   />
                 </div>
               </div>
+              
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Serviços Ativos</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "delivery_moto", label: "🏍️ Entregar (Moto)" },
+                    { value: "delivery_car", label: "🚗 Entregar (Carro)" },
+                    { value: "taxi", label: "🚖 Táxi" },
+                    { value: "mototaxi", label: "🏍️ Moto Táxi" },
+                  ].map((item) => {
+                    const active = serviceTypes.includes(item.value);
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => {
+                          if (active) {
+                            setServiceTypes(serviceTypes.filter((x) => x !== item.value));
+                          } else {
+                            setServiceTypes([...serviceTypes, item.value]);
+                          }
+                        }}
+                        className={`p-3 rounded-2xl border text-left text-xs font-bold transition-all ${
+                          active
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-secondary/30 text-muted-foreground hover:bg-secondary/50"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <button
                 onClick={handleSave}
                 disabled={saving}
