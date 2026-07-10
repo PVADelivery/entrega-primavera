@@ -41,13 +41,14 @@ function DriverHome() {
     }).catch(() => {});
   }, [user]);
 
+  const isDeliveryDriver = 
+    driverServiceTypes.includes("delivery_moto") || 
+    driverServiceTypes.includes("delivery_car") ||
+    driverServiceTypes.includes("delivery_carro_aberto");
+
   const available = useQuery({
     queryKey: ["deliveries", "available", driverServiceTypes],
     queryFn: async () => {
-      const isDeliveryDriver = 
-        driverServiceTypes.includes("delivery_moto") || 
-        driverServiceTypes.includes("delivery_car") ||
-        driverServiceTypes.includes("delivery_carro_aberto");
       if (!isDeliveryDriver) return [];
       
       const raw = await fetchAvailableDeliveries();
@@ -59,7 +60,7 @@ function DriverHome() {
         return false;
       });
     },
-    enabled: !!driverId,
+    enabled: !!driverId && isDeliveryDriver,
   });
 
   const active = useQuery({
@@ -345,43 +346,45 @@ function DriverHome() {
         </section>
       )}
 
-      <section className="mt-8 px-4">
-        <SectionTitle
-          title="Entregas disponíveis"
-          badge={available.data?.length ? `${available.data.length} nova${available.data.length > 1 ? "s" : ""}` : undefined}
-        />
-        <div className="mt-3">
-          {available.isLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-32 rounded-2xl" />
-              <Skeleton className="h-32 rounded-2xl" />
-            </div>
-          ) : !available.data?.length ? (
-            <Card className="rounded-2xl border-dashed border-border/60 bg-card/40 p-8 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
-                <Package2 className="h-5 w-5 text-muted-foreground" />
+      {isDeliveryDriver && (
+        <section className="mt-8 px-4">
+          <SectionTitle
+            title="Entregas disponíveis"
+            badge={available.data?.length ? `${available.data.length} nova${available.data.length > 1 ? "s" : ""}` : undefined}
+          />
+          <div className="mt-3">
+            {available.isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-32 rounded-2xl" />
+                <Skeleton className="h-32 rounded-2xl" />
               </div>
-              <p className="mt-3 font-display text-base font-semibold text-foreground">
-                Sem entregas no momento
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Fique online para receber novos pedidos.
-              </p>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {available.data.map((d) => (
-                <DeliveryCard
-                  key={d.id}
-                  delivery={d}
-                  onAccept={() => handleAccept(d.id)}
-                  pending={pending === d.id}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+            ) : !available.data?.length ? (
+              <Card className="rounded-2xl border-dashed border-border/60 bg-card/40 p-8 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+                  <Package2 className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <p className="mt-3 font-display text-base font-semibold text-foreground">
+                  Sem entregas no momento
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Fique online para receber novos pedidos.
+                </p>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {available.data.map((d) => (
+                  <DeliveryCard
+                    key={d.id}
+                    delivery={d}
+                    onAccept={() => handleAccept(d.id)}
+                    pending={pending === d.id}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── BONASOFT Watermark ── */}
       <div className="mt-16 pb-8 text-center opacity-40 select-none pointer-events-none">
