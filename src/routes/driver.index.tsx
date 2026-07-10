@@ -222,6 +222,43 @@ function DriverHome() {
         </Card>
       </section>
 
+      <section className="mt-8 px-4">
+        <div className="flex items-center justify-between mb-3">
+          <SectionTitle title="Filtro de Corridas" badge="Selecione o que deseja receber" />
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {[
+            { value: "delivery_moto", label: "📦 Moto" },
+            { value: "delivery_car", label: "📦 Carro" },
+            { value: "delivery_carro_aberto", label: "📦 Aberto" },
+            { value: "taxi", label: "🚕 Táxi" },
+            { value: "mototaxi", label: "🏍️ Moto Táxi" },
+          ].map((item) => {
+            const active = driverServiceTypes.includes(item.value);
+            return (
+              <button
+                key={item.value}
+                onClick={async () => {
+                  if (!driverId) return;
+                  const newTypes = active
+                    ? driverServiceTypes.filter((t) => t !== item.value)
+                    : [...driverServiceTypes, item.value];
+                  setDriverServiceTypes(newTypes);
+                  await supabase.from("delivery_drivers").update({ service_types: newTypes }).eq("id", driverId);
+                }}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                  active
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-secondary/30 text-muted-foreground"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {active.data && active.data.length > 0 && (
         <section className="mt-8 px-4">
           <SectionTitle title="Em andamento" badge={`${active.data.length} ativa${active.data.length > 1 ? "s" : ""}`} />
