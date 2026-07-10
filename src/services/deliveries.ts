@@ -85,7 +85,7 @@ export function useDeliveries(params?: UseDeliveriesParams) {
         .select(`
           *,
           companies(name, phone),
-          delivery_drivers(id, user_id, full_name, phone, vehicle_type, vehicle_plate)
+          delivery_drivers(id, user_id, full_name, phone, vehicle_type)
         `, { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
