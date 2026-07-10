@@ -31,9 +31,12 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
       <div className="p-4 pl-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-base font-bold tracking-tight text-foreground">
-              {delivery.customer_name}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="truncate font-display text-base font-bold tracking-tight text-foreground">
+                {delivery.customer_name}
+              </p>
+              {delivery.short_id && <span className="bg-primary/10 text-primary font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">{delivery.short_id}</span>}
+            </div>
             {delivery.pickup_address ? (
               <>
                 <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
