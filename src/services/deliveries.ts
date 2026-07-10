@@ -430,12 +430,16 @@ export async function fetchMyHistory(driverId: string) {
 }
 
 export async function acceptDelivery(deliveryId: string, driverId: string) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("deliveries")
     .update({ driver_id: driverId, status: "accepted", accepted_at: new Date().toISOString() } as any)
     .eq("id", deliveryId)
-    .is("driver_id", null);
+    .is("driver_id", null)
+    .select()
+    .single();
+  
   if (error) throw error;
+  if (!data) throw new Error("Falha ao aceitar. Pode já ter sido aceita.");
 }
 
 const nextStatus: Record<string, string> = {
