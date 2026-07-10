@@ -85,7 +85,7 @@ export function useDeliveries(params?: UseDeliveriesParams) {
         .select(`
           *,
           companies(name, phone),
-          delivery_drivers(id, user_id, full_name, phone, vehicle_type)
+          delivery_drivers(id, user_id, vehicle, license_plate)
         `, { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
@@ -136,8 +136,8 @@ export function useDeliveries(params?: UseDeliveriesParams) {
             user_id: rawDriver.user_id,
             full_name: rawDriver.full_name || "Entregador Atribuído",
             phone: rawDriver.phone || null,
-            vehicle_type: rawDriver.vehicle_type || null,
-            vehicle_plate: rawDriver.vehicle_plate || null,
+            vehicle_type: rawDriver.vehicle || null,
+            vehicle_plate: rawDriver.license_plate || null,
           };
         }
 
