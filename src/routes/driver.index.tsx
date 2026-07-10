@@ -228,11 +228,11 @@ function DriverHome() {
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {[
-            { value: "delivery_moto", label: "📦 Moto" },
-            { value: "delivery_car", label: "📦 Carro" },
-            { value: "delivery_carro_aberto", label: "📦 Aberto" },
-            { value: "taxi", label: "🚕 Táxi" },
-            { value: "mototaxi", label: "🏍️ Moto Táxi" },
+            { value: "delivery_moto", label: "Entregas de Lojas (Moto)" },
+            { value: "delivery_car", label: "Entregas de Lojas (Carro)" },
+            { value: "delivery_carro_aberto", label: "Frete (Carro Aberto)" },
+            { value: "taxi", label: "Transporte de Passageiros (Táxi)" },
+            { value: "mototaxi", label: "Transporte de Passageiros (Moto Táxi)" },
           ].map((item) => {
             const active = driverServiceTypes.includes(item.value);
             return (

@@ -469,11 +469,11 @@ function ProfilePage() {
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Serviços Ativos</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: "delivery_moto", label: "🏍️ Entregar (Moto)" },
-                    { value: "delivery_car", label: "🚗 Entregar (Carro)" },
-                    { value: "delivery_carro_aberto", label: "🛻 Entregar (Carro Aberto)" },
-                    { value: "taxi", label: "🚖 Táxi" },
-                    { value: "mototaxi", label: "🏍️ Moto Táxi" },
+                    { value: "delivery_moto", label: "Entregas de Lojas (Moto)" },
+                    { value: "delivery_car", label: "Entregas de Lojas (Carro)" },
+                    { value: "delivery_carro_aberto", label: "Frete (Carro Aberto)" },
+                    { value: "taxi", label: "Transporte de Passageiros (Táxi)" },
+                    { value: "mototaxi", label: "Transporte de Passageiros (Moto Táxi)" },
                   ].map((item) => {
                     const active = serviceTypes.includes(item.value);
                     return (
