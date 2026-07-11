@@ -227,7 +227,7 @@ function DriverHome() {
       </section>
 
       <section className="mt-8 px-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 w-full">
           <SectionTitle title="Filtro de Corridas" badge="Selecione o que deseja receber" />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -415,7 +415,7 @@ function Mini({ icon, label, value, money = true }: { icon: React.ReactNode; lab
 
 function SectionTitle({ title, badge }: { title: string; badge?: string }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-3 w-full">
       <h2 className="font-display text-base font-bold tracking-tight text-foreground">{title}</h2>
       {badge && (
         <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
