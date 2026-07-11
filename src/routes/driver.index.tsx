@@ -147,12 +147,15 @@ function DriverHome() {
     if (!driverId) return;
     setPendingRide(id);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("ride_requests")
         .update({ driver_id: driverId, status: "accepted", updated_at: new Date().toISOString() })
         .eq("id", id)
-        .is("driver_id", null);
+        .is("driver_id", null)
+        .select()
+        .single();
       if (error) throw error;
+      if (!data) throw new Error("Falha ao aceitar corrida.");
       toast.success("Corrida aceita!");
       qc.invalidateQueries({ queryKey: ["rides"] });
     } catch {
