@@ -228,7 +228,7 @@ function DriverHome() {
 
       <section className="mt-8 px-4">
         <div className="mb-3 w-full">
-          <SectionTitle title="Filtro de Corridas" badge="Selecione o que deseja receber" />
+          <SectionTitle title="Filtro de Corridas" badge="Atribuídos pelo Administrador" />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {[
@@ -240,24 +240,16 @@ function DriverHome() {
           ].map((item) => {
             const active = driverServiceTypes.includes(item.value);
             return (
-              <button
+              <div
                 key={item.value}
-                onClick={async () => {
-                  if (!driverId) return;
-                  const newTypes = active
-                    ? driverServiceTypes.filter((t) => t !== item.value)
-                    : [...driverServiceTypes, item.value];
-                  setDriverServiceTypes(newTypes);
-                  await supabase.from("delivery_drivers").update({ service_types: newTypes }).eq("id", driverId);
-                }}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border select-none ${
                   active
                     ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-secondary/30 text-muted-foreground"
+                    : "border-border bg-secondary/30 text-muted-foreground opacity-50"
                 }`}
               >
                 {item.label}
-              </button>
+              </div>
             );
           })}
         </div>
