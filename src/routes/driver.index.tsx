@@ -256,16 +256,7 @@ function DriverHome() {
         </div>
       </section>
 
-      {active.data && active.data.length > 0 && (
-        <section className="mt-8 px-4">
-          <SectionTitle title="Em andamento" badge={`${active.data.length} ativa${active.data.length > 1 ? "s" : ""}`} />
-          <div className="mt-3 space-y-3">
-            {active.data.map((d) => (
-              <DeliveryCard key={d.id} delivery={d} />
-            ))}
-          </div>
-        </section>
-      )}
+
 
       {/* Corridas de Táxi/Moto Táxi em Andamento */}
       {activeRides.data && activeRides.data.length > 0 && (
