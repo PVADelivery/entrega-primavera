@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.enforce_chat_messages_readonly() FROM PUBLIC, anon, authenticated;
