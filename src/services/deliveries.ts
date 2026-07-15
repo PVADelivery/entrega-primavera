@@ -3,12 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { DeliveryStatus } from "@/types/models";
 
-// DB enum delivery_status: pending, broadcasted, accepted, collecting, in_transit, delivered, cancelled, returned, completed
 function toDbStatus(status: string) {
+  if (status === "in_transit") return "in_route";
   return status;
 }
 
 function toAppStatus(status: string) {
+  if (status === "in_route") return "in_transit";
   return status as DeliveryStatus;
 }
 
@@ -404,7 +405,7 @@ export async function fetchAvailableDeliveries() {
     .is("driver_id", null)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []);
+  return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
 export async function fetchMyActiveDeliveries(driverId: string) {
@@ -412,10 +413,10 @@ export async function fetchMyActiveDeliveries(driverId: string) {
     .from("deliveries")
     .select("*")
     .eq("driver_id", driverId)
-    .in("status", ["accepted", "collecting", "in_transit"])
+    .in("status", ["accepted", "collecting", "in_route"])
     .order("accepted_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []);
+  return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
 export async function fetchMyHistory(driverId: string) {
@@ -427,7 +428,7 @@ export async function fetchMyHistory(driverId: string) {
     .order("updated_at", { ascending: false })
     .limit(50);
   if (error) throw error;
-  return (data ?? []);
+  return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
 export async function acceptDelivery(deliveryId: string, driverId: string) {
@@ -458,7 +459,8 @@ const nextStatus: Record<string, string> = {
 export async function advanceDelivery(delivery: any) {
   const next = nextStatus[delivery.status];
   if (!next) return;
-  const { error } = await supabase.from("deliveries").update({ status: next as any }).eq("id", delivery.id);
+  const dbNextStatus = toDbStatus(next);
+  const { error } = await supabase.from("deliveries").update({ status: dbNextStatus as any }).eq("id", delivery.id);
   if (error) throw error;
 }
 
