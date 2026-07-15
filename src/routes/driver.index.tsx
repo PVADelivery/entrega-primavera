@@ -37,7 +37,7 @@ function DriverHome() {
     ensureDriverRow(user.id).then(async (id) => {
       setDriverId(id);
       const { data } = await supabase.from("delivery_drivers").select("service_types").eq("user_id", user.id).maybeSingle();
-      if (data?.service_types) setDriverServiceTypes(data.service_types);
+      if ((data as any)?.service_types) setDriverServiceTypes((data as any).service_types);
     }).catch(() => {});
   }, [user]);
 
@@ -80,14 +80,14 @@ function DriverHome() {
       if (driverServiceTypes.includes("mototaxi")) types.push("mototaxi");
       if (types.length === 0) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
         .eq("status", "pending")
         .is("driver_id", null)
         .in("vehicle_type", types);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as any[];
     },
     enabled: !!driverId && isTaxiOrMotoTaxi,
   });
@@ -95,13 +95,13 @@ function DriverHome() {
   const activeRides = useQuery({
     queryKey: ["rides", "active", driverId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
         .eq("driver_id", driverId)
         .in("status", ["accepted", "in_progress"]);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as any[];
     },
     enabled: !!driverId,
   });
@@ -147,7 +147,7 @@ function DriverHome() {
     if (!driverId) return;
     setPendingRide(id);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("ride_requests")
         .update({ driver_id: driverId, status: "accepted", updated_at: new Date().toISOString() })
         .eq("id", id)
@@ -174,7 +174,7 @@ function DriverHome() {
     if (!next) return;
     
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("ride_requests")
         .update({ status: next, updated_at: new Date().toISOString() })
         .eq("id", id);
