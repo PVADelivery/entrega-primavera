@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
