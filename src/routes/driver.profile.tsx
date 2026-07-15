@@ -117,7 +117,7 @@ function ProfilePage() {
 
         const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
           .from("deliveries")
-          .select("value, completed_at, delivered_at")
+          .select("value, completed_at, delivered_at, created_at")
           .eq("driver_id", driver.id)
           .in("status", DELIVERED_STATUSES);
 
@@ -128,7 +128,7 @@ function ProfilePage() {
           const startTime = start.getTime();
           const endTime = end.getTime();
           for (const d of deliveriesForPeriod) {
-            const dateStr = d.completed_at || d.delivered_at;
+            const dateStr = d.completed_at || d.delivered_at || d.created_at;
             if (!dateStr) continue;
             const t = new Date(dateStr).getTime();
             if (t >= startTime && t <= endTime) {

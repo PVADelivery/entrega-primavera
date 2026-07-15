@@ -500,7 +500,7 @@ export async function ensureDriverRow(userId: string, regionId?: string | null) 
 export async function fetchEarnings(driverId: string) {
   const { data, error } = await supabase
     .from("deliveries")
-    .select("commission, completed_at, delivered_at")
+    .select("value, commission, completed_at, delivered_at, created_at")
     .eq("driver_id", driverId)
     .in("status", ["completed", "delivered"]);
   if (error) throw error;
@@ -510,8 +510,10 @@ export async function fetchEarnings(driverId: string) {
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   let day = 0, week = 0, month = 0, total = 0;
   for (const r of data ?? []) {
-    const t = new Date((r.completed_at || r.delivered_at) as string).getTime();
-    const c = Number(r.commission ?? 0);
+    const dateStr = r.completed_at || r.delivered_at || r.created_at;
+    if (!dateStr) continue;
+    const t = new Date(dateStr).getTime();
+    const c = r.commission && Number(r.commission) > 0 ? Number(r.commission) : Number(r.value || 0) * 0.90;
     total += c;
     if (t >= startMonth) month += c;
     if (t >= startWeek) week += c;
