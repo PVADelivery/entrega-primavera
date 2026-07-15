@@ -130,7 +130,7 @@ function ProfilePage() {
           grossEarnings = Number(summaryData[0].gross_earnings || 0);
           periodCount = Number(summaryData[0].total_deliveries || 0);
           
-          platformFee = periodCount * driverRate;
+          platformFee = grossEarnings * 0.10;
           netEarnings = grossEarnings - platformFee;
         }
 
@@ -372,7 +372,7 @@ function ProfilePage() {
                 <h4 className="text-xs font-black uppercase text-foreground">Entenda seus ganhos</h4>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
-                Você recebe <strong className="text-foreground">100% da Taxa de Entrega</strong> paga pelo cliente. A plataforma cobra apenas <strong className="text-foreground">R$ {driverStats.commissionRate.toFixed(2).replace('.', ',')}</strong> de repasse por cada entrega concluída.
+                Você recebe <strong className="text-foreground">90% da Taxa de Entrega</strong> paga pelo cliente. A plataforma cobra apenas <strong className="text-foreground">10%</strong> de repasse sobre o total das entregas concluídas.
               </p>
             </div>
           </div>
