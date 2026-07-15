@@ -115,24 +115,31 @@ function ProfilePage() {
 
         const driverRate = driver.commission_rate !== null && driver.commission_rate !== undefined ? Number(driver.commission_rate) : 0.80;
 
-        const { data: summaryData, error: summaryError } = await supabase.rpc("get_driver_earnings_summary", {
-          p_driver_id: driver.id,
-          p_start_date: startIso,
-          p_end_date: endIso
-        });
+        const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
+          .from("deliveries")
+          .select("value, completed_at, delivered_at")
+          .eq("driver_id", driver.id)
+          .in("status", DELIVERED_STATUSES);
 
         let grossEarnings = 0;
-        let platformFee = 0;
-        let netEarnings = 0;
         let periodCount = 0;
 
-        if (!summaryError && summaryData && summaryData.length > 0) {
-          grossEarnings = Number(summaryData[0].gross_earnings || 0);
-          periodCount = Number(summaryData[0].total_deliveries || 0);
-          
-          platformFee = grossEarnings * 0.10;
-          netEarnings = grossEarnings - platformFee;
+        if (!deliveriesError && deliveriesForPeriod) {
+          const startTime = start.getTime();
+          const endTime = end.getTime();
+          for (const d of deliveriesForPeriod) {
+            const dateStr = d.completed_at || d.delivered_at;
+            if (!dateStr) continue;
+            const t = new Date(dateStr).getTime();
+            if (t >= startTime && t <= endTime) {
+              grossEarnings += Number(d.value || 0);
+              periodCount++;
+            }
+          }
         }
+
+        const platformFee = grossEarnings * 0.10;
+        const netEarnings = grossEarnings - platformFee;
 
         setDriverStats({
           deliveries: totalCount || 0,
