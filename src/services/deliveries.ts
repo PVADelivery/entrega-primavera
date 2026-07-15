@@ -439,8 +439,14 @@ export async function acceptDelivery(deliveryId: string, driverId: string) {
     .select()
     .single();
   
-  if (error) throw error;
-  if (!data) throw new Error("Falha ao aceitar. Pode já ter sido aceita.");
+  if (error) {
+    console.error("[acceptDelivery] Supabase error:", error);
+    throw error;
+  }
+  if (!data) {
+    console.error("[acceptDelivery] No data returned.");
+    throw new Error("Falha ao aceitar. Pode já ter sido aceita.");
+  }
 }
 
 const nextStatus: Record<string, string> = {

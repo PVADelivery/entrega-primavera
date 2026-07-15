@@ -137,8 +137,8 @@ function DriverHome() {
       await acceptDelivery(id, driverId);
       toast.success("Entrega aceita!");
       qc.invalidateQueries({ queryKey: ["deliveries"] });
-    } catch {
-      toast.error("Não foi possível aceitar (já foi pega por outro?)");
+    } catch (err: any) {
+      toast.error(`Erro: ${err?.message || JSON.stringify(err)}`);
     } finally {
       setPending(null);
     }
@@ -159,8 +159,8 @@ function DriverHome() {
       if (!data) throw new Error("Falha ao aceitar corrida.");
       toast.success("Corrida aceita!");
       qc.invalidateQueries({ queryKey: ["rides"] });
-    } catch {
-      toast.error("Não foi possível aceitar a corrida.");
+    } catch (err: any) {
+      toast.error(`Erro ao aceitar corrida: ${err?.message || JSON.stringify(err)}`);
     } finally {
       setPendingRide(null);
     }
