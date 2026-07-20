@@ -498,26 +498,61 @@ export async function ensureDriverRow(userId: string, regionId?: string | null) 
 }
 
 export async function fetchEarnings(driverId: string) {
-  const { data, error } = await supabase
+  const { data: deliveries, error: deliveriesError } = await supabase
     .from("deliveries")
-    .select("value, commission, completed_at, delivered_at, created_at")
+    .select("value, delivery_fee, commission, completed_at, delivered_at, created_at")
     .eq("driver_id", driverId)
     .in("status", ["completed", "delivered"]);
-  if (error) throw error;
+
+  if (deliveriesError) throw deliveriesError;
+
+  // Tenta buscar também as corridas de passageiros
+  const { data: rides, error: ridesError } = await supabase
+    .from("ride_requests")
+    .select("price, created_at, updated_at")
+    .eq("driver_id", driverId)
+    .eq("status", "completed");
+
   const now = new Date();
   const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const startWeek = startDay - now.getDay() * 86400000;
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  let day = 0, week = 0, month = 0, total = 0;
-  for (const r of data ?? []) {
+  let day = 0, week = 0, month = 0, total = 0, count = 0;
+
+  // Processa Entregas (deliveries)
+  for (const r of deliveries ?? []) {
     const dateStr = r.completed_at || r.delivered_at || r.created_at;
     if (!dateStr) continue;
     const t = new Date(dateStr).getTime();
-    const c = r.commission && Number(r.commission) > 0 ? Number(r.commission) : Number(r.value || 0) * 0.90;
+    
+    // Calcula 90% da taxa de entrega (o app retém 10%)
+    const fee = Number(r.delivery_fee) > 0 ? Number(r.delivery_fee) : Number(r.value || 0);
+    const c = fee * 0.90;
+    
     total += c;
+    count += 1;
     if (t >= startMonth) month += c;
     if (t >= startWeek) week += c;
     if (t >= startDay) day += c;
   }
-  return { day, week, month, total, count: data?.length ?? 0 };
+
+  // Processa Corridas de Táxi/Moto Táxi (se existirem)
+  if (!ridesError) {
+    for (const r of rides ?? []) {
+      const dateStr = r.updated_at || r.created_at;
+      if (!dateStr) continue;
+      const t = new Date(dateStr).getTime();
+      
+      const fee = Number(r.price || 0);
+      const c = fee * 0.90; // 90% do valor da corrida
+      
+      total += c;
+      count += 1;
+      if (t >= startMonth) month += c;
+      if (t >= startWeek) week += c;
+      if (t >= startDay) day += c;
+    }
+  }
+
+  return { day, week, month, total, count };
 }
