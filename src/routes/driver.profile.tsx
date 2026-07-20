@@ -1,7 +1,6 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverShell } from "@/components/driver/DriverShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,24 +73,26 @@ function ProfilePage() {
 
   const fetchDriverData = async () => {
     try {
-      const { data: driver } = await supabase
+      // Busca o registro do entregador pelo user_id
+      const { data: driver, error: driverError } = await supabase
         .from("delivery_drivers")
         .select("id, rating, is_online, commission_rate, service_types")
         .eq("user_id", user.id)
         .maybeSingle();
 
+      if (driverError) {
+        console.error("[fetchDriverData] Erro ao buscar driver:", driverError);
+      }
+
       if (driver) {
         if (driver.service_types) {
           setServiceTypes(driver.service_types);
         }
-        const DELIVERED_STATUSES = ["delivered", "completed"] as any;
 
-        const { count: totalCount } = await supabase
-          .from("deliveries")
-          .select("id", { count: "exact", head: true })
-          .eq("driver_id", driver.id)
-          .in("status", DELIVERED_STATUSES);
+        // Status válidos no banco (enum delivery_status)
+        const DELIVERED_STATUSES = ["completed"] as any;
 
+        // Calcula janela de datas
         let start = new Date();
         let end = new Date();
         start.setHours(0, 0, 0, 0);
@@ -110,32 +111,53 @@ function ProfilePage() {
           end = new Date(year, month - 1, day, 23, 59, 59, 999);
         }
 
-        const startIso = format(start, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-        const endIso = format(end, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+        const startIso = start.toISOString();
+        const endIso = end.toISOString();
 
-        const driverRate = driver.commission_rate !== null && driver.commission_rate !== undefined ? Number(driver.commission_rate) : 0.80;
+        const driverRate = driver.commission_rate !== null && driver.commission_rate !== undefined ? Number(driver.commission_rate) : 0.90;
 
-        const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
+        // Conta total histórico de entregas concluídas
+        const { count: totalCount } = await supabase
           .from("deliveries")
-          .select("value, completed_at, delivered_at, created_at")
+          .select("id", { count: "exact", head: true })
           .eq("driver_id", driver.id)
           .in("status", DELIVERED_STATUSES);
+
+        // Busca entregas do período COM FILTRO DE DATA no banco
+        const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
+          .from("deliveries")
+          .select("value, delivery_fee, completed_at, created_at")
+          .eq("driver_id", driver.id)
+          .in("status", DELIVERED_STATUSES)
+          .gte("completed_at", startIso)
+          .lte("completed_at", endIso);
+
+        if (deliveriesError) {
+          console.error("[fetchDriverData] Erro ao buscar entregas:", deliveriesError);
+        }
 
         let grossEarnings = 0;
         let periodCount = 0;
 
-        if (!deliveriesError && deliveriesForPeriod) {
-          const startTime = start.getTime();
-          const endTime = end.getTime();
-          for (const d of deliveriesForPeriod) {
-            const dateStr = d.completed_at || d.delivered_at || d.created_at;
-            if (!dateStr) continue;
-            const t = new Date(dateStr).getTime();
-            if (t >= startTime && t <= endTime) {
-              grossEarnings += Number(d.value || 0);
-              periodCount++;
-            }
-          }
+        for (const d of deliveriesForPeriod ?? []) {
+          // Usa delivery_fee se disponível, senão usa value
+          const fee = Number(d.delivery_fee) > 0 ? Number(d.delivery_fee) : Number(d.value || 0);
+          grossEarnings += fee;
+          periodCount++;
+        }
+
+        // Também conta corridas de táxi/mototáxi no período
+        const { data: ridesForPeriod } = await supabase
+          .from("ride_requests")
+          .select("price, updated_at")
+          .eq("driver_id", driver.id)
+          .eq("status", "completed")
+          .gte("updated_at", startIso)
+          .lte("updated_at", endIso);
+
+        for (const r of ridesForPeriod ?? []) {
+          grossEarnings += Number(r.price || 0);
+          periodCount++;
         }
 
         const platformFee = grossEarnings * 0.10;
@@ -153,9 +175,10 @@ function ProfilePage() {
         });
       }
     } catch (e) {
-      console.error(e);
+      console.error("[fetchDriverData] Exceção:", e);
     }
   };
+
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
