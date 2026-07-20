@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+﻿import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -77,7 +77,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Lovable App" },
       { name: "description", content: "Entrega-Primavera is a mobile app for delivery drivers to manage their tasks and deliveries." },
-      { name: "author", content: "Primavera Delivery" },
+      { name: "author", content: "MT Express" },
       { property: "og:title", content: "Lovable App" },
       { property: "og:description", content: "Entrega-Primavera is a mobile app for delivery drivers to manage their tasks and deliveries." },
       { property: "og:type", content: "website" },

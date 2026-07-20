@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,7 +15,7 @@ import { AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/driver/occurrences")({
   component: OccurrencesPage,
-  head: () => ({ meta: [{ title: "Ocorrências — Primavera Delivery" }] }),
+  head: () => ({ meta: [{ title: "Ocorrências — MT Express" }] }),
 });
 
 const TYPES = [

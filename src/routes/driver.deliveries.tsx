@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +23,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/driver/deliveries")({
   component: DeliveriesPage,
-  head: () => ({ meta: [{ title: "Entregas — Primavera Delivery" }] }),
+  head: () => ({ meta: [{ title: "Entregas — MT Express" }] }),
 });
 
 function DeliveriesPage() {

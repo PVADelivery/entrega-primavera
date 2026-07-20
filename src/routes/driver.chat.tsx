@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverShell } from "@/components/driver/DriverShell";
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/driver/chat")({
   component: ChatPage,
-  head: () => ({ meta: [{ title: "Chat — Primavera Delivery" }] }),
+  head: () => ({ meta: [{ title: "Chat — MT Express" }] }),
 });
 
 interface ChatMessage {

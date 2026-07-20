@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
@@ -20,7 +20,7 @@ import { ensureDriverRow } from "@/services/deliveries";
 
 export const Route = createFileRoute("/driver/profile")({
   component: ProfilePage,
-  head: () => ({ meta: [{ title: "Perfil — Primavera Delivery" }] }),
+  head: () => ({ meta: [{ title: "Perfil — MT Express" }] }),
 });
 
 function ProfilePage() {

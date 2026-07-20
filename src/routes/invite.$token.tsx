@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useState, useEffect, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/invite/$token")({
   component: InvitePage,
-  head: () => ({ meta: [{ title: "Cadastro de Entregador — Primavera Delivery" }] }),
+  head: () => ({ meta: [{ title: "Cadastro de Entregador — MT Express" }] }),
 });
 
 function InvitePage() {

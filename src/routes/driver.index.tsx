@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ import { TrendingUp, Package2, CalendarDays, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
-  head: () => ({ meta: [{ title: "Início — Primavera Delivery Entregador" }] }),
+  head: () => ({ meta: [{ title: "Início — MT Express Entregador" }] }),
 });
 
 function DriverHome() {
