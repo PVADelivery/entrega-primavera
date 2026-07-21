@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/driver/chat")({
   component: ChatPage,
-  head: () => ({ meta: [{ title: "Chat — MT Express" }] }),
+  head: () => ({ meta: [{ title: "Chat — MT 24horas express" }] }),
 });
 
 interface ChatMessage {

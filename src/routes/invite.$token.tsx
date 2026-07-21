@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/invite/$token")({
   component: InvitePage,
-  head: () => ({ meta: [{ title: "Cadastro de Entregador — MT Express" }] }),
+  head: () => ({ meta: [{ title: "Cadastro de Entregador — MT 24horas express" }] }),
 });
 
 function InvitePage() {

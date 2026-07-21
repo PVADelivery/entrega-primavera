@@ -23,7 +23,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/driver/deliveries")({
   component: DeliveriesPage,
-  head: () => ({ meta: [{ title: "Entregas — MT Express" }] }),
+  head: () => ({ meta: [{ title: "Entregas — MT 24horas express" }] }),
 });
 
 function DeliveriesPage() {

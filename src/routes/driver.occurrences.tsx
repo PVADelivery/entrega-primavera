@@ -15,7 +15,7 @@ import { AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/driver/occurrences")({
   component: OccurrencesPage,
-  head: () => ({ meta: [{ title: "Ocorrências — MT Express" }] }),
+  head: () => ({ meta: [{ title: "Ocorrências — MT 24horas express" }] }),
 });
 
 const TYPES = [

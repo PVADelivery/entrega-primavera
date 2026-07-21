@@ -11,7 +11,7 @@ import iconPrimavera from "@/assets/primavera-icon-v3.png";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
-  head: () => ({ meta: [{ title: "Entrar — MT Express Entregador" }] }),
+  head: () => ({ meta: [{ title: "Entrar — MT 24horas express Entregador" }] }),
 });
 
 function LoginPage() {
@@ -47,11 +47,11 @@ function LoginPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0a0a0a] shadow-[var(--shadow-elegant)]">
             <img
               src={iconPrimavera}
-              alt="MT Express"
+              alt="MT 24horas express"
               className="h-10 w-10 object-contain"
             />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">MT Express</h1>
+          <h1 className="text-2xl font-bold tracking-tight">MT 24horas express</h1>
         </div>
 
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">

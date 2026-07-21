@@ -19,7 +19,7 @@ import { ensureDriverRow } from "@/services/deliveries";
 
 export const Route = createFileRoute("/driver/profile")({
   component: ProfilePage,
-  head: () => ({ meta: [{ title: "Perfil — MT Express" }] }),
+  head: () => ({ meta: [{ title: "Perfil — MT 24horas express" }] }),
 });
 
 function ProfilePage() {

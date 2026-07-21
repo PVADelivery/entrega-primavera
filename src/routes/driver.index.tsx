@@ -22,7 +22,7 @@ import { TrendingUp, Package2, CalendarDays, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
-  head: () => ({ meta: [{ title: "Início — MT Express Entregador" }] }),
+  head: () => ({ meta: [{ title: "Início — MT 24horas express Entregador" }] }),
 });
 
 function DriverHome() {
