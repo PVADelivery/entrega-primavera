@@ -1,5 +1,5 @@
-const DRIVER_INVITE_BASE_URL = "https://entregador.eprajadelivery.com";
-const COMPANY_INVITE_BASE_URL = "https://lojista.eprajadelivery.com";
+const DRIVER_INVITE_BASE_URL = "https://entregador.mt24horasexpress.com";
+const COMPANY_INVITE_BASE_URL = "https://lojista.mt24horasexpress.com";
 
 export type InviteRole = "driver" | "company";
 
