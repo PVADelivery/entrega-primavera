@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -43,25 +43,31 @@ function DriverHome() {
   }, [user]);
 
   const isDeliveryDriver = 
+    driverServiceTypes.length === 0 ||
     driverServiceTypes.includes("delivery_moto") || 
     driverServiceTypes.includes("delivery_car") ||
-    driverServiceTypes.includes("delivery_carro_aberto");
+    driverServiceTypes.includes("delivery_carro_aberto") ||
+    driverServiceTypes.includes("moto") ||
+    driverServiceTypes.includes("carro");
 
   const available = useQuery({
     queryKey: ["deliveries", "available", driverServiceTypes],
     queryFn: async () => {
-      if (!isDeliveryDriver) return [];
-      
       const raw = await fetchAvailableDeliveries();
+      if (!raw || raw.length === 0) return [];
+      
+      // Se não tiver restrição explícita, mostra todas as entregas disponíveis
+      if (driverServiceTypes.length === 0) return raw;
+
       return raw.filter((del: any) => {
         const requestedVehicle = del.vehicle_type || "moto";
-        if (requestedVehicle === "moto" && driverServiceTypes.includes("delivery_moto")) return true;
-        if (requestedVehicle === "carro" && driverServiceTypes.includes("delivery_car")) return true;
-        if (requestedVehicle === "carro_aberto" && driverServiceTypes.includes("delivery_carro_aberto")) return true;
-        return false;
+        if (requestedVehicle === "moto" && (driverServiceTypes.includes("delivery_moto") || driverServiceTypes.includes("moto"))) return true;
+        if (requestedVehicle === "carro" && (driverServiceTypes.includes("delivery_car") || driverServiceTypes.includes("carro"))) return true;
+        if (requestedVehicle === "carro_aberto" && (driverServiceTypes.includes("delivery_carro_aberto") || driverServiceTypes.includes("carro_aberto"))) return true;
+        return true; // Fallback para mostrar entregas disponíveis por padrão
       });
     },
-    enabled: !!driverId && isDeliveryDriver,
+    enabled: !!driverId,
   });
 
   const active = useQuery({
