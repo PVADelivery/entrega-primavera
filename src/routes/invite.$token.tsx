@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useState, useEffect, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,29 +48,46 @@ function InvitePage() {
       }
 
       try {
-        const { data, error: fetchError } = await supabase
-          .from("invitations")
-          .select("status, expires_at, email")
-          .eq("token", token)
-          .maybeSingle();
+        let inv: any = null;
 
-        if (fetchError) throw new Error(fetchError.message);
+        // 1. Tentar buscar via RPC get_invitation_by_token
+        try {
+          const { data: rpcData, error: rpcErr } = await (supabase as any).rpc("get_invitation_by_token", { _token: token });
+          if (!rpcErr && rpcData) {
+            inv = rpcData;
+          }
+        } catch (e) {
+          console.warn("RPC get_invitation_by_token falhou, tentando busca direta...", e);
+        }
 
-        if (!data || data.status === 'accepted') {
+        // 2. Fallback: busca direta na tabela invitations
+        if (!inv) {
+          const { data: directData, error: directErr } = await (supabase as any)
+            .from("invitations")
+            .select("*")
+            .eq("token", token)
+            .maybeSingle();
+
+          if (!directErr && directData) {
+            inv = directData;
+          }
+        }
+
+        if (!inv || inv.status === 'accepted') {
           setError("Este link de convite é inválido ou já foi utilizado.");
         } else {
-          const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
+          const expiresAt = inv.expires_at ? new Date(inv.expires_at) : null;
           if (expiresAt && expiresAt < new Date()) {
             setError("Este link de convite expirou.");
           } else {
-            if (data.email) {
-              setFormData(prev => ({ ...prev, email: data.email }));
+            if (inv.email) {
+              setFormData(prev => ({ ...prev, email: inv.email }));
             }
           }
         }
       } catch (err: any) {
         console.error("Erro na validação:", err);
-        setError("Erro ao validar convite: " + err.message);
+        setError("Erro ao validar convite: " + (err.message || "Token inválido."));
       } finally {
         setValidating(false);
       }
@@ -99,7 +116,7 @@ function InvitePage() {
     }
 
     try {
-      // Use accept-invitation Edge Function to ensure correct creation (bypassing RLS)
+      // 1. Tentar aceitar convite via Edge Function
       const { data: result, error: invokeError } = await supabase.functions.invoke("accept-invitation", {
         body: {
           token,
@@ -108,41 +125,91 @@ function InvitePage() {
           fullName: formData.fullName,
           phone: formData.phone,
           document: formData.document,
-          // We pass vehicle and licensePlate in case the backend uses them
           vehicle: formData.vehicle,
           license_plate: formData.licensePlate.toUpperCase(),
         },
       });
 
-      if (invokeError) throw invokeError;
-      if (result?.error) throw new Error(result.error);
+      let registrationSuccess = false;
 
-      // Log in the user locally
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
-      if (signInError) throw signInError;
+      if (!invokeError && result && !result.error) {
+        registrationSuccess = true;
+      } else {
+        // Tentar extrair mensagem amigável de erro
+        let customMessage = "";
+        if (invokeError && (invokeError as any).context) {
+          try {
+            const body = await (invokeError as any).context.json();
+            if (body?.error) customMessage = body.error;
+          } catch {}
+        }
 
-      // Update vehicle data via authenticated client since the edge function might have created an empty row
-      if (signInData.user) {
-        try {
-           await supabase.from("delivery_drivers").update({ 
-             full_name: formData.fullName,
-             phone: formData.phone,
-             vehicle: formData.vehicle, 
-             license_plate: formData.licensePlate.toUpperCase() 
-           } as any).eq("user_id", signInData.user.id);
-        } catch (drvErr) {
-           console.error("Erro ao salvar dados do veiculo:", drvErr);
+        if (customMessage) {
+          throw new Error(customMessage);
+        }
+
+        // Fallback direto via Supabase Auth se Edge Function retornar erro genérico
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: formData.fullName,
+              phone: formData.phone,
+              role: "driver"
+            }
+          }
+        });
+
+        if (signUpErr) {
+          if (signUpErr.message?.toLowerCase().includes("already registered")) {
+            throw new Error("Este e-mail já está cadastrado no sistema.");
+          }
+          throw signUpErr;
+        }
+
+        const userId = signUpData.user?.id;
+        if (userId) {
+          await (supabase as any).from("delivery_drivers").insert([{
+            user_id: userId,
+            full_name: formData.fullName,
+            phone: formData.phone || null,
+            cpf: formData.document || null,
+            vehicle: formData.vehicle,
+            license_plate: formData.licensePlate.toUpperCase(),
+            is_active: true,
+          }]);
+
+          await (supabase as any).from("invitations").update({ status: "accepted" }).eq("token", token);
+          registrationSuccess = true;
         }
       }
 
-      toast.success("Bem-vindo à equipe! Cadastro finalizado com sucesso.");
+      // Log in locally
+      const { data: signInData } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (signInData?.user) {
+        try {
+          await (supabase as any).from("delivery_drivers").update({ 
+            full_name: formData.fullName,
+            phone: formData.phone,
+            vehicle: formData.vehicle, 
+            license_plate: formData.licensePlate.toUpperCase(),
+            is_active: true,
+          }).eq("user_id", signInData.user.id);
+        } catch (drvErr) {
+          console.error("Erro ao atualizar dados do motorista:", drvErr);
+        }
+      }
+
+      toast.success("Bem-vindo à equipe! Cadastro de entregador finalizado com sucesso.");
       
       setTimeout(() => {
         navigate({ to: "/login" });
-      }, 2000);
+      }, 1500);
 
     } catch (err: any) {
       console.error("Erro no cadastro:", err);
