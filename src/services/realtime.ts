@@ -74,7 +74,7 @@ export function useDriverRealtime() {
           if (newDel.status === "pending" || newDel.status === "broadcasted") {
             // Play sound if enabled
             if (sessionStorage.getItem("sound_enabled") === "true") {
-              const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+              const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
               audio.volume = 0.8;
               audio.play().catch(e => console.warn("Erro ao tocar áudio:", e));
             }
