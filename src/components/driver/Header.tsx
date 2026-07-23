@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,18 +8,40 @@ import iconPrimavera from "@/assets/primavera-icon-v3.png";
 
 export function DriverHeader() {
   const { user } = useAuth();
-  const [online, setOnline] = useState(false);
+  const [online, setOnline] = useState(() => {
+    if (typeof window !== "undefined" && user?.id) {
+      return localStorage.getItem(`driver_is_online_${user.id}`) === "true";
+    }
+    return false;
+  });
   const [name, setName] = useState("Entregador");
 
   useEffect(() => {
     if (!user) return;
+
+    // Carrega status salvo do localStorage como prioridade
+    const localStatus = localStorage.getItem(`driver_is_online_${user.id}`);
+    if (localStatus === "true") {
+      setOnline(true);
+    }
+
     (async () => {
       const { data: driver } = await supabase
         .from("delivery_drivers")
         .select("is_online")
         .eq("user_id", user.id)
         .maybeSingle();
-      setOnline(driver?.is_online ?? false);
+
+      if (driver && typeof driver.is_online === "boolean") {
+        setOnline(driver.is_online);
+        localStorage.setItem(`driver_is_online_${user.id}`, String(driver.is_online));
+      } else if (localStatus === "true") {
+        await supabase
+          .from("delivery_drivers")
+          .update({ is_online: true } as any)
+          .eq("user_id", user.id);
+      }
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name")
@@ -51,14 +73,18 @@ export function DriverHeader() {
   async function toggle(value: boolean) {
     if (!user) return;
     setOnline(value);
+    localStorage.setItem(`driver_is_online_${user.id}`, String(value));
+
     const { error } = await supabase
       .from("delivery_drivers")
       .update({ is_online: value } as any)
       .eq("user_id", user.id);
+
     if (error) {
       console.error("Status update error:", error);
       toast.error("Erro: " + error.message);
       setOnline(!value);
+      localStorage.setItem(`driver_is_online_${user.id}`, String(!value));
     } else {
       toast.success(value ? "Você está online" : "Você está offline");
     }
