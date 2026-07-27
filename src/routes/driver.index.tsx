@@ -79,6 +79,8 @@ function DriverHome() {
   });
 
   // Consultas de Corridas de Táxi/Moto Táxi
+  const isTaxiOrMotoTaxi = safeServices.length === 0 || safeServices.includes("taxi") || safeServices.includes("mototaxi");
+
   const availableRides = useQuery({
     queryKey: ["rides", "available", safeServices],
     queryFn: async () => {
@@ -300,7 +302,7 @@ function DriverHome() {
       )}
 
       {/* Corridas Disponíveis */}
-      {isTaxiOrMotoTaxi && (
+      {(isTaxiOrMotoTaxi || (availableRides.data && availableRides.data.length > 0)) && (
         <section className="mt-8 px-4">
           <SectionTitle
             title="Corridas Disponíveis"
