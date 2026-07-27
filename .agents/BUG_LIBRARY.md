@@ -127,12 +127,14 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
   Executar consultas independentes e limpas em paralelo via `Promise.all([queryUser, querySavedIds, queryEmail])` e mesclar/deduplicar os resultados por `id` no frontend:
   ```tsx
 
+
 ---
 
-### 14. Bloqueio de Busca de Corridas por Trava de Autenticação (`if (!user) return;`) em Sessões Anônimas
-* **Sintoma**: A tela `/marketplace/rides` exibia "Você ainda não solicitou nenhuma corrida." para clientes que navegaram ou solicitaram corrida em modo convidado/anônimo.
-* **Causa Raiz**: O hook `useEffect` em `marketplace.rides.tsx` continha a trava condicional `if (!user) return;` antes da definição e execução da função `fetchRides()`. Quando o objeto `user` iniciava como nulo (sessão de convidado ou auth assíncrono), o carregamento de corridas por ID local (`localStorage`) nem sequer era invocado.
+### 15. Erro de SSR/Runtime "Loader2 is not defined" por Import Ausente do Lucide-React
+* **Sintoma**: As telas `/marketplace/errands` e `/marketplace/taxi` falhavam no Cloudflare com "This page didn't load / Loader2 is not defined".
+* **Causa Raiz**: O componente JSX fazia uso da tag `<Loader2 className="..." />` para exibir o ícone de carregamento, contudo a desestruturação de `Loader2` havia sido omitida na declaração `import { ... } from "lucide-react";` no topo do arquivo.
 * **Solução Padrão**:
-  Remover a trava `if (!user) return;`, tornando o `fetchRides` incondicional e adicionando fallback para buscar por IDs salvos ou corridas públicas pendentes/aceitas:
-  1. Gerar o ID da corrida no cliente via `crypto.randomUUID()` e salvar em `localStorage` no momento da criação.
-  2. Executar `fetchRides` incondicionalmente no `useEffect`, consultando por `user_id`, `customer_name` ou pelos IDs locais salvos em `localStorage`.
+  Incluir `Loader2` expressamente na instrução de importação do `lucide-react`:
+  ```tsx
+  import { ArrowLeft, MapPin, Loader2 } from "lucide-react";
+  ```
