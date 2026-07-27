@@ -506,16 +506,17 @@ function ProfilePage() {
                     { value: "taxi", label: "Transporte de Passageiros (Táxi)" },
                     { value: "mototaxi", label: "Transporte de Passageiros (Moto Táxi)" },
                   ].map((item) => {
-                    const active = serviceTypes.includes(item.value);
+                    const safeServiceTypes = Array.isArray(serviceTypes) ? serviceTypes : [];
+                    const active = safeServiceTypes.includes(item.value);
                     return (
                       <button
                         key={item.value}
                         type="button"
                         onClick={() => {
                           if (active) {
-                            setServiceTypes(serviceTypes.filter((x) => x !== item.value));
+                            setServiceTypes(safeServiceTypes.filter((x) => x !== item.value));
                           } else {
-                            setServiceTypes([...serviceTypes, item.value]);
+                            setServiceTypes([...safeServiceTypes, item.value]);
                           }
                         }}
                         className={`p-3 rounded-2xl border text-left text-xs font-bold transition-all ${

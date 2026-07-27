@@ -42,28 +42,30 @@ function DriverHome() {
     }).catch(() => {});
   }, [user]);
 
+  const safeServices = Array.isArray(driverServiceTypes) ? driverServiceTypes : [];
+
   const isDeliveryDriver = 
-    driverServiceTypes.length === 0 ||
-    driverServiceTypes.includes("delivery_moto") || 
-    driverServiceTypes.includes("delivery_car") ||
-    driverServiceTypes.includes("delivery_carro_aberto") ||
-    driverServiceTypes.includes("moto") ||
-    driverServiceTypes.includes("carro");
+    safeServices.length === 0 ||
+    safeServices.includes("delivery_moto") || 
+    safeServices.includes("delivery_car") ||
+    safeServices.includes("delivery_carro_aberto") ||
+    safeServices.includes("moto") ||
+    safeServices.includes("carro");
 
   const available = useQuery({
-    queryKey: ["deliveries", "available", driverServiceTypes],
+    queryKey: ["deliveries", "available", safeServices],
     queryFn: async () => {
       const raw = await fetchAvailableDeliveries();
       if (!raw || raw.length === 0) return [];
       
       // Se não tiver restrição explícita, mostra todas as entregas disponíveis
-      if (driverServiceTypes.length === 0) return raw;
+      if (safeServices.length === 0) return raw;
 
       return raw.filter((del: any) => {
         const requestedVehicle = del.vehicle_type || "moto";
-        if (requestedVehicle === "moto" && (driverServiceTypes.includes("delivery_moto") || driverServiceTypes.includes("moto"))) return true;
-        if (requestedVehicle === "carro" && (driverServiceTypes.includes("delivery_car") || driverServiceTypes.includes("carro"))) return true;
-        if (requestedVehicle === "carro_aberto" && (driverServiceTypes.includes("delivery_carro_aberto") || driverServiceTypes.includes("carro_aberto"))) return true;
+        if (requestedVehicle === "moto" && (safeServices.includes("delivery_moto") || safeServices.includes("moto"))) return true;
+        if (requestedVehicle === "carro" && (safeServices.includes("delivery_car") || safeServices.includes("carro"))) return true;
+        if (requestedVehicle === "carro_aberto" && (safeServices.includes("delivery_carro_aberto") || safeServices.includes("carro_aberto"))) return true;
         return true; // Fallback para mostrar entregas disponíveis por padrão
       });
     },
@@ -78,11 +80,11 @@ function DriverHome() {
 
   // Consultas de Corridas de Táxi/Moto Táxi
   const availableRides = useQuery({
-    queryKey: ["rides", "available", driverServiceTypes],
+    queryKey: ["rides", "available", safeServices],
     queryFn: async () => {
       const types: string[] = [];
-      if (driverServiceTypes.includes("taxi")) types.push("taxi");
-      if (driverServiceTypes.includes("mototaxi")) types.push("mototaxi");
+      if (safeServices.includes("taxi")) types.push("taxi");
+      if (safeServices.includes("mototaxi")) types.push("mototaxi");
 
       let query = (supabase as any)
         .from("ride_requests")
@@ -247,7 +249,7 @@ function DriverHome() {
             { value: "taxi", label: "Transporte de Passageiros (Táxi)" },
             { value: "mototaxi", label: "Transporte de Passageiros (Moto Táxi)" },
           ].map((item) => {
-            const active = driverServiceTypes.includes(item.value);
+            const active = safeServices.includes(item.value);
             return (
               <div
                 key={item.value}
