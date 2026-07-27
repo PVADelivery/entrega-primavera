@@ -126,17 +126,13 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 * **Solução Padrão**:
   Executar consultas independentes e limpas em paralelo via `Promise.all([queryUser, querySavedIds, queryEmail])` e mesclar/deduplicar os resultados por `id` no frontend:
   ```tsx
-  const results = await Promise.all(queryPromises);
-  const combinedRides: any[] = [];
-  const seenIds = new Set<string>();
-  for (const res of results) {
-    if (res.data) {
-      for (const item of res.data) {
-        if (!seenIds.has(item.id)) {
-          seenIds.add(item.id);
-          combinedRides.push(item);
-        }
-      }
-    }
-  }
-  ```
+
+---
+
+### 14. Bloqueio de Busca de Corridas por Trava de Autenticação (`if (!user) return;`) em Sessões Anônimas
+* **Sintoma**: A tela `/marketplace/rides` exibia "Você ainda não solicitou nenhuma corrida." para clientes que navegaram ou solicitaram corrida em modo convidado/anônimo.
+* **Causa Raiz**: O hook `useEffect` em `marketplace.rides.tsx` continha a trava condicional `if (!user) return;` antes da definição e execução da função `fetchRides()`. Quando o objeto `user` iniciava como nulo (sessão de convidado ou auth assíncrono), o carregamento de corridas por ID local (`localStorage`) nem sequer era invocado.
+* **Solução Padrão**:
+  Remover a trava `if (!user) return;`, tornando o `fetchRides` incondicional e adicionando fallback para buscar por IDs salvos ou corridas públicas pendentes/aceitas:
+  1. Gerar o ID da corrida no cliente via `crypto.randomUUID()` e salvar em `localStorage` no momento da criação.
+  2. Executar `fetchRides` incondicionalmente no `useEffect`, consultando por `user_id`, `customer_name` ou pelos IDs locais salvos em `localStorage`.
