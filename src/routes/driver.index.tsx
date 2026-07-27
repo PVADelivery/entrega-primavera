@@ -77,26 +77,28 @@ function DriverHome() {
   });
 
   // Consultas de Corridas de Táxi/Moto Táxi
-  const isTaxiOrMotoTaxi = driverServiceTypes.includes("taxi") || driverServiceTypes.includes("mototaxi");
-
   const availableRides = useQuery({
     queryKey: ["rides", "available", driverServiceTypes],
     queryFn: async () => {
-      const types = [];
+      const types: string[] = [];
       if (driverServiceTypes.includes("taxi")) types.push("taxi");
       if (driverServiceTypes.includes("mototaxi")) types.push("mototaxi");
-      if (types.length === 0) return [];
 
-      const { data, error } = await (supabase as any)
+      let query = (supabase as any)
         .from("ride_requests")
         .select("*")
         .eq("status", "pending")
-        .is("driver_id", null)
-        .in("vehicle_type", types);
+        .is("driver_id", null);
+
+      if (types.length > 0) {
+        query = query.in("vehicle_type", types);
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as any[];
     },
-    enabled: !!driverId && isTaxiOrMotoTaxi,
+    enabled: !!driverId,
   });
 
   const activeRides = useQuery({
