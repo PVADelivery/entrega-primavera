@@ -117,11 +117,26 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
   2. Carregar o módulo dinamicamente dentro do `useEffect`:
      ```tsx
      useEffect(() => {
-       if (typeof window === "undefined") return;
-       let isMounted = true;
-       import("maplibre-gl").then((mod) => {
-         if (isMounted) setMapLibre(mod.default || mod);
-       });
-       return () => { isMounted = false; };
-     }, []);
-     ```
+
+---
+
+### 13. Erro 400 em Consulta Supabase por Sintaxe Inválida de `id.in.(...)` dentro de String `.or(...)`
+* **Sintoma**: A página `/marketplace/rides` exibia "Você ainda não solicitou nenhuma corrida." mesmo após solicitar corrida e salvar o ID no dispositivo.
+* **Causa Raiz**: O uso da string `.or("user_id.eq.XXX,id.in.(AAA,BBB)")` no Supabase JS. O manipulador PostgREST não suporta parênteses aninhados da cláusula `in.(...)` dentro de uma expressão lógica `.or()`, disparando um erro HTTP 400 (Bad Request) que abortava a execução da consulta e limpava o resultado.
+* **Solução Padrão**:
+  Executar consultas independentes e limpas em paralelo via `Promise.all([queryUser, querySavedIds, queryEmail])` e mesclar/deduplicar os resultados por `id` no frontend:
+  ```tsx
+  const results = await Promise.all(queryPromises);
+  const combinedRides: any[] = [];
+  const seenIds = new Set<string>();
+  for (const res of results) {
+    if (res.data) {
+      for (const item of res.data) {
+        if (!seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          combinedRides.push(item);
+        }
+      }
+    }
+  }
+  ```
