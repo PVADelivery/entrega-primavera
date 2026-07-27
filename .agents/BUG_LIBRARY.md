@@ -105,3 +105,23 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 * **Causa Raiz**: O componente continha uma instrução de retorno condicional `if (!mounted) return <Skeleton />` posicionada no meio do componente, ANTES de outras chamadas de `useEffect`, `useState` ou `useRef`. No primeiro render (SSR/Mount), a trava retornava precocemente e pulava os hooks inferiores. No render seguinte (quando `mounted` tornava-se `true`), os hooks inferiores eram executados, alterando a quantidade de hooks chamados entre renders e violando as Regras de Hooks do React ("Rendered more hooks than during the previous render").
 * **Solução Padrão**:
   Declarar 100% dos hooks (`useState`, `useRef`, `useEffect`) incondicionalmente no topo da função do componente, posicionando o retorno condicional de montagem cliente `if (!mounted) return <Skeleton />` APÓS a declaração de todos os hooks.
+
+---
+
+### 12. Erro de Construtor ES6 "Class constructor Ua cannot be invoked without 'new'" ao carregar MapLibre via CDN Script
+* **Sintoma**: Ao carregar páginas com mapa (como `/marketplace/rides`, `/marketplace/taxi`), o app falha com "This page didn't load / Class constructor Ua cannot be invoked without 'new'".
+* **Causa Raiz**: O componente injetava um script global via `<script src="https://unpkg.com/maplibre-gl...">`. Em ambientes empacotados com Vite em modo de produção (ES modules), chamar `new MapLibre.Map(...)` ou `new MapLibre.Marker(...)` a partir da variável injetada no escopo global `window.maplibregl` fazia a classe ser invocada através de um wrapper transpilado sem o operador `new` nativo do ES6.
+* **Solução Padrão**:
+  Substituir a injeção manual de tags `<script>` CDN pela importação dinâmica de ES module nativa do bundler:
+  1. Importar o CSS estaticamente: `import "maplibre-gl/dist/maplibre-gl.css";`
+  2. Carregar o módulo dinamicamente dentro do `useEffect`:
+     ```tsx
+     useEffect(() => {
+       if (typeof window === "undefined") return;
+       let isMounted = true;
+       import("maplibre-gl").then((mod) => {
+         if (isMounted) setMapLibre(mod.default || mod);
+       });
+       return () => { isMounted = false; };
+     }, []);
+     ```
