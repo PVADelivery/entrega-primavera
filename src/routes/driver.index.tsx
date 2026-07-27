@@ -69,7 +69,7 @@ function DriverHome() {
         return true; // Fallback para mostrar entregas disponíveis por padrão
       });
     },
-    enabled: !!driverId,
+    enabled: true,
   });
 
   const active = useQuery({
@@ -105,7 +105,7 @@ function DriverHome() {
 
       return rides;
     },
-    enabled: !!driverId,
+    enabled: true,
   });
 
   const activeRides = useQuery({
