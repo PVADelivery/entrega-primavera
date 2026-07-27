@@ -128,13 +128,14 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
   ```tsx
 
 
+
 ---
 
-### 15. Erro de SSR/Runtime "Loader2 is not defined" por Import Ausente do Lucide-React
-* **Sintoma**: As telas `/marketplace/errands` e `/marketplace/taxi` falhavam no Cloudflare com "This page didn't load / Loader2 is not defined".
-* **Causa Raiz**: O componente JSX fazia uso da tag `<Loader2 className="..." />` para exibir o ícone de carregamento, contudo a desestruturação de `Loader2` havia sido omitida na declaração `import { ... } from "lucide-react";` no topo do arquivo.
+### 16. Ocultação de Corridas de Táxi/Moto no App do Entregador por Faltar Serviços Autorizados ou Trava de Query (`driver.index.tsx`)
+* **Sintoma**: O entregador ficava Online no aplicativo (`entrega-primavera`), porém a lista "Entregas disponíveis" continuava exibindo "Sem entregas no momento".
+* **Causa Raiz**:
+  1. No Painel Admin (`painel-primavera`), o modal `EditDriverDialog.tsx` não contava com `useEffect` para sincronizar os dados do entregador selecional com o formulário, fazendo os "Serviços Autorizados" iniciarem desmarcados (array vazio `[]`).
+  2. No App do Entregador (`entrega-primavera`), a query `availableRides` possuía uma trava de ativação condicional `enabled: !!driverId && isTaxiOrMotoTaxi`. Quando `service_types` era nulo ou vazio, `isTaxiOrMotoTaxi` retornava `false`, impedindo que o app do entregador consultasse as corridas pendentes no Supabase.
 * **Solução Padrão**:
-  Incluir `Loader2` expressamente na instrução de importação do `lucide-react`:
-  ```tsx
-  import { ArrowLeft, MapPin, Loader2 } from "lucide-react";
-  ```
+  1. No Admin (`EditDriverDialog.tsx`), adicionar `useEffect` para sincronizar o formulário e atribuir serviços padrão quando `service_types` for um array vazio.
+  2. No App do Entregador (`driver.index.tsx`), remover a restrição `isTaxiOrMotoTaxi` do parâmetro `enabled` e ajustar a consulta para retornar todas as corridas pendentes (`status = 'pending'`) caso não haja filtragem rígida de veículo.
