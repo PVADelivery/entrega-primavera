@@ -17,7 +17,7 @@ export function DriverHeader() {
   const [name, setName] = useState("Entregador");
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || typeof window === "undefined") return;
 
     // Carrega status salvo do localStorage como prioridade
     const localStatus = localStorage.getItem(`driver_is_online_${user.id}`);
