@@ -132,13 +132,14 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 19. Ocultação do Bloco JSX de "Corridas Disponíveis" no DOM do App do Entregador (`driver.index.tsx`)
-* **Sintoma**: Solicitações de Táxi/Moto Táxi eram criadas pelo cliente, mas a seção "Corridas Disponíveis" não aparecia na tela do entregador (`/driver`).
-* **Causa Raiz**: O componente continha uma trava de renderização de bloco `{isTaxiOrMotoTaxi && (<section>...</section>)}`. Quando `service_types` era um array vazio, a constante `isTaxiOrMotoTaxi` retornava `false`, suprimindo a seção inteira do DOM mesmo existindo corridas no Supabase.
+### 20. Bloqueio de Carregamento de Corridas/Entregas por Trava Assíncrona `enabled: !!driverId` (`driver.index.tsx`)
+* **Sintoma**: Entregador online visualizava a mensagem "Sem corridas de Táxi ou Moto Táxi disponíveis" mesmo existindo corridas no banco de dados.
+* **Causa Raiz**: As hooks `useQuery` para `available` e `availableRides` no app do entregador utilizavam a condição `enabled: !!driverId`. Como `driverId` é resolvido assincronamente via `ensureDriverRow`, o React Query desativava a execução da consulta, mantendo o resultado como `undefined` e forçando o render do fallback de lista vazia.
 * **Solução Padrão**:
-  Permitir a exibição da seção quando houver corridas disponíveis ou serviços genéricos:
+  Remover a restrição `enabled: !!driverId` e definir `enabled: true` em consultas de ofertas globais desatribuidas (`driver_id IS NULL`), permitindo carregamento imediato:
   ```tsx
-  {(isTaxiOrMotoTaxi || (availableRides.data && availableRides.data.length > 0)) && (...)}
+  enabled: true,
   ```
