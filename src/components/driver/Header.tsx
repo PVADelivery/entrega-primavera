@@ -53,7 +53,7 @@ export function DriverHeader() {
 
   useEffect(() => {
     let watchId: number;
-    if (online && user && navigator.geolocation) {
+    if (typeof window !== "undefined" && online && user && typeof navigator !== "undefined" && navigator.geolocation) {
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           supabase
@@ -66,7 +66,9 @@ export function DriverHeader() {
       );
     }
     return () => {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
+      if (watchId && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
     };
   }, [online, user]);
 

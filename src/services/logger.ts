@@ -23,10 +23,10 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ce
       stack_trace: payload.stack_trace || new Error().stack || "",
       user_id: user?.id || "Não autenticado",
       user_email: user?.email || "Anônimo",
-      url: payload.url || window.location.pathname,
+      url: payload.url || (typeof window !== "undefined" ? window.location.pathname : ""),
       additional_info: {
-        userAgent: navigator.userAgent,
-        screenResolution: `${window.innerWidth}x${window.innerHeight}`,
+        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "SSR/Server",
+        screenResolution: typeof window !== "undefined" ? `${window.innerWidth}x${window.innerHeight}` : "SSR/Server",
         time: new Date().toISOString(),
         ...payload.additional_info
       }
