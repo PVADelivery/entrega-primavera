@@ -133,13 +133,15 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
+
 ---
 
-### 20. Bloqueio de Carregamento de Corridas/Entregas por Trava Assíncrona `enabled: !!driverId` (`driver.index.tsx`)
-* **Sintoma**: Entregador online visualizava a mensagem "Sem corridas de Táxi ou Moto Táxi disponíveis" mesmo existindo corridas no banco de dados.
-* **Causa Raiz**: As hooks `useQuery` para `available` e `availableRides` no app do entregador utilizavam a condição `enabled: !!driverId`. Como `driverId` é resolvido assincronamente via `ensureDriverRow`, o React Query desativava a execução da consulta, mantendo o resultado como `undefined` e forçando o render do fallback de lista vazia.
+### 22. Inconsistência Visual e de Nomenclatura nos Cartões de Corrida (`marketplace.rides.tsx`)
+* **Sintoma**: O cartão de corrida ativa em destaque no topo da tela exibia "Moto Táxi" / "Carro (Táxi)", enquanto os cartões do histórico na parte inferior exibiam rótulos reduzidos "Moto" / "Táxi" com layout e cores de badge totalmente diferentes.
+* **Causa Raiz**: O componente `marketplace.rides.tsx` não utilizava o mesmo padrão de rótulos e tokens visuais do design system entre o hero card (corrida em andamento) e a lista iterada de histórico.
 * **Solução Padrão**:
-  Remover a restrição `enabled: !!driverId` e definir `enabled: true` em consultas de ofertas globais desatribuidas (`driver_id IS NULL`), permitindo carregamento imediato:
+  Padronizar a exibição para `"Moto Táxi"` e `"Táxi (Carro)"` em 100% dos cartões, unificando a estrutura dos marcadores de endereço (verde/vermelho), tipografia e badges de status:
   ```tsx
-  enabled: true,
+  {ride.vehicle_type === "taxi" ? "Táxi (Carro)" : "Moto Táxi"}
   ```
