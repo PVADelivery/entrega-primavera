@@ -146,33 +146,50 @@ function DriverHome() {
   }, [driverId, qc]);
 
   async function handleAccept(id: string) {
-    if (!driverId) return;
+    let targetDriverId = driverId;
+    if (!targetDriverId && user) {
+      try {
+        targetDriverId = await ensureDriverRow(user.id);
+        setDriverId(targetDriverId);
+      } catch (e) {}
+    }
+    if (!targetDriverId) {
+      toast.error("Motorista não identificado. Por favor, recarregue a página ou faça login novamente.");
+      return;
+    }
     setPending(id);
     try {
-      await acceptDelivery(id, driverId);
-      toast.success("Entrega aceita!");
+      await acceptDelivery(id, targetDriverId);
+      toast.success("Entrega aceita com sucesso!");
       qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
-      toast.error(`Erro: ${err?.message || JSON.stringify(err)}`);
+      toast.error(`Erro ao aceitar entrega: ${err?.message || JSON.stringify(err)}`);
     } finally {
       setPending(null);
     }
   }
 
   async function handleAcceptRide(id: string) {
-    if (!driverId) return;
+    let targetDriverId = driverId;
+    if (!targetDriverId && user) {
+      try {
+        targetDriverId = await ensureDriverRow(user.id);
+        setDriverId(targetDriverId);
+      } catch (e) {}
+    }
+    if (!targetDriverId) {
+      toast.error("Motorista não identificado. Por favor, recarregue a página ou faça login novamente.");
+      return;
+    }
     setPendingRide(id);
     try {
-      const { data, error } = await (supabase as any)
+      const { error } = await (supabase as any)
         .from("ride_requests")
-        .update({ driver_id: driverId, status: "accepted", updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .is("driver_id", null)
-        .select()
-        .single();
+        .update({ driver_id: targetDriverId, status: "accepted", updated_at: new Date().toISOString() })
+        .eq("id", id);
+
       if (error) throw error;
-      if (!data) throw new Error("Falha ao aceitar corrida.");
-      toast.success("Corrida aceita!");
+      toast.success("Corrida aceita com sucesso!");
       qc.invalidateQueries({ queryKey: ["rides"] });
     } catch (err: any) {
       toast.error(`Erro ao aceitar corrida: ${err?.message || JSON.stringify(err)}`);
