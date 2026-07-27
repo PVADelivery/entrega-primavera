@@ -130,13 +130,15 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 17. Erro "This page didn't load" no App do Entregador por `TypeError` em `.includes()` de Array Nulo (`driver.index.tsx` / `driver.profile.tsx`)
+### 18. Erro "This page didn't load" por Acesso sem Proteção a `window` e `navigator` durante SSR (`logger.ts` / `Header.tsx`)
 * **Sintoma**: Ao acessar `https://entregador.mt24horasexpress.com/driver`, a página exibia "This page didn't load / Something went wrong on our end".
-* **Causa Raiz**: O estado `driverServiceTypes` ou `serviceTypes` recebia valor `null` da coluna `service_types` da tabela `delivery_drivers`. Ao tentar renderizar as abas de serviços ou executar filtros chamando `driverServiceTypes.includes(...)` diretamente sem validação de tipo, o React/SSR disparava uma exceção `TypeError: Cannot read properties of null (reading 'includes')`.
+* **Causa Raiz**: O utilitário `logger.ts` e o componente de cabeçalho `Header.tsx` acessavam diretamente as propriedades de navegador `navigator.userAgent`, `window.innerWidth`, `window.location.pathname` e `navigator.geolocation` no escopo de execução. No Cloudflare Workers (SSR), esses objetos não existem globalmente, disparando `ReferenceError` e quebrando o render no servidor.
 * **Solução Padrão**:
-  Sempre utilizar o auxiliar nulo-seguro antes de qualquer chamada `.includes()` ou `.length`:
+  Proteger todos os acessos globais a `window` e `navigator`:
   ```tsx
-  const safeServices = Array.isArray(driverServiceTypes) ? driverServiceTypes : [];
+  url: payload.url || (typeof window !== "undefined" ? window.location.pathname : ""),
+  userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "SSR/Server"
   ```
