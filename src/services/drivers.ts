@@ -22,48 +22,112 @@ export type DriverWithProfile = {
 };
 
 export async function fetchDrivers(): Promise<DriverWithProfile[]> {
-  // delivery_drivers already has: full_name, phone, document, avatar_url,
-  // vehicle_type, vehicle_plate, status, is_online, rating, etc.
-  
-  const { data: drivers, error } = await supabase
+  // 1. Fetch delivery_drivers
+  const { data: driversData } = await supabase
     .from("delivery_drivers")
     .select("*")
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
-  if (!drivers) return [];
+  // 2. Fetch user_roles for drivers/motoboys/entregadores/taxi
+  const { data: driverRoles } = await supabase
+    .from("user_roles")
+    .select("user_id, role");
 
-  // Also fetch profiles as fallback for name/phone (in case delivery_drivers is empty)
-  const userIds = drivers.map(d => d.user_id);
-  const { data: profiles } = userIds.length > 0
-    ? await supabase
-        .from("profiles")
-        .select("user_id, full_name, phone, avatar_url, document")
-        .in("user_id", userIds)
-    : { data: [] };
+  const driverRoleKeywords = ["driver", "motoboy", "entregador", "taxi", "mototaxi"];
 
-  return drivers.map(driver => {
+  const roleDriverUserIds = (driverRoles || [])
+    .filter(r => {
+      const rRole = String(r.role || "").toLowerCase();
+      return driverRoleKeywords.some(k => rRole.includes(k));
+    })
+    .map(r => r.user_id)
+    .filter(Boolean);
+
+  // 3. Fetch all profiles
+  const { data: allProfiles } = await supabase
+    .from("profiles")
+    .select("*");
+
+  const profileDriverUserIds = (allProfiles || [])
+    .filter(p => {
+      const pRole = String(p.role || "").toLowerCase();
+      const pUserId = p.user_id || p.id;
+      return (
+        driverRoleKeywords.some(k => pRole.includes(k)) ||
+        roleDriverUserIds.includes(pUserId)
+      );
+    })
+    .map(p => p.user_id || p.id)
+    .filter(Boolean);
+
+  const allDriverUserIds = Array.from(new Set([
+    ...(driversData || []).map(d => d.user_id || d.id),
+    ...roleDriverUserIds,
+    ...profileDriverUserIds
+  ])).filter(Boolean);
+
+  // Combine results
+  const resultDrivers: DriverWithProfile[] = [];
+  const processedUserIds = new Set<string>();
+  const processedDriverIds = new Set<string>();
+
+  for (const driver of (driversData || [])) {
+    const dUserId = driver.user_id || driver.id;
+    if (driver.user_id) processedUserIds.add(driver.user_id);
+    if (driver.id) processedDriverIds.add(driver.id);
+    if (dUserId) {
+      processedUserIds.add(dUserId);
+      processedDriverIds.add(dUserId);
+    }
+
     const raw = driver as any;
-    const profile = profiles?.find(p => p.user_id === driver.user_id);
-    return {
-      id: driver.id,
-      user_id: driver.user_id,
-      // Use delivery_drivers columns directly, fallback to profiles
-      full_name: raw.full_name || profile?.full_name || "Entregador",
+    const profile = allProfiles?.find(p => (p.user_id || p.id) === driver.user_id || (p.user_id || p.id) === driver.id);
+
+    resultDrivers.push({
+      id: driver.id || driver.user_id,
+      user_id: driver.user_id || driver.id,
+      full_name: raw.full_name || profile?.full_name || raw.name || "Entregador",
       phone: raw.phone || profile?.phone || null,
-      document: raw.document || profile?.document || null,
+      document: raw.document || profile?.document || raw.cpf || null,
       avatar_url: raw.avatar_url || profile?.avatar_url || null,
-      vehicle_type: raw.vehicle_type || raw.vehicle || "motorcycle",
-      vehicle_plate: raw.vehicle_plate || raw.license_plate || null,
+      vehicle_type: raw.vehicle_type || raw.vehicle || "moto",
+      vehicle_plate: raw.vehicle_plate || raw.license_plate || raw.plate || null,
       is_online: raw.is_online ?? raw.online ?? false,
       rating: Number(driver.rating) || 5.0,
       latitude: raw.latitude || raw.current_latitude || null,
       longitude: raw.longitude || raw.current_longitude || null,
-      status: raw.status || "active",
+      status: raw.status || (raw.is_active === false ? "suspended" : "active"),
       commission_rate: raw.commission_rate !== null && raw.commission_rate !== undefined ? Number(raw.commission_rate) : 0.40,
-      created_at: driver.created_at,
-    } as DriverWithProfile;
-  });
+      created_at: driver.created_at || profile?.created_at,
+    });
+  }
+
+  for (const userId of allDriverUserIds) {
+    if (!processedUserIds.has(userId) && !processedDriverIds.has(userId)) {
+      const profile = allProfiles?.find(p => (p.user_id || p.id) === userId);
+      resultDrivers.push({
+        id: userId,
+        user_id: userId,
+        full_name: profile?.full_name || "Entregador Cadastrado",
+        phone: profile?.phone || null,
+        document: profile?.document || null,
+        avatar_url: profile?.avatar_url || null,
+        vehicle_type: "moto",
+        vehicle_plate: null,
+        is_online: false,
+        rating: 5.0,
+        latitude: null,
+        longitude: null,
+        status: "active",
+        commission_rate: 0.40,
+        created_at: profile?.created_at || new Date().toISOString(),
+      });
+      processedUserIds.add(userId);
+      processedDriverIds.add(userId);
+    }
+  }
+
+  return resultDrivers;
 }
 
 
