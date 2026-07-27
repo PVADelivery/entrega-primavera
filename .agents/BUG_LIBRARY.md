@@ -131,14 +131,14 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 18. Erro "This page didn't load" por Acesso sem Proteção a `window` e `navigator` durante SSR (`logger.ts` / `Header.tsx`)
-* **Sintoma**: Ao acessar `https://entregador.mt24horasexpress.com/driver`, a página exibia "This page didn't load / Something went wrong on our end".
-* **Causa Raiz**: O utilitário `logger.ts` e o componente de cabeçalho `Header.tsx` acessavam diretamente as propriedades de navegador `navigator.userAgent`, `window.innerWidth`, `window.location.pathname` e `navigator.geolocation` no escopo de execução. No Cloudflare Workers (SSR), esses objetos não existem globalmente, disparando `ReferenceError` e quebrando o render no servidor.
+### 19. Ocultação do Bloco JSX de "Corridas Disponíveis" no DOM do App do Entregador (`driver.index.tsx`)
+* **Sintoma**: Solicitações de Táxi/Moto Táxi eram criadas pelo cliente, mas a seção "Corridas Disponíveis" não aparecia na tela do entregador (`/driver`).
+* **Causa Raiz**: O componente continha uma trava de renderização de bloco `{isTaxiOrMotoTaxi && (<section>...</section>)}`. Quando `service_types` era um array vazio, a constante `isTaxiOrMotoTaxi` retornava `false`, suprimindo a seção inteira do DOM mesmo existindo corridas no Supabase.
 * **Solução Padrão**:
-  Proteger todos os acessos globais a `window` e `navigator`:
+  Permitir a exibição da seção quando houver corridas disponíveis ou serviços genéricos:
   ```tsx
-  url: payload.url || (typeof window !== "undefined" ? window.location.pathname : ""),
-  userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "SSR/Server"
+  {(isTaxiOrMotoTaxi || (availableRides.data && availableRides.data.length > 0)) && (...)}
   ```
