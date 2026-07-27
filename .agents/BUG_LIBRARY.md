@@ -129,13 +129,14 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 16. Ocultação de Corridas de Táxi/Moto no App do Entregador por Faltar Serviços Autorizados ou Trava de Query (`driver.index.tsx`)
-* **Sintoma**: O entregador ficava Online no aplicativo (`entrega-primavera`), porém a lista "Entregas disponíveis" continuava exibindo "Sem entregas no momento".
-* **Causa Raiz**:
-  1. No Painel Admin (`painel-primavera`), o modal `EditDriverDialog.tsx` não contava com `useEffect` para sincronizar os dados do entregador selecional com o formulário, fazendo os "Serviços Autorizados" iniciarem desmarcados (array vazio `[]`).
-  2. No App do Entregador (`entrega-primavera`), a query `availableRides` possuía uma trava de ativação condicional `enabled: !!driverId && isTaxiOrMotoTaxi`. Quando `service_types` era nulo ou vazio, `isTaxiOrMotoTaxi` retornava `false`, impedindo que o app do entregador consultasse as corridas pendentes no Supabase.
+### 17. Erro "This page didn't load" no App do Entregador por `TypeError` em `.includes()` de Array Nulo (`driver.index.tsx` / `driver.profile.tsx`)
+* **Sintoma**: Ao acessar `https://entregador.mt24horasexpress.com/driver`, a página exibia "This page didn't load / Something went wrong on our end".
+* **Causa Raiz**: O estado `driverServiceTypes` ou `serviceTypes` recebia valor `null` da coluna `service_types` da tabela `delivery_drivers`. Ao tentar renderizar as abas de serviços ou executar filtros chamando `driverServiceTypes.includes(...)` diretamente sem validação de tipo, o React/SSR disparava uma exceção `TypeError: Cannot read properties of null (reading 'includes')`.
 * **Solução Padrão**:
-  1. No Admin (`EditDriverDialog.tsx`), adicionar `useEffect` para sincronizar o formulário e atribuir serviços padrão quando `service_types` for um array vazio.
-  2. No App do Entregador (`driver.index.tsx`), remover a restrição `isTaxiOrMotoTaxi` do parâmetro `enabled` e ajustar a consulta para retornar todas as corridas pendentes (`status = 'pending'`) caso não haja filtragem rígida de veículo.
+  Sempre utilizar o auxiliar nulo-seguro antes de qualquer chamada `.includes()` ou `.length`:
+  ```tsx
+  const safeServices = Array.isArray(driverServiceTypes) ? driverServiceTypes : [];
+  ```
