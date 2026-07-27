@@ -88,19 +88,22 @@ function DriverHome() {
       if (safeServices.includes("taxi")) types.push("taxi");
       if (safeServices.includes("mototaxi")) types.push("mototaxi");
 
-      let query = (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
         .eq("status", "pending")
-        .is("driver_id", null);
+        .is("driver_id", null)
+        .order("created_at", { ascending: false });
 
-      if (types.length > 0) {
-        query = query.in("vehicle_type", types);
+      if (error) throw error;
+      const rides = (data ?? []) as any[];
+
+      if (types.length > 0 && rides.length > 0) {
+        const filtered = rides.filter((r: any) => types.includes(r.vehicle_type));
+        if (filtered.length > 0) return filtered;
       }
 
-      const { data, error } = await query.order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as any[];
+      return rides;
     },
     enabled: !!driverId,
   });
