@@ -143,15 +143,16 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 30. Exibição de Corrida Pendente no "Histórico de Corridas" (`marketplace.rides.tsx`)
-* **Sintoma**: Ao solicitar mais de uma corrida no app do cliente, uma corrida ativa com status "Procurando motorista" aparecia listada dentro da seção "Histórico de Corridas".
-* **Causa Raiz**: O componente selecionava apenas 1 corrida ativa principal para o topo (`activeRide`) e mapeava todas as outras corridas da lista através de `rides.filter(r => r.id !== activeRide?.id)` dentro do contêiner intitulado "Histórico de Corridas", sem filtrar pelo status finalizado.
+### 31. Quebra de Linha Desconfortável no Menu Inferior (`BottomNav.tsx`)
+* **Sintoma**: O texto "Entregas & Corridas" no menu inferior do entregador quebrava em duas linhas ("Entregas &" / "Corridas") em telas de smartphones estreitas.
+* **Causa Raiz**: O elemento `<span>` contendo o rótulo não tinha a restrição `whitespace-nowrap` e usava tamanho fixo sem compactação de espaçamento.
 * **Solução Padrão**:
-  Em `marketplace.rides.tsx`, separar as listas:
-  1. Exibir outras corridas ativas (`pending`, `accepted`, `in_progress`) na seção "Outras Corridas em Andamento".
-  2. Filtrar o "Histórico de Corridas" estritamente por status finalizados:
-     ```tsx
-     rides.filter((r) => r.status === "completed" || r.status === "cancelled")
-     ```
+  Adicionar a classe `whitespace-nowrap text-[9px] sm:text-[10px] tracking-tighter leading-none max-w-full truncate` no elemento `<span>` de `BottomNav.tsx`:
+  ```tsx
+  <span className={cn("font-semibold tracking-tighter whitespace-nowrap text-[9px] sm:text-[10px] leading-none mt-0.5 max-w-full truncate", active && "text-foreground")}>
+    {label}
+  </span>
+  ```
