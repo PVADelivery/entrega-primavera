@@ -481,20 +481,32 @@ export async function getDriverIdFromUser(userId: string): Promise<string | null
   return data?.id ?? null;
 }
 
-export async function ensureDriverRow(userId: string, regionId?: string | null) {
-  const { data } = await supabase
-    .from("delivery_drivers")
-    .select("id")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (data) return data.id;
-  const { data: created, error } = await supabase
-    .from("delivery_drivers")
-    .insert({ user_id: userId, region_id: regionId ?? null })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return created.id;
+export async function ensureDriverRow(userId: string, regionId?: string | null): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from("delivery_drivers")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (data?.id) return data.id;
+
+    const { data: dataById } = await supabase
+      .from("delivery_drivers")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (dataById?.id) return dataById.id;
+
+    const { data: created } = await supabase
+      .from("delivery_drivers")
+      .insert({ user_id: userId, region_id: regionId ?? null } as any)
+      .select("id")
+      .maybeSingle();
+    if (created?.id) return created.id;
+  } catch (err) {
+    console.error("Erro em ensureDriverRow:", err);
+  }
+  return userId;
 }
 
 export async function fetchEarnings(driverId: string) {

@@ -35,11 +35,14 @@ function DriverHome() {
 
   useEffect(() => {
     if (!user) return;
+    // Tenta obter o ID do motorista ou assume o user.id da sessão
     ensureDriverRow(user.id).then(async (id) => {
       setDriverId(id);
       const { data } = await supabase.from("delivery_drivers").select("service_types").eq("user_id", user.id).maybeSingle();
       if ((data as any)?.service_types) setDriverServiceTypes((data as any).service_types);
-    }).catch(() => {});
+    }).catch(() => {
+      setDriverId(user.id);
+    });
   }, [user]);
 
   const safeServices = Array.isArray(driverServiceTypes) ? driverServiceTypes : [];
@@ -146,7 +149,7 @@ function DriverHome() {
   }, [driverId, qc]);
 
   async function handleAccept(id: string) {
-    let targetDriverId = driverId;
+    let targetDriverId = driverId || (user ? user.id : null);
     if (!targetDriverId && user) {
       try {
         targetDriverId = await ensureDriverRow(user.id);
@@ -154,7 +157,7 @@ function DriverHome() {
       } catch (e) {}
     }
     if (!targetDriverId) {
-      toast.error("Motorista não identificado. Por favor, recarregue a página ou faça login novamente.");
+      toast.error("Você precisa estar conectado para aceitar entregas.");
       return;
     }
     setPending(id);
@@ -170,7 +173,7 @@ function DriverHome() {
   }
 
   async function handleAcceptRide(id: string) {
-    let targetDriverId = driverId;
+    let targetDriverId = driverId || (user ? user.id : null);
     if (!targetDriverId && user) {
       try {
         targetDriverId = await ensureDriverRow(user.id);
@@ -178,7 +181,7 @@ function DriverHome() {
       } catch (e) {}
     }
     if (!targetDriverId) {
-      toast.error("Motorista não identificado. Por favor, recarregue a página ou faça login novamente.");
+      toast.error("Você precisa estar conectado para aceitar corridas.");
       return;
     }
     setPendingRide(id);
