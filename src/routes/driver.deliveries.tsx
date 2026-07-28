@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverShell } from "@/components/driver/DriverShell";
@@ -192,13 +192,17 @@ function DeliveriesPage() {
               <>
                 {/* Active Passenger Rides (Táxi / Moto Táxi) */}
                 {activeRides.data?.map((r) => (
-                  <Card key={r.id} className="p-4 rounded-2xl border border-primary/30 shadow-md space-y-3">
+                  <Card key={r.id} className="p-4 rounded-2xl border border-primary/30 shadow-md space-y-3 overflow-hidden">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-black uppercase tracking-widest text-primary">
                         {r.vehicle_type === "taxi" ? "🚗 Táxi em andamento" : "🏍️ Moto Táxi em andamento"}
                       </span>
                       <span className="text-xs font-bold text-emerald-500">R$ {Number(r.price).toFixed(2)}</span>
                     </div>
+
+                    {/* Interactive Map Component for Ride Tracking */}
+                    <DriverRideMap ride={r} />
+
                     <div>
                       <p className="text-xs text-muted-foreground">Passageiro: <strong className="text-foreground">{r.customer_name || "Cliente"}</strong></p>
                       <p className="text-xs text-muted-foreground mt-1">Origem: {r.pickup_address}</p>
@@ -265,5 +269,57 @@ function DeliveriesPage() {
         </Tabs>
       </div>
     </DriverShell>
+  );
+}
+
+const PVA_CENTER: [number, number] = [-54.3075, -15.5606];
+
+function DriverRideMap({ ride }: { ride: any }) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !mapContainerRef.current || mapRef.current) return;
+    let isMounted = true;
+
+    import("maplibre-gl").then((mod) => {
+      if (!isMounted || !mapContainerRef.current || mapRef.current) return;
+      const MapLibre = mod.default || mod;
+
+      const m = new MapLibre.Map({
+        container: mapContainerRef.current,
+        style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        center: PVA_CENTER,
+        zoom: 14,
+        attributionControl: false,
+      });
+
+      mapRef.current = m;
+
+      // Adicionar marcador da cidade de Primavera do Leste / local de origem
+      const el = document.createElement("div");
+      el.className = "w-7 h-7 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-lg font-bold text-xs border-2 border-white";
+      el.innerHTML = "📍";
+      new MapLibre.Marker({ element: el })
+        .setLngLat(PVA_CENTER)
+        .addTo(m);
+    });
+
+    return () => {
+      isMounted = false;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div className="w-full h-44 rounded-xl overflow-hidden bg-secondary relative border border-border/60">
+      <div ref={mapContainerRef} className="w-full h-full" />
+      <div className="absolute top-2 left-2 bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground border border-border shadow-sm">
+        📍 Primavera do Leste - MT
+      </div>
+    </div>
   );
 }
