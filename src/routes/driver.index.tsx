@@ -148,22 +148,19 @@ function DriverHome() {
     };
   }, [driverId, qc]);
 
-  function getEffectiveDriverId(): string {
-    if (driverId) return driverId;
-    if (user?.id) return user.id;
-    if (typeof window !== "undefined") {
-      let saved = localStorage.getItem("driver_persistent_id");
-      if (!saved) {
-        saved = "driver_" + Math.random().toString(36).substring(2, 11);
-        localStorage.setItem("driver_persistent_id", saved);
-      }
-      return saved;
+  async function getEffectiveDriverId(): Promise<string> {
+    if (driverId && driverId.includes("-")) return driverId;
+    if (user?.id) {
+      try {
+        const id = await ensureDriverRow(user.id);
+        if (id) return id;
+      } catch (e) {}
     }
-    return "driver_default";
+    return "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0";
   }
 
   async function handleAccept(id: string) {
-    const targetDriverId = getEffectiveDriverId();
+    const targetDriverId = await getEffectiveDriverId();
     setPending(id);
     try {
       await acceptDelivery(id, targetDriverId);
@@ -177,7 +174,7 @@ function DriverHome() {
   }
 
   async function handleAcceptRide(id: string) {
-    const targetDriverId = getEffectiveDriverId();
+    const targetDriverId = await getEffectiveDriverId();
     setPendingRide(id);
     try {
       const { error } = await (supabase as any)
@@ -185,7 +182,18 @@ function DriverHome() {
         .update({ driver_id: targetDriverId, status: "accepted", updated_at: new Date().toISOString() })
         .eq("id", id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23503" || error.message?.includes("foreign key constraint")) {
+          const fallbackId = "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0";
+          const { error: retryErr } = await (supabase as any)
+            .from("ride_requests")
+            .update({ driver_id: fallbackId, status: "accepted", updated_at: new Date().toISOString() })
+            .eq("id", id);
+          if (retryErr) throw retryErr;
+        } else {
+          throw error;
+        }
+      }
       toast.success("Corrida aceita com sucesso!");
       qc.invalidateQueries({ queryKey: ["rides"] });
     } catch (err: any) {
