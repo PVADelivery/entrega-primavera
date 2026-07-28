@@ -148,18 +148,22 @@ function DriverHome() {
     };
   }, [driverId, qc]);
 
+  function getEffectiveDriverId(): string {
+    if (driverId) return driverId;
+    if (user?.id) return user.id;
+    if (typeof window !== "undefined") {
+      let saved = localStorage.getItem("driver_persistent_id");
+      if (!saved) {
+        saved = "driver_" + Math.random().toString(36).substring(2, 11);
+        localStorage.setItem("driver_persistent_id", saved);
+      }
+      return saved;
+    }
+    return "driver_default";
+  }
+
   async function handleAccept(id: string) {
-    let targetDriverId = driverId || (user ? user.id : null);
-    if (!targetDriverId && user) {
-      try {
-        targetDriverId = await ensureDriverRow(user.id);
-        setDriverId(targetDriverId);
-      } catch (e) {}
-    }
-    if (!targetDriverId) {
-      toast.error("Você precisa estar conectado para aceitar entregas.");
-      return;
-    }
+    const targetDriverId = getEffectiveDriverId();
     setPending(id);
     try {
       await acceptDelivery(id, targetDriverId);
@@ -173,17 +177,7 @@ function DriverHome() {
   }
 
   async function handleAcceptRide(id: string) {
-    let targetDriverId = driverId || (user ? user.id : null);
-    if (!targetDriverId && user) {
-      try {
-        targetDriverId = await ensureDriverRow(user.id);
-        setDriverId(targetDriverId);
-      } catch (e) {}
-    }
-    if (!targetDriverId) {
-      toast.error("Você precisa estar conectado para aceitar corridas.");
-      return;
-    }
+    const targetDriverId = getEffectiveDriverId();
     setPendingRide(id);
     try {
       const { error } = await (supabase as any)
