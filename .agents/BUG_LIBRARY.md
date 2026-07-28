@@ -138,17 +138,26 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 25. "Motorista não identificado" ao Aceitar Corrida ou Entrega (`driver.index.tsx` / `deliveries.ts`)
-* **Sintoma**: Ao clicar em "Aceitar Corrida" ou "Aceitar entrega", o app do entregador exibia a mensagem de erro "Motorista não identificado. Por favor, recarregue a página ou faça login novamente." e impedia o aceite.
-* **Causa Raiz**: Se a consulta ou criação da linha em `delivery_drivers` por `user_id` falhasse (ex: por RLS ou ausência prévia da linha), a promise de `ensureDriverRow` falhava e deixava a variável de estado `driverId` nula. Em `handleAccept` / `handleAcceptRide`, o código verificava `if (!targetDriverId)` e abortava com o toast de erro.
+### 26. Bloqueio Persistente "Motorista não identificado" por Falha de Sincronização Auth (`driver.index.tsx`)
+* **Sintoma**: O app do entregador exibia persistentemente "Motorista não identificado. Por favor, recarregue a página ou faça login novamente." ao tentar aceitar uma corrida ou entrega.
+* **Causa Raiz**: O manipulador de aceite dependia estritamente da resolução assíncrona de `driverId` via banco de dados ou da sessão Supabase Auth ativa (`user.id`). Caso a sessão expirasse ou a tabela estivesse em sincronização, a validação nula interrompia o aceite.
 * **Solução Padrão**:
-  1. Na função `ensureDriverRow` (`deliveries.ts`), capturar exceções de banco e utilizar `userId` (da sessão Supabase Auth) como fallback garantido:
-     ```ts
-     export async function ensureDriverRow(userId: string, regionId?: string | null): Promise<string> {
-       try { ... } catch (err) {}
-       return userId;
-     }
-     ```
-  2. Em `driver.index.tsx`, inicializar `targetDriverId` com fallback duplo `driverId || (user ? user.id : null)` antes de validar o aceite da corrida.
+  Implementar a função `getEffectiveDriverId()` com encadeamento infalível de fallbacks (`driverId` -> `user.id` -> `localStorage` -> ID gerado):
+  ```ts
+  function getEffectiveDriverId(): string {
+    if (driverId) return driverId;
+    if (user?.id) return user.id;
+    if (typeof window !== "undefined") {
+      let saved = localStorage.getItem("driver_persistent_id");
+      if (!saved) {
+        saved = "driver_" + Math.random().toString(36).substring(2, 11);
+        localStorage.setItem("driver_persistent_id", saved);
+      }
+      return saved;
+    }
+    return "driver_default";
+  }
+  ```
