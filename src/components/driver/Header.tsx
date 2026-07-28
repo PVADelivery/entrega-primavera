@@ -115,14 +115,14 @@ export function DriverHeader() {
             className="flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-white/15"
             style={{ background: "oklch(0 0 0 / 0.4)" }}
           >
-            <img src={iconPrimavera} alt="MT 24horas express" className="h-6 w-6 object-contain" />
+            <img src={iconPrimavera} alt="MT 24 Horas Express" className="h-6 w-6 object-contain" />
           </span>
           <div className="leading-tight">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
-              Primavera
+              MT 24 Horas Express
             </p>
             <p className="text-sm font-bold tracking-tight text-gold-gradient">
-              Delivery
+              Entregador
             </p>
           </div>
         </div>
