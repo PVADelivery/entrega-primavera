@@ -144,15 +144,16 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 31. Quebra de Linha Desconfortável no Menu Inferior (`BottomNav.tsx`)
-* **Sintoma**: O texto "Entregas & Corridas" no menu inferior do entregador quebrava em duas linhas ("Entregas &" / "Corridas") em telas de smartphones estreitas.
-* **Causa Raiz**: O elemento `<span>` contendo o rótulo não tinha a restrição `whitespace-nowrap` e usava tamanho fixo sem compactação de espaçamento.
+### 32. Desaparecimento de Corridas no App do Cliente por Fallback Condicional (`marketplace.rides.tsx`)
+* **Sintoma**: Na tela `/marketplace/rides`, as corridas ativas ou recentes sumiam e a tela exibia a mensagem "Você ainda não possui corridas concluídas no histórico".
+* **Causa Raiz**: A função `fetchRides()` disparava o fallback de busca de corridas apenas quando `queryPromises.length === 0`. Como a promessa de e-mail do usuário era sempre adicionada, se o campo `customer_name` no banco estivesse como "Cliente Teste" (em vez do e-mail do login), as buscas por e-mail/user_id retornavam 0 linhas e a consulta fallback era ignorada, deixando a lista vazia.
 * **Solução Padrão**:
-  Adicionar a classe `whitespace-nowrap text-[9px] sm:text-[10px] tracking-tighter leading-none max-w-full truncate` no elemento `<span>` de `BottomNav.tsx`:
-  ```tsx
-  <span className={cn("font-semibold tracking-tighter whitespace-nowrap text-[9px] sm:text-[10px] leading-none mt-0.5 max-w-full truncate", active && "text-foreground")}>
-    {label}
-  </span>
+  Em `marketplace.rides.tsx`, tornar a promessa de busca das últimas corridas do banco permanente e incondicional no array `queryPromises`:
+  ```ts
+  queryPromises.push(
+    supabase.from("ride_requests").select("*").order("created_at", { ascending: false }).limit(30)
+  );
   ```
