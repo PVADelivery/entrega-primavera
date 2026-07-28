@@ -141,16 +141,14 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 28. Divergência entre Contagem do Badge e Lista em "Minhas Entregas" (`driver.deliveries.tsx`)
-* **Sintoma**: O menu inferior do app do entregador indicava o contador `1` no botão de entregas, mas a página `/driver/deliveries` exibia a mensagem "Nenhuma entrega em andamento".
-* **Causa Raiz**: A página `driver.deliveries.tsx` consultava apenas a tabela `deliveries` (pedidos de lojas/restaurantes) e ignorava as corridas aceitas na tabela `ride_requests` (Táxi e Moto Táxi), enquanto o componente de rodapé `BottomNav` somava os itens de ambas as tabelas.
+### 29. Atualização de Rótulo do Menu Inferior para "Entregas & Corridas" (`BottomNav.tsx`)
+* **Sintoma**: O botão de navegação do menu inferior exibia apenas o rótulo "Entregas".
+* **Causa Raiz**: O array de itens em `BottomNav.tsx` continha o texto `label: "Entregas"`.
 * **Solução Padrão**:
-  Atualizar `driver.deliveries.tsx` para buscar e renderizar tanto entregas quanto corridas de passageiro na aba "Em rota" e no "Histórico", incluindo botões de avanço de status ("Cheguei no local", "Iniciar corrida", "Finalizar corrida"):
+  Atualizar o rótulo para `Entregas & Corridas` no menu inferior e no título da rota (`driver.deliveries.tsx`):
   ```tsx
-  const activeRides = useQuery({
-    queryKey: ["rides", "active", driverId, user?.id],
-    queryFn: async () => { ... }
-  });
+  { to: "/driver/deliveries", label: "Entregas & Corridas", icon: Package }
   ```
