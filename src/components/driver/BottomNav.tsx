@@ -9,7 +9,7 @@ import { ensureDriverRow, fetchMyActiveDeliveries } from "@/services/deliveries"
 import { useEffect, useState } from "react";
 const items = [
   { to: "/driver", label: "Início", icon: Home },
-  { to: "/driver/deliveries", label: "Entregas", icon: Package },
+  { to: "/driver/deliveries", label: "Entregas & Corridas", icon: Package },
   { to: "/driver/occurrences", label: "Ocorrências", icon: AlertTriangle },
   { to: "/driver/chat", label: "Chat", icon: MessageCircle },
   { to: "/driver/profile", label: "Perfil", icon: User },
