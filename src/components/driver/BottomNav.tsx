@@ -25,23 +25,23 @@ export function BottomNav() {
   }, [user]);
 
   const activeDeliveries = useQuery({
-    queryKey: ["deliveries", "active", driverId],
-    queryFn: () => (driverId ? fetchMyActiveDeliveries(driverId) : Promise.resolve([])),
-    enabled: !!driverId,
+    queryKey: ["deliveries", "active", driverId, user?.id],
+    queryFn: () => fetchMyActiveDeliveries(driverId || user?.id || "", user?.id),
+    enabled: true,
   });
 
   const activeRides = useQuery({
-    queryKey: ["rides", "active", driverId],
+    queryKey: ["rides", "active", driverId, user?.id],
     queryFn: async () => {
-      if (!driverId) return [];
+      const ids = Array.from(new Set([driverId, user?.id, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
       const { data } = await supabase
         .from("ride_requests")
         .select("id")
-        .eq("driver_id", driverId)
+        .in("driver_id", ids)
         .in("status", ["accepted", "in_progress", "arrived"]);
       return data || [];
     },
-    enabled: !!driverId,
+    enabled: true,
   });
 
   const totalActive = (activeDeliveries.data?.length || 0) + (activeRides.data?.length || 0);

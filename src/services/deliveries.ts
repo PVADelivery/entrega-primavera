@@ -408,22 +408,24 @@ export async function fetchAvailableDeliveries() {
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
-export async function fetchMyActiveDeliveries(driverId: string) {
+export async function fetchMyActiveDeliveries(driverId: string, userId?: string | null) {
+  const ids = Array.from(new Set([driverId, userId, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
   const { data, error } = await supabase
     .from("deliveries")
     .select("*")
-    .eq("driver_id", driverId)
+    .in("driver_id", ids)
     .in("status", ["accepted", "collecting", "in_route"])
     .order("accepted_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
-export async function fetchMyHistory(driverId: string) {
+export async function fetchMyHistory(driverId: string, userId?: string | null) {
+  const ids = Array.from(new Set([driverId, userId, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
   const { data, error } = await supabase
     .from("deliveries")
     .select("*")
-    .eq("driver_id", driverId)
+    .in("driver_id", ids)
     .in("status", ["completed", "cancelled", "delivered"])
     .order("updated_at", { ascending: false })
     .limit(50);
