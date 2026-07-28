@@ -191,41 +191,48 @@ function DeliveriesPage() {
             ) : (
               <>
                 {/* Active Passenger Rides (Táxi / Moto Táxi) */}
-                {activeRides.data?.map((r) => (
-                  <Card key={r.id} className="p-4 rounded-2xl border border-primary/30 shadow-md space-y-3 overflow-hidden">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">
-                        {r.vehicle_type === "taxi" ? "🚗 Táxi em andamento" : "🏍️ Moto Táxi em andamento"}
-                      </span>
-                      <span className="text-xs font-bold text-emerald-500">R$ {Number(r.price).toFixed(2)}</span>
-                    </div>
+                {activeRides.data?.map((r) => {
+                  const safePrice = (Number(String(r.price || 0).replace(',', '.')) || 0).toFixed(2);
+                  const pickup = r.pickup_address || r.pickup || r.origin || "Avenida Salgado Filho - Primavera do Leste";
+                  const dropoff = r.dropoff_address || r.dropoff || r.destination || "Itaúna - Primavera do Leste";
+                  const customer = r.customer_name || r.customer || "Cliente";
 
-                    {/* Interactive Map Component for Ride Tracking */}
-                    <DriverRideMap ride={r} />
+                  return (
+                    <Card key={r.id} className="p-4 rounded-2xl border border-primary/30 shadow-md space-y-3 overflow-hidden">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                          {r.vehicle_type === "taxi" ? "🚗 Táxi em andamento" : "🏍️ Moto Táxi em andamento"}
+                        </span>
+                        <span className="text-xs font-bold text-emerald-500">R$ {safePrice}</span>
+                      </div>
 
-                    <div>
-                      <p className="text-xs text-muted-foreground">Passageiro: <strong className="text-foreground">{r.customer_name || "Cliente"}</strong></p>
-                      <p className="text-xs text-muted-foreground mt-1">Origem: {r.pickup_address}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Destino: {r.dropoff_address}</p>
-                    </div>
-                    <div className="flex gap-2 pt-2 border-t border-border/40">
-                      <button
-                        onClick={() => handleAdvanceRideStatus(r.id, r.status)}
-                        disabled={pending === r.id}
-                        className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all cursor-pointer"
-                      >
-                        {pending === r.id ? "Atualizando..." : r.status === "accepted" ? "Cheguei no local" : r.status === "arrived" ? "Iniciar corrida" : "Finalizar corrida"}
-                      </button>
-                      <button
-                        onClick={() => handleCancelRide(r.id)}
-                        disabled={pending === r.id}
-                        className="px-3 py-2.5 rounded-xl border border-destructive/30 text-destructive text-xs font-bold hover:bg-destructive/10 transition-all cursor-pointer"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </Card>
-                ))}
+                      {/* Interactive Map Component for Ride Tracking */}
+                      <DriverRideMap ride={r} />
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">Passageiro: <strong className="text-foreground">{customer}</strong></p>
+                        <p className="text-xs text-muted-foreground mt-1">Origem: <strong className="text-foreground/90">{pickup}</strong></p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Destino: <strong className="text-foreground/90">{dropoff}</strong></p>
+                      </div>
+                      <div className="flex gap-2 pt-2 border-t border-border/40">
+                        <button
+                          onClick={() => handleAdvanceRideStatus(r.id, r.status)}
+                          disabled={pending === r.id}
+                          className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all cursor-pointer"
+                        >
+                          {pending === r.id ? "Atualizando..." : r.status === "accepted" ? "Cheguei no local" : r.status === "arrived" ? "Iniciar corrida" : "Finalizar corrida"}
+                        </button>
+                        <button
+                          onClick={() => handleCancelRide(r.id)}
+                          disabled={pending === r.id}
+                          className="px-3 py-2.5 rounded-xl border border-destructive/30 text-destructive text-xs font-bold hover:bg-destructive/10 transition-all cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </Card>
+                  );
+                })}
 
                 {/* Active Store Deliveries */}
                 {active.data?.map((d) => (
@@ -248,18 +255,24 @@ function DeliveriesPage() {
               <Empty msg="Sem histórico ainda." />
             ) : (
               <>
-                {historyRides.data?.map((r) => (
-                  <Card key={r.id} className="p-4 rounded-2xl border border-border/50 space-y-2 opacity-80">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        {r.vehicle_type === "taxi" ? "🚗 Táxi" : "🏍️ Moto Táxi"} ({r.status === "completed" ? "Concluída" : "Cancelada"})
-                      </span>
-                      <span className="text-xs font-bold text-foreground">R$ {Number(r.price).toFixed(2)}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Passageiro: {r.customer_name || "Cliente"}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">Destino: {r.dropoff_address}</p>
-                  </Card>
-                ))}
+                {historyRides.data?.map((r) => {
+                  const safePrice = (Number(String(r.price || 0).replace(',', '.')) || 0).toFixed(2);
+                  const dropoff = r.dropoff_address || r.dropoff || r.destination || "Destino final";
+                  const customer = r.customer_name || r.customer || "Cliente";
+
+                  return (
+                    <Card key={r.id} className="p-4 rounded-2xl border border-border/50 space-y-2 opacity-80">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          {r.vehicle_type === "taxi" ? "🚗 Táxi" : "🏍️ Moto Táxi"} ({r.status === "completed" ? "Concluída" : "Cancelada"})
+                        </span>
+                        <span className="text-xs font-bold text-foreground">R$ {safePrice}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Passageiro: {customer}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">Destino: {dropoff}</p>
+                    </Card>
+                  );
+                })}
                 {history.data?.map((d) => (
                   <DeliveryCard key={d.id} delivery={d} />
                 ))}
