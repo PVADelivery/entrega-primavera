@@ -145,15 +145,11 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 32. Desaparecimento de Corridas no App do Cliente por Fallback Condicional (`marketplace.rides.tsx`)
-* **Sintoma**: Na tela `/marketplace/rides`, as corridas ativas ou recentes sumiam e a tela exibia a mensagem "Você ainda não possui corridas concluídas no histórico".
-* **Causa Raiz**: A função `fetchRides()` disparava o fallback de busca de corridas apenas quando `queryPromises.length === 0`. Como a promessa de e-mail do usuário era sempre adicionada, se o campo `customer_name` no banco estivesse como "Cliente Teste" (em vez do e-mail do login), as buscas por e-mail/user_id retornavam 0 linhas e a consulta fallback era ignorada, deixando a lista vazia.
+### 33. Ocultação de Corridas Ativas no Rodapé do Cliente (`marketplace.rides.tsx`)
+* **Sintoma**: Na tela `/marketplace/rides`, mesmo com corridas pendentes criadas no sistema, o rodapé exibia a mensagem "Você ainda não possui corridas concluídas no histórico".
+* **Causa Raiz**: O componente filtrava o histórico exclusivamente por `status === "completed" || status === "cancelled"`. Quando o cliente só possuía corridas ativas/pendentes (`pending`, `accepted`), o filtro resultava em 0 itens e acionava o estado vazio enganoso.
 * **Solução Padrão**:
-  Em `marketplace.rides.tsx`, tornar a promessa de busca das últimas corridas do banco permanente e incondicional no array `queryPromises`:
-  ```ts
-  queryPromises.push(
-    supabase.from("ride_requests").select("*").order("created_at", { ascending: false }).limit(30)
-  );
-  ```
+  Em `marketplace.rides.tsx`, exibir o mapa de acompanhamento da corrida ativa no topo e renderizar todas as corridas registradas no contêiner "Todas as Corridas" via `rides.map(...)`, com os devidos badges de status (`pending`, `accepted`, `in_progress`, `completed`, `cancelled`). O estado vazio só é acionado se `rides.length === 0`.
