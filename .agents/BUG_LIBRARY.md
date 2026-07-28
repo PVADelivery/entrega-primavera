@@ -147,11 +147,11 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 34. Erro de RLS 42P17 Recursão Infinita em `ride_requests` e Perda de Solicitações
-* **Sintoma**: Ao solicitar uma corrida em `/marketplace/taxi`, o envio falhava silenciosamente ou com erro de permissão RLS (`42P17 infinite recursion detected in policy for relation "delivery_drivers"` / `42501`), fazendo com que nenhuma corrida aparecesse em `/marketplace/rides`.
-* **Causa Raiz**: A política RLS criada em `ride_requests` dependia de sub-consultas em `delivery_drivers`, que por sua vez consultava `ride_requests`, gerando um loop circular de recursão no Postgres para requisições de clientes.
+### 35. Valor `R$ NaN` e Endereços em Branco nas Corridas do Entregador (`driver.deliveries.tsx`)
+* **Sintoma**: No aplicativo do entregador, o valor da corrida aparecia como `R$ NaN` e os campos `Origem:` e `Destino:` ficavam vazios.
+* **Causa Raiz**: O parsing de preço usava `Number(r.price).toFixed(2)` diretamente, falhando ao receber strings com vírgula (ex: `"21,15"`). Os campos de endereço careciam de fallback para variações da tabela (`pickup`, `origin`, `dropoff`, `destination`).
 * **Solução Padrão**:
-  1. Em `marketplace.taxi.tsx`, salvar a solicitação localmente em `localStorage.setItem("pva_local_rides", ...)` antes do insert e implementar retry automático com `user_id: null` caso o Postgres retorne restrição de RLS.
-  2. Em `marketplace.rides.tsx`, mesclar os itens de `pva_local_rides` no array principal de corridas, garantindo exibição imediata e resiliente.
+  Sanitizar vírgulas no campo de preço `(Number(String(r.price || 0).replace(',', '.')) || 0).toFixed(2)` e aplicar mapeamento defensivo com fallbacks para `pickup_address`, `dropoff_address` e `customer_name`.
