@@ -140,16 +140,17 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 27. Violacão de Chave Estrangeira `deliveries_driver_id_fkey` e `ride_requests_driver_id_fkey` (Erro 23503)
-* **Sintoma**: Ao aceitar uma corrida ou entrega no app do entregador, o sistema exibia a mensagem de erro "insert or update on table violates foreign key constraint deliveries_driver_id_fkey".
-* **Causa Raiz**: A coluna `driver_id` das tabelas `deliveries` e `ride_requests` obriga que o ID enviado exista previamente como chave primária em `delivery_drivers`. Se o `driverId` enviado não constar no banco, o Postgres rejeita o UPDATE com código `23503`.
+### 28. Divergência entre Contagem do Badge e Lista em "Minhas Entregas" (`driver.deliveries.tsx`)
+* **Sintoma**: O menu inferior do app do entregador indicava o contador `1` no botão de entregas, mas a página `/driver/deliveries` exibia a mensagem "Nenhuma entrega em andamento".
+* **Causa Raiz**: A página `driver.deliveries.tsx` consultava apenas a tabela `deliveries` (pedidos de lojas/restaurantes) e ignorava as corridas aceitas na tabela `ride_requests` (Táxi e Moto Táxi), enquanto o componente de rodapé `BottomNav` somava os itens de ambas as tabelas.
 * **Solução Padrão**:
-  Em `acceptDelivery` (`deliveries.ts`) e `handleAcceptRide` (`driver.index.tsx`), tratar a exceção `23503` / `foreign key constraint` e executar retentativa automática enviando um UUID de entregador ativo cadastrado no banco:
-  ```ts
-  if (error.code === "23503" || error.message?.includes("foreign key constraint")) {
-    const fallbackId = "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0";
-    await supabase.from("deliveries").update({ driver_id: fallbackId, status: "accepted" }).eq("id", deliveryId);
-  }
+  Atualizar `driver.deliveries.tsx` para buscar e renderizar tanto entregas quanto corridas de passageiro na aba "Em rota" e no "Histórico", incluindo botões de avanço de status ("Cheguei no local", "Iniciar corrida", "Finalizar corrida"):
+  ```tsx
+  const activeRides = useQuery({
+    queryKey: ["rides", "active", driverId, user?.id],
+    queryFn: async () => { ... }
+  });
   ```
