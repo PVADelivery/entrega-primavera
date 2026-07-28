@@ -136,15 +136,14 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 23. Exibição do Nome Antigo "Primavera Delivery" no Cabeçalho (`Header.tsx` / `BusinessLayout.tsx`)
-* **Sintoma**: O topo do aplicativo do entregador e o menu lateral do aplicativo do lojista ainda exibiam o nome de marca antigo "Primavera Delivery".
-* **Causa Raiz**: O componente `Header.tsx` (`entrega-primavera`) e `BusinessLayout.tsx` (`lojista-primavera-1`) continham o nome antigo estático nas tags `<p>` e `<span>`.
+### 24. Erro "This page didn't load" em `/business/settings` por Ausência da Declaração de Estado `gallery` (`business.settings.tsx`)
+* **Sintoma**: Ao tentar abrir a página de configurações do lojista (`/business/settings`), a aplicação exibia "This page didn't load / Something went wrong on our end".
+* **Causa Raiz**: O componente `business.settings.tsx` realizava chamadas ao atualizador `setGallery(...)` e lia o array `gallery`, porém a declaração da hook de estado `const [gallery, setGallery] = useState<string[]>([]);` estava ausente. Durante o SSR/render do React, o motor de execução disparava `ReferenceError: setGallery is not defined` / `ReferenceError: gallery is not defined`.
 * **Solução Padrão**:
-  Atualizar os componentes de cabeçalho para exibir o nome correto da marca `MT 24 Horas Express` em todos os repositórios:
+  Declarar a variável de estado `gallery` no topo do componente de configurações:
   ```tsx
-  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
-    MT 24 Horas Express
-  </p>
+  const [gallery, setGallery] = useState<string[]>([]);
   ```
