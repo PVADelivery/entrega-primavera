@@ -142,13 +142,16 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 29. Atualização de Rótulo do Menu Inferior para "Entregas & Corridas" (`BottomNav.tsx`)
-* **Sintoma**: O botão de navegação do menu inferior exibia apenas o rótulo "Entregas".
-* **Causa Raiz**: O array de itens em `BottomNav.tsx` continha o texto `label: "Entregas"`.
+### 30. Exibição de Corrida Pendente no "Histórico de Corridas" (`marketplace.rides.tsx`)
+* **Sintoma**: Ao solicitar mais de uma corrida no app do cliente, uma corrida ativa com status "Procurando motorista" aparecia listada dentro da seção "Histórico de Corridas".
+* **Causa Raiz**: O componente selecionava apenas 1 corrida ativa principal para o topo (`activeRide`) e mapeava todas as outras corridas da lista através de `rides.filter(r => r.id !== activeRide?.id)` dentro do contêiner intitulado "Histórico de Corridas", sem filtrar pelo status finalizado.
 * **Solução Padrão**:
-  Atualizar o rótulo para `Entregas & Corridas` no menu inferior e no título da rota (`driver.deliveries.tsx`):
-  ```tsx
-  { to: "/driver/deliveries", label: "Entregas & Corridas", icon: Package }
-  ```
+  Em `marketplace.rides.tsx`, separar as listas:
+  1. Exibir outras corridas ativas (`pending`, `accepted`, `in_progress`) na seção "Outras Corridas em Andamento".
+  2. Filtrar o "Histórico de Corridas" estritamente por status finalizados:
+     ```tsx
+     rides.filter((r) => r.status === "completed" || r.status === "cancelled")
+     ```
