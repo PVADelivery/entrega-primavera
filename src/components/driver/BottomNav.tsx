@@ -78,7 +78,7 @@ export function BottomNav() {
                     </span>
                   )}
                 </span>
-                <span className={cn("font-semibold tracking-tight", active && "text-foreground")}>
+                <span className={cn("font-semibold tracking-tighter whitespace-nowrap text-[9px] sm:text-[10px] leading-none mt-0.5 max-w-full truncate", active && "text-foreground")}>
                   {label}
                 </span>
               </Link>
