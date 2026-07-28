@@ -192,7 +192,9 @@ function DeliveriesPage() {
               <>
                 {/* Active Passenger Rides (Táxi / Moto Táxi) */}
                 {activeRides.data?.map((r) => {
-                  const safePrice = (Number(String(r.price || 0).replace(',', '.')) || 0).toFixed(2);
+                  const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
+                  const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
+
                   const pickup = r.pickup_address || r.pickup || r.origin || "Avenida Salgado Filho - Primavera do Leste";
                   const dropoff = r.dropoff_address || r.dropoff || r.destination || "Itaúna - Primavera do Leste";
                   const customer = r.customer_name || r.customer || "Cliente";
@@ -256,7 +258,8 @@ function DeliveriesPage() {
             ) : (
               <>
                 {historyRides.data?.map((r) => {
-                  const safePrice = (Number(String(r.price || 0).replace(',', '.')) || 0).toFixed(2);
+                  const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
+                  const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
                   const dropoff = r.dropoff_address || r.dropoff || r.destination || "Destino final";
                   const customer = r.customer_name || r.customer || "Cliente";
 
