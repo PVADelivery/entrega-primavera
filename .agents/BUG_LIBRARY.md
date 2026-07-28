@@ -135,13 +135,16 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 22. Inconsistência Visual e de Nomenclatura nos Cartões de Corrida (`marketplace.rides.tsx`)
-* **Sintoma**: O cartão de corrida ativa em destaque no topo da tela exibia "Moto Táxi" / "Carro (Táxi)", enquanto os cartões do histórico na parte inferior exibiam rótulos reduzidos "Moto" / "Táxi" com layout e cores de badge totalmente diferentes.
-* **Causa Raiz**: O componente `marketplace.rides.tsx` não utilizava o mesmo padrão de rótulos e tokens visuais do design system entre o hero card (corrida em andamento) e a lista iterada de histórico.
+### 23. Exibição do Nome Antigo "Primavera Delivery" no Cabeçalho (`Header.tsx` / `BusinessLayout.tsx`)
+* **Sintoma**: O topo do aplicativo do entregador e o menu lateral do aplicativo do lojista ainda exibiam o nome de marca antigo "Primavera Delivery".
+* **Causa Raiz**: O componente `Header.tsx` (`entrega-primavera`) e `BusinessLayout.tsx` (`lojista-primavera-1`) continham o nome antigo estático nas tags `<p>` e `<span>`.
 * **Solução Padrão**:
-  Padronizar a exibição para `"Moto Táxi"` e `"Táxi (Carro)"` em 100% dos cartões, unificando a estrutura dos marcadores de endereço (verde/vermelho), tipografia e badges de status:
+  Atualizar os componentes de cabeçalho para exibir o nome correto da marca `MT 24 Horas Express` em todos os repositórios:
   ```tsx
-  {ride.vehicle_type === "taxi" ? "Táxi (Carro)" : "Moto Táxi"}
+  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
+    MT 24 Horas Express
+  </p>
   ```
