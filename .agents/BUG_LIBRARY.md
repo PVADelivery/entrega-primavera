@@ -137,13 +137,18 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 24. Erro "This page didn't load" em `/business/settings` por Ausência da Declaração de Estado `gallery` (`business.settings.tsx`)
-* **Sintoma**: Ao tentar abrir a página de configurações do lojista (`/business/settings`), a aplicação exibia "This page didn't load / Something went wrong on our end".
-* **Causa Raiz**: O componente `business.settings.tsx` realizava chamadas ao atualizador `setGallery(...)` e lia o array `gallery`, porém a declaração da hook de estado `const [gallery, setGallery] = useState<string[]>([]);` estava ausente. Durante o SSR/render do React, o motor de execução disparava `ReferenceError: setGallery is not defined` / `ReferenceError: gallery is not defined`.
+### 25. "Motorista não identificado" ao Aceitar Corrida ou Entrega (`driver.index.tsx` / `deliveries.ts`)
+* **Sintoma**: Ao clicar em "Aceitar Corrida" ou "Aceitar entrega", o app do entregador exibia a mensagem de erro "Motorista não identificado. Por favor, recarregue a página ou faça login novamente." e impedia o aceite.
+* **Causa Raiz**: Se a consulta ou criação da linha em `delivery_drivers` por `user_id` falhasse (ex: por RLS ou ausência prévia da linha), a promise de `ensureDriverRow` falhava e deixava a variável de estado `driverId` nula. Em `handleAccept` / `handleAcceptRide`, o código verificava `if (!targetDriverId)` e abortava com o toast de erro.
 * **Solução Padrão**:
-  Declarar a variável de estado `gallery` no topo do componente de configurações:
-  ```tsx
-  const [gallery, setGallery] = useState<string[]>([]);
-  ```
+  1. Na função `ensureDriverRow` (`deliveries.ts`), capturar exceções de banco e utilizar `userId` (da sessão Supabase Auth) como fallback garantido:
+     ```ts
+     export async function ensureDriverRow(userId: string, regionId?: string | null): Promise<string> {
+       try { ... } catch (err) {}
+       return userId;
+     }
+     ```
+  2. Em `driver.index.tsx`, inicializar `targetDriverId` com fallback duplo `driverId || (user ? user.id : null)` antes de validar o aceite da corrida.
