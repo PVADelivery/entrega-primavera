@@ -148,10 +148,24 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 
 
+
 ---
 
-### 35. Valor `R$ NaN` e Endereços em Branco nas Corridas do Entregador (`driver.deliveries.tsx`)
-* **Sintoma**: No aplicativo do entregador, o valor da corrida aparecia como `R$ NaN` e os campos `Origem:` e `Destino:` ficavam vazios.
-* **Causa Raiz**: O parsing de preço usava `Number(r.price).toFixed(2)` diretamente, falhando ao receber strings com vírgula (ex: `"21,15"`). Os campos de endereço careciam de fallback para variações da tabela (`pickup`, `origin`, `dropoff`, `destination`).
+### 36. Mapa em Branco (Retângulo Vazio) no Aplicativo do Entregador (`driver.deliveries.tsx`)
+* **Sintoma**: O mapa de acompanhamento da corrida no aplicativo do entregador renderizava apenas como uma caixa branca.
+* **Causa Raiz**: Ausência de importação do arquivo CSS do MapLibre (`import "maplibre-gl/dist/maplibre-gl.css"`) e bloqueio/falha de carregamento de estilos de vetor externos.
 * **Solução Padrão**:
-  Sanitizar vírgulas no campo de preço `(Number(String(r.price || 0).replace(',', '.')) || 0).toFixed(2)` e aplicar mapeamento defensivo com fallbacks para `pickup_address`, `dropoff_address` e `customer_name`.
+  Adicionar a importação do CSS no topo do arquivo e substituir a URL de estilo vetorial por uma definição de camada raster do OpenStreetMap direta:
+  ```json
+  style: {
+    version: 8,
+    sources: {
+      "osm-tiles": {
+        type: "raster",
+        tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+        tileSize: 256,
+      },
+    },
+    layers: [{ id: "osm-layer", type: "raster", source: "osm-tiles" }],
+  }
+  ```
