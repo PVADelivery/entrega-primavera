@@ -20,6 +20,7 @@ import {
   type Delivery,
 } from "@/services/deliveries";
 import { toast } from "sonner";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 export const Route = createFileRoute("/driver/deliveries")({
   component: DeliveriesPage,
@@ -304,7 +305,17 @@ function DriverRideMap({ ride }: { ride: any }) {
 
       const m = new MapLibre.Map({
         container: mapContainerRef.current,
-        style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        style: {
+          version: 8,
+          sources: {
+            "osm-tiles": {
+              type: "raster",
+              tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+              tileSize: 256,
+            },
+          },
+          layers: [{ id: "osm-layer", type: "raster", source: "osm-tiles" }],
+        },
         center: PVA_CENTER,
         zoom: 14,
         attributionControl: false,
