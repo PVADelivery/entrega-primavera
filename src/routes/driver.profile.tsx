@@ -160,8 +160,8 @@ function ProfilePage() {
           periodCount++;
         }
 
-        const platformFee = grossEarnings * 0.10;
-        const netEarnings = grossEarnings - platformFee;
+        const platformFee = grossEarnings * 0.25;
+        const netEarnings = grossEarnings * 0.75;
 
         setDriverStats({
           deliveries: totalCount || 0,
