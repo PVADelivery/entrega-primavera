@@ -574,7 +574,7 @@ export async function fetchEarnings(driverId: string) {
       const t = new Date(dateStr).getTime();
       
       const fee = Number(r.price || 0);
-      const c = fee * 0.90; // 90% do valor da corrida
+      const c = fee * 0.75; // 75% do valor da corrida
       
       total += c;
       count += 1;
