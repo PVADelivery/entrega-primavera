@@ -402,7 +402,7 @@ function ProfilePage() {
                 <h4 className="text-xs font-black uppercase text-foreground">Entenda seus ganhos</h4>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
-                Você recebe <strong className="text-foreground">90% da Taxa de Entrega</strong> paga pelo cliente. A plataforma cobra apenas <strong className="text-foreground">10%</strong> de repasse sobre o total das entregas concluídas.
+                Você recebe <strong className="text-foreground">75% dos valores das entregas</strong> e repassa <strong className="text-foreground">25%</strong> para a plataforma sobre o total das entregas concluídas.
               </p>
             </div>
           </div>
