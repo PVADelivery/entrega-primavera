@@ -9,23 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DriverIndexRouteImport } from './routes/driver.index'
-import { Route as InviteTokenRouteImport } from './routes/invite.$token'
-import { Route as DriverProfileRouteImport } from './routes/driver.profile'
-import { Route as DriverOccurrencesRouteImport } from './routes/driver.occurrences'
-import { Route as DriverDeliveriesRouteImport } from './routes/driver.deliveries'
 import { Route as DriverChatRouteImport } from './routes/driver.chat'
+import { Route as DriverDeliveriesRouteImport } from './routes/driver.deliveries'
+import { Route as DriverOccurrencesRouteImport } from './routes/driver.occurrences'
+import { Route as DriverProfileRouteImport } from './routes/driver.profile'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DriverIndexRoute = DriverIndexRouteImport.update({
@@ -33,19 +33,9 @@ const DriverIndexRoute = DriverIndexRouteImport.update({
   path: '/driver/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InviteTokenRoute = InviteTokenRouteImport.update({
-  id: '/invite/$token',
-  path: '/invite/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DriverProfileRoute = DriverProfileRouteImport.update({
-  id: '/driver/profile',
-  path: '/driver/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DriverOccurrencesRoute = DriverOccurrencesRouteImport.update({
-  id: '/driver/occurrences',
-  path: '/driver/occurrences',
+const DriverChatRoute = DriverChatRouteImport.update({
+  id: '/driver/chat',
+  path: '/driver/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DriverDeliveriesRoute = DriverDeliveriesRouteImport.update({
@@ -53,9 +43,19 @@ const DriverDeliveriesRoute = DriverDeliveriesRouteImport.update({
   path: '/driver/deliveries',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DriverChatRoute = DriverChatRouteImport.update({
-  id: '/driver/chat',
-  path: '/driver/chat',
+const DriverOccurrencesRoute = DriverOccurrencesRouteImport.update({
+  id: '/driver/occurrences',
+  path: '/driver/occurrences',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverProfileRoute = DriverProfileRouteImport.update({
+  id: '/driver/profile',
+  path: '/driver/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -136,18 +136,18 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/driver/': {
@@ -157,25 +157,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/invite/$token': {
-      id: '/invite/$token'
-      path: '/invite/$token'
-      fullPath: '/invite/$token'
-      preLoaderRoute: typeof InviteTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/driver/profile': {
-      id: '/driver/profile'
-      path: '/driver/profile'
-      fullPath: '/driver/profile'
-      preLoaderRoute: typeof DriverProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/driver/occurrences': {
-      id: '/driver/occurrences'
-      path: '/driver/occurrences'
-      fullPath: '/driver/occurrences'
-      preLoaderRoute: typeof DriverOccurrencesRouteImport
+    '/driver/chat': {
+      id: '/driver/chat'
+      path: '/driver/chat'
+      fullPath: '/driver/chat'
+      preLoaderRoute: typeof DriverChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/driver/deliveries': {
@@ -185,11 +171,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DriverDeliveriesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/driver/chat': {
-      id: '/driver/chat'
-      path: '/driver/chat'
-      fullPath: '/driver/chat'
-      preLoaderRoute: typeof DriverChatRouteImport
+    '/driver/occurrences': {
+      id: '/driver/occurrences'
+      path: '/driver/occurrences'
+      fullPath: '/driver/occurrences'
+      preLoaderRoute: typeof DriverOccurrencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver/profile': {
+      id: '/driver/profile'
+      path: '/driver/profile'
+      fullPath: '/driver/profile'
+      preLoaderRoute: typeof DriverProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
