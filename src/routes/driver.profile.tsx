@@ -114,7 +114,7 @@ function ProfilePage() {
         const startIso = start.toISOString();
         const endIso = end.toISOString();
 
-        const driverRate = driver.commission_rate !== null && driver.commission_rate !== undefined ? Number(driver.commission_rate) : 0.90;
+        const driverRate = driver.commission_rate !== null && driver.commission_rate !== undefined ? Number(driver.commission_rate) : 0.75;
 
         // Conta total histórico de entregas concluídas
         const { count: totalCount } = await supabase
