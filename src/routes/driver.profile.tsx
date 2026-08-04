@@ -114,7 +114,7 @@ function ProfilePage() {
         const startIso = start.toISOString();
         const endIso = end.toISOString();
 
-        const driverRate = driver.commission_rate !== null && driver.commission_rate !== undefined ? Number(driver.commission_rate) : 0.90;
+        const driverRate = driver.commission_rate !== null && driver.commission_rate !== undefined ? Number(driver.commission_rate) : 0.75;
 
         // Conta total histórico de entregas concluídas
         const { count: totalCount } = await supabase
@@ -160,8 +160,8 @@ function ProfilePage() {
           periodCount++;
         }
 
-        const platformFee = grossEarnings * 0.10;
-        const netEarnings = grossEarnings - platformFee;
+        const platformFee = grossEarnings * 0.25;
+        const netEarnings = grossEarnings * 0.75;
 
         setDriverStats({
           deliveries: totalCount || 0,
@@ -402,7 +402,7 @@ function ProfilePage() {
                 <h4 className="text-xs font-black uppercase text-foreground">Entenda seus ganhos</h4>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
-                Você recebe <strong className="text-foreground">90% da Taxa de Entrega</strong> paga pelo cliente. A plataforma cobra apenas <strong className="text-foreground">10%</strong> de repasse sobre o total das entregas concluídas.
+                Você recebe <strong className="text-foreground">75% dos valores das entregas</strong> e repassa <strong className="text-foreground">25%</strong> para a plataforma sobre o total das entregas concluídas.
               </p>
             </div>
           </div>

@@ -555,9 +555,9 @@ export async function fetchEarnings(driverId: string) {
     if (!dateStr) continue;
     const t = new Date(dateStr).getTime();
     
-    // Calcula 90% da taxa de entrega (o app retém 10%)
+    // Calcula 75% do valor da entrega (o app retém 25%)
     const fee = Number(r.delivery_fee) > 0 ? Number(r.delivery_fee) : Number(r.value || 0);
-    const c = fee * 0.90;
+    const c = fee * 0.75;
     
     total += c;
     count += 1;
@@ -574,7 +574,7 @@ export async function fetchEarnings(driverId: string) {
       const t = new Date(dateStr).getTime();
       
       const fee = Number(r.price || 0);
-      const c = fee * 0.90; // 90% do valor da corrida
+      const c = fee * 0.75; // 75% do valor da corrida
       
       total += c;
       count += 1;
