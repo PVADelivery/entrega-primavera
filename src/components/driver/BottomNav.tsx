@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ensureDriverRow, fetchMyActiveDeliveries } from "@/services/deliveries";
 import { useEffect, useState } from "react";
+import { useWorkMode } from "@/hooks/useWorkMode";
 const items = [
   { to: "/driver", label: "Início", icon: Home },
   { to: "/driver/deliveries", label: "Entregas & Corridas", icon: Package },
@@ -18,6 +19,7 @@ const items = [
 export function BottomNav() {
   const { pathname } = useLocation();
   const { user } = useAuth();
+  const { mode } = useWorkMode();
   const [driverId, setDriverId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export function BottomNav() {
   const activeDeliveries = useQuery({
     queryKey: ["deliveries", "active", driverId, user?.id],
     queryFn: () => fetchMyActiveDeliveries(driverId || user?.id || "", user?.id),
-    enabled: true,
+    enabled: mode === "delivery",
   });
 
   const activeRides = useQuery({
@@ -41,10 +43,11 @@ export function BottomNav() {
         .in("status", ["accepted", "in_progress", "arrived"]);
       return data || [];
     },
-    enabled: true,
+    enabled: mode === "ride",
   });
 
-  const totalActive = (activeDeliveries.data?.length || 0) + (activeRides.data?.length || 0);
+  const totalActive =
+    mode === "ride" ? activeRides.data?.length || 0 : activeDeliveries.data?.length || 0;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-3 pt-2">
       <div className="mx-auto max-w-md">
