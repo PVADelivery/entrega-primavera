@@ -323,10 +323,29 @@ function ProfilePage() {
         </div>
 
         <div className="px-5 -mt-6 relative z-20">
+          <div className="bg-card rounded-[2rem] p-5 shadow-[var(--shadow-card)] border border-border/40 mb-4">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-3">
+              Minhas Categorias
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {(allowedServices?.length ? allowedServices : ["delivery_moto"]).map((s) => (
+                <span
+                  key={s}
+                  className="px-3 py-1.5 rounded-full border border-primary/40 bg-primary/10 text-primary text-[11px] font-bold"
+                >
+                  {SERVICE_LABELS[s] ?? s}
+                </span>
+              ))}
+            </div>
+            <p className="mt-3 text-[11px] font-medium text-muted-foreground">
+              Modo atual: <strong className="text-foreground">{mode === "ride" ? "Corridas (Passageiros)" : "Entregas (Lojas)"}</strong>
+            </p>
+          </div>
+
           <div className="bg-card rounded-[2rem] p-5 shadow-[var(--shadow-card)] border border-border/40 mb-6">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/40">
               <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-primary" /> Painel Financeiro
+                <Wallet className="h-4 w-4 text-primary" /> {mode === "ride" ? "Financeiro · Corridas" : "Financeiro · Entregas"}
               </h3>
               <select 
                 value={period} 
@@ -374,7 +393,9 @@ function ProfilePage() {
                 <Package className="h-5 w-5 text-primary mb-3" />
                 <div>
                   <p className="text-xl font-black text-foreground">{driverStats.periodDeliveries}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Corridas Concluídas</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    {mode === "ride" ? "Corridas Concluídas" : "Entregas Concluídas"}
+                  </p>
                 </div>
               </div>
 
