@@ -155,6 +155,8 @@ export function useDeliveries(params?: UseDeliveriesParams) {
       return { data: normalizedData as unknown as DeliveryWithRelations[], count: count || 0 };
     },
     enabled,
+    staleTime: 10000,
+    gcTime: 300000,
   });
 }
 
@@ -188,6 +190,8 @@ export function useDeliveryStats() {
         todayRevenue: normalizedData.filter((d) => d.status === "delivered").reduce((sum, d) => sum + Number(d.price ?? 0), 0),
       };
     },
+    staleTime: 15000,
+    gcTime: 300000,
     refetchInterval: 30000,
   });
 }
