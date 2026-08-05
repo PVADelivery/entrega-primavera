@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ensureDriverRow } from "@/services/deliveries";
+import { useWorkMode, SERVICE_LABELS } from "@/hooks/useWorkMode";
 
 export const Route = createFileRoute("/driver/profile")({
   component: ProfilePage,
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/driver/profile")({
 
 function ProfilePage() {
   const { user, signOut } = useAuth();
+  const { mode, serviceTypes: allowedServices } = useWorkMode();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,7 +71,7 @@ function ProfilePage() {
   useEffect(() => {
     if (!user) return;
     fetchDriverData();
-  }, [user, period, customDate]);
+  }, [user, period, customDate, mode]);
 
   const fetchDriverData = async () => {
     try {
@@ -116,55 +118,64 @@ function ProfilePage() {
 
         const driverRate = driver.commission_rate !== null && driver.commission_rate !== undefined ? Number(driver.commission_rate) : 0.75;
 
-        // Conta total histórico de entregas concluídas
-        const { count: totalCount } = await supabase
-          .from("deliveries")
-          .select("id", { count: "exact", head: true })
-          .eq("driver_id", driver.id)
-          .in("status", DELIVERED_STATUSES);
-
-        // Busca entregas do período COM FILTRO DE DATA no banco
-        const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
-          .from("deliveries")
-          .select("value, delivery_fee, completed_at, created_at")
-          .eq("driver_id", driver.id)
-          .in("status", DELIVERED_STATUSES)
-          .gte("completed_at", startIso)
-          .lte("completed_at", endIso);
-
-        if (deliveriesError) {
-          console.error("[fetchDriverData] Erro ao buscar entregas:", deliveriesError);
-        }
-
         let grossEarnings = 0;
         let periodCount = 0;
+        let totalCount = 0;
 
-        for (const d of deliveriesForPeriod ?? []) {
-          // Usa delivery_fee se disponível, senão usa value
-          const fee = Number(d.delivery_fee) > 0 ? Number(d.delivery_fee) : Number(d.value || 0);
-          grossEarnings += fee;
-          periodCount++;
-        }
+        if (mode === "delivery") {
+          // Total histórico de entregas concluídas
+          const { count } = await supabase
+            .from("deliveries")
+            .select("id", { count: "exact", head: true })
+            .eq("driver_id", driver.id)
+            .in("status", DELIVERED_STATUSES);
+          totalCount = count || 0;
 
-        // Também conta corridas de táxi/mototáxi no período
-        const { data: ridesForPeriod } = await supabase
-          .from("ride_requests")
-          .select("price, updated_at")
-          .eq("driver_id", driver.id)
-          .eq("status", "completed")
-          .gte("updated_at", startIso)
-          .lte("updated_at", endIso);
+          const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
+            .from("deliveries")
+            .select("value, delivery_fee, completed_at, created_at")
+            .eq("driver_id", driver.id)
+            .in("status", DELIVERED_STATUSES)
+            .gte("completed_at", startIso)
+            .lte("completed_at", endIso);
 
-        for (const r of ridesForPeriod ?? []) {
-          grossEarnings += Number(r.price || 0);
-          periodCount++;
+          if (deliveriesError) {
+            console.error("[fetchDriverData] Erro ao buscar entregas:", deliveriesError);
+          }
+
+          for (const d of deliveriesForPeriod ?? []) {
+            const fee = Number(d.delivery_fee) > 0 ? Number(d.delivery_fee) : Number(d.value || 0);
+            grossEarnings += fee;
+            periodCount++;
+          }
+        } else {
+          // Total histórico de corridas concluídas
+          const { count } = await supabase
+            .from("ride_requests")
+            .select("id", { count: "exact", head: true })
+            .eq("driver_id", driver.id)
+            .eq("status", "completed");
+          totalCount = count || 0;
+
+          const { data: ridesForPeriod } = await supabase
+            .from("ride_requests")
+            .select("price, updated_at")
+            .eq("driver_id", driver.id)
+            .eq("status", "completed")
+            .gte("updated_at", startIso)
+            .lte("updated_at", endIso);
+
+          for (const r of ridesForPeriod ?? []) {
+            grossEarnings += Number(r.price || 0);
+            periodCount++;
+          }
         }
 
         const platformFee = grossEarnings * 0.25;
         const netEarnings = grossEarnings * 0.75;
 
         setDriverStats({
-          deliveries: totalCount || 0,
+          deliveries: totalCount,
           periodDeliveries: periodCount,
           rating: driver.rating || 5.0,
           grossEarnings,
