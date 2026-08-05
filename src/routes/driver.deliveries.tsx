@@ -21,6 +21,7 @@ import {
 } from "@/services/deliveries";
 import { toast } from "sonner";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { useWorkMode } from "@/hooks/useWorkMode";
 
 export const Route = createFileRoute("/driver/deliveries")({
   component: DeliveriesPage,
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/driver/deliveries")({
 function DeliveriesPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { mode, setMode, canDelivery, canRide } = useWorkMode();
   const [driverId, setDriverId] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
 
@@ -171,13 +173,53 @@ function DeliveriesPage() {
     );
   }
 
-  const hasActiveItems = (active.data && active.data.length > 0) || (activeRides.data && activeRides.data.length > 0);
-  const hasHistoryItems = (history.data && history.data.length > 0) || (historyRides.data && historyRides.data.length > 0);
+  const isRide = mode === "ride";
+  const hasActiveItems = isRide
+    ? !!activeRides.data?.length
+    : !!active.data?.length;
+  const hasHistoryItems = isRide
+    ? !!historyRides.data?.length
+    : !!history.data?.length;
 
   return (
     <DriverShell>
       <div className="px-4 pt-6 pb-24">
-        <h1 className="text-2xl font-black text-foreground">Minhas Entregas e Corridas</h1>
+        <h1 className="text-2xl font-black text-foreground">
+          {isRide ? "Minhas Corridas" : "Minhas Entregas"}
+        </h1>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-border/50 bg-secondary/40 p-1.5">
+          {[
+            { value: "delivery", label: "Entregas", allowed: canDelivery },
+            { value: "ride", label: "Corridas", allowed: canRide },
+          ].map((t) => {
+            const activeTab = mode === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => {
+                  if (!t.allowed) {
+                    toast.error("Categoria não habilitada pelo administrador.");
+                    return;
+                  }
+                  setMode(t.value as any);
+                }}
+                className={`rounded-xl px-3 py-2.5 text-xs font-black uppercase tracking-wider transition-all ${
+                  activeTab
+                    ? "text-primary-foreground shadow-[var(--shadow-elegant)]"
+                    : t.allowed
+                      ? "text-muted-foreground hover:text-foreground"
+                      : "cursor-not-allowed text-muted-foreground/40"
+                }`}
+                style={activeTab ? { background: "var(--gradient-gold)" } : undefined}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+
         <Tabs defaultValue="active" className="mt-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="active">Em rota</TabsTrigger>
@@ -185,14 +227,14 @@ function DeliveriesPage() {
           </TabsList>
 
           <TabsContent value="active" className="mt-4 space-y-3">
-            {active.isLoading || activeRides.isLoading ? (
+            {(isRide ? activeRides.isLoading : active.isLoading) ? (
               <Skeleton className="h-32 rounded-2xl" />
             ) : !hasActiveItems ? (
-              <Empty msg="Nenhuma entrega ou corrida em andamento." />
+              <Empty msg={isRide ? "Nenhuma corrida em andamento." : "Nenhuma entrega em andamento."} />
             ) : (
               <>
                 {/* Active Passenger Rides (Táxi / Moto Táxi) */}
-                {activeRides.data?.map((r) => {
+                {isRide && activeRides.data?.map((r) => {
                   const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
                   const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
 
@@ -238,7 +280,7 @@ function DeliveriesPage() {
                 })}
 
                 {/* Active Store Deliveries */}
-                {active.data?.map((d) => (
+                {!isRide && active.data?.map((d) => (
                   <DeliveryCard
                     key={d.id}
                     delivery={d}
@@ -252,13 +294,13 @@ function DeliveriesPage() {
           </TabsContent>
 
           <TabsContent value="history" className="mt-4 space-y-3">
-            {history.isLoading || historyRides.isLoading ? (
+            {(isRide ? historyRides.isLoading : history.isLoading) ? (
               <Skeleton className="h-32 rounded-2xl" />
             ) : !hasHistoryItems ? (
               <Empty msg="Sem histórico ainda." />
             ) : (
               <>
-                {historyRides.data?.map((r) => {
+                {isRide && historyRides.data?.map((r) => {
                   const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
                   const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
                   const dropoff = r.dropoff_address || r.dropoff || r.destination || "Destino final";
@@ -277,7 +319,7 @@ function DeliveriesPage() {
                     </Card>
                   );
                 })}
-                {history.data?.map((d) => (
+                {!isRide && history.data?.map((d) => (
                   <DeliveryCard key={d.id} delivery={d} />
                 ))}
               </>

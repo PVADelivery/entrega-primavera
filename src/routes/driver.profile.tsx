@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ensureDriverRow } from "@/services/deliveries";
+import { useWorkMode, SERVICE_LABELS } from "@/hooks/useWorkMode";
 
 export const Route = createFileRoute("/driver/profile")({
   component: ProfilePage,
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/driver/profile")({
 
 function ProfilePage() {
   const { user, signOut } = useAuth();
+  const { mode, serviceTypes: allowedServices } = useWorkMode();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,7 +71,7 @@ function ProfilePage() {
   useEffect(() => {
     if (!user) return;
     fetchDriverData();
-  }, [user, period, customDate]);
+  }, [user, period, customDate, mode]);
 
   const fetchDriverData = async () => {
     try {
@@ -116,55 +118,64 @@ function ProfilePage() {
 
         const driverRate = driver.commission_rate !== null && driver.commission_rate !== undefined ? Number(driver.commission_rate) : 0.75;
 
-        // Conta total histórico de entregas concluídas
-        const { count: totalCount } = await supabase
-          .from("deliveries")
-          .select("id", { count: "exact", head: true })
-          .eq("driver_id", driver.id)
-          .in("status", DELIVERED_STATUSES);
-
-        // Busca entregas do período COM FILTRO DE DATA no banco
-        const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
-          .from("deliveries")
-          .select("value, delivery_fee, completed_at, created_at")
-          .eq("driver_id", driver.id)
-          .in("status", DELIVERED_STATUSES)
-          .gte("completed_at", startIso)
-          .lte("completed_at", endIso);
-
-        if (deliveriesError) {
-          console.error("[fetchDriverData] Erro ao buscar entregas:", deliveriesError);
-        }
-
         let grossEarnings = 0;
         let periodCount = 0;
+        let totalCount = 0;
 
-        for (const d of deliveriesForPeriod ?? []) {
-          // Usa delivery_fee se disponível, senão usa value
-          const fee = Number(d.delivery_fee) > 0 ? Number(d.delivery_fee) : Number(d.value || 0);
-          grossEarnings += fee;
-          periodCount++;
-        }
+        if (mode === "delivery") {
+          // Total histórico de entregas concluídas
+          const { count } = await supabase
+            .from("deliveries")
+            .select("id", { count: "exact", head: true })
+            .eq("driver_id", driver.id)
+            .in("status", DELIVERED_STATUSES);
+          totalCount = count || 0;
 
-        // Também conta corridas de táxi/mototáxi no período
-        const { data: ridesForPeriod } = await supabase
-          .from("ride_requests")
-          .select("price, updated_at")
-          .eq("driver_id", driver.id)
-          .eq("status", "completed")
-          .gte("updated_at", startIso)
-          .lte("updated_at", endIso);
+          const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
+            .from("deliveries")
+            .select("value, delivery_fee, completed_at, created_at")
+            .eq("driver_id", driver.id)
+            .in("status", DELIVERED_STATUSES)
+            .gte("completed_at", startIso)
+            .lte("completed_at", endIso);
 
-        for (const r of ridesForPeriod ?? []) {
-          grossEarnings += Number(r.price || 0);
-          periodCount++;
+          if (deliveriesError) {
+            console.error("[fetchDriverData] Erro ao buscar entregas:", deliveriesError);
+          }
+
+          for (const d of deliveriesForPeriod ?? []) {
+            const fee = Number(d.delivery_fee) > 0 ? Number(d.delivery_fee) : Number(d.value || 0);
+            grossEarnings += fee;
+            periodCount++;
+          }
+        } else {
+          // Total histórico de corridas concluídas
+          const { count } = await supabase
+            .from("ride_requests")
+            .select("id", { count: "exact", head: true })
+            .eq("driver_id", driver.id)
+            .eq("status", "completed");
+          totalCount = count || 0;
+
+          const { data: ridesForPeriod } = await supabase
+            .from("ride_requests")
+            .select("price, updated_at")
+            .eq("driver_id", driver.id)
+            .eq("status", "completed")
+            .gte("updated_at", startIso)
+            .lte("updated_at", endIso);
+
+          for (const r of ridesForPeriod ?? []) {
+            grossEarnings += Number(r.price || 0);
+            periodCount++;
+          }
         }
 
         const platformFee = grossEarnings * 0.25;
         const netEarnings = grossEarnings * 0.75;
 
         setDriverStats({
-          deliveries: totalCount || 0,
+          deliveries: totalCount,
           periodDeliveries: periodCount,
           rating: driver.rating || 5.0,
           grossEarnings,
@@ -312,10 +323,29 @@ function ProfilePage() {
         </div>
 
         <div className="px-5 -mt-6 relative z-20">
+          <div className="bg-card rounded-[2rem] p-5 shadow-[var(--shadow-card)] border border-border/40 mb-4">
+            <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-3">
+              Minhas Categorias
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {(allowedServices?.length ? allowedServices : ["delivery_moto"]).map((s) => (
+                <span
+                  key={s}
+                  className="px-3 py-1.5 rounded-full border border-primary/40 bg-primary/10 text-primary text-[11px] font-bold"
+                >
+                  {SERVICE_LABELS[s] ?? s}
+                </span>
+              ))}
+            </div>
+            <p className="mt-3 text-[11px] font-medium text-muted-foreground">
+              Modo atual: <strong className="text-foreground">{mode === "ride" ? "Corridas (Passageiros)" : "Entregas (Lojas)"}</strong>
+            </p>
+          </div>
+
           <div className="bg-card rounded-[2rem] p-5 shadow-[var(--shadow-card)] border border-border/40 mb-6">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/40">
               <h3 className="text-sm font-black text-foreground uppercase tracking-widest flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-primary" /> Painel Financeiro
+                <Wallet className="h-4 w-4 text-primary" /> {mode === "ride" ? "Financeiro · Corridas" : "Financeiro · Entregas"}
               </h3>
               <select 
                 value={period} 
@@ -363,7 +393,9 @@ function ProfilePage() {
                 <Package className="h-5 w-5 text-primary mb-3" />
                 <div>
                   <p className="text-xl font-black text-foreground">{driverStats.periodDeliveries}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Corridas Concluídas</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                    {mode === "ride" ? "Corridas Concluídas" : "Entregas Concluídas"}
+                  </p>
                 </div>
               </div>
 

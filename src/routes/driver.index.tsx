@@ -19,6 +19,8 @@ import {
 } from "@/services/deliveries";
 import { toast } from "sonner";
 import { TrendingUp, Package2, CalendarDays, Sparkles } from "lucide-react";
+import { useWorkMode } from "@/hooks/useWorkMode";
+import { WorkModeSwitch } from "@/components/driver/WorkModeSwitch";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/driver/")({
 function DriverHome() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { mode } = useWorkMode();
   const [driverId, setDriverId] = useState<string | null>(null);
   const [driverServiceTypes, setDriverServiceTypes] = useState<string[]>([]);
   const [pending, setPending] = useState<string | null>(null);
@@ -72,13 +75,13 @@ function DriverHome() {
         return true; // Fallback para mostrar entregas disponíveis por padrão
       });
     },
-    enabled: true,
+    enabled: mode === "delivery",
   });
 
   const active = useQuery({
     queryKey: ["deliveries", "active", driverId],
     queryFn: () => (driverId ? fetchMyActiveDeliveries(driverId) : Promise.resolve([])),
-    enabled: !!driverId,
+    enabled: !!driverId && mode === "delivery",
   });
 
   // Consultas de Corridas de Táxi/Moto Táxi
@@ -108,7 +111,7 @@ function DriverHome() {
 
       return rides;
     },
-    enabled: true,
+    enabled: mode === "ride",
   });
 
   const activeRides = useQuery({
@@ -122,7 +125,7 @@ function DriverHome() {
       if (error) throw error;
       return (data ?? []) as any[];
     },
-    enabled: !!driverId,
+    enabled: !!driverId && mode === "ride",
   });
 
   const earnings = useQuery({
@@ -228,8 +231,12 @@ function DriverHome() {
     <DriverShell>
       <DriverHeader />
 
-      {/* Hero earnings card — overlaps header */}
-      <section className="-mt-10 px-4">
+      <div className="mt-4">
+        <WorkModeSwitch />
+      </div>
+
+      {/* Hero earnings card */}
+      <section className="mt-5 px-4">
         <Card
           className="relative overflow-hidden rounded-3xl border border-border/40 p-5 shadow-[var(--shadow-elegant)]"
         >
@@ -296,7 +303,7 @@ function DriverHome() {
 
 
       {/* Corridas de Táxi/Moto Táxi em Andamento */}
-      {activeRides.data && activeRides.data.length > 0 && (
+      {mode === "ride" && activeRides.data && activeRides.data.length > 0 && (
         <section className="mt-8 px-4">
           <SectionTitle title="Corridas em andamento" badge={`${activeRides.data.length}`} />
           <div className="mt-3 space-y-3">
@@ -327,7 +334,7 @@ function DriverHome() {
       )}
 
       {/* Corridas Disponíveis */}
-      {(isTaxiOrMotoTaxi || (availableRides.data && availableRides.data.length > 0)) && (
+      {mode === "ride" && (
         <section className="mt-8 px-4">
           <SectionTitle
             title="Corridas Disponíveis"
@@ -370,7 +377,7 @@ function DriverHome() {
         </section>
       )}
 
-      {isDeliveryDriver && (
+      {mode === "delivery" && isDeliveryDriver && (
         <section className="mt-8 px-4">
           <SectionTitle
             title="Entregas disponíveis"
