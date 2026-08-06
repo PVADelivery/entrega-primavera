@@ -92,7 +92,7 @@ function ProfilePage() {
         }
 
         // Status válidos no banco (enum delivery_status)
-        const DELIVERED_STATUSES = ["completed", "delivered"] as any;
+        const DELIVERED_STATUSES = ["delivered"] as any;
         const candidateDriverIds = Array.from(new Set([driver.id, user.id].filter(Boolean)));
 
         // Calcula janela de datas
