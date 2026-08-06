@@ -424,7 +424,7 @@ export async function fetchMyActiveDeliveries(driverId: string, userId?: string 
     .from("deliveries")
     .select("*")
     .in("driver_id", ids)
-    .in("status", ["accepted", "collecting", "in_route"])
+    .in("status", ["accepted", "collecting", "in_route", "in_transit"])
     .order("accepted_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
@@ -436,7 +436,7 @@ export async function fetchMyHistory(driverId: string, userId?: string | null) {
     .from("deliveries")
     .select("*")
     .in("driver_id", ids)
-    .in("status", ["completed", "cancelled", "delivered"])
+    .in("status", ["delivered", "cancelled", "returned"])
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw error;
@@ -461,7 +461,7 @@ export async function acceptDelivery(deliveryId: string, driverId: string) {
 const nextStatus: Record<string, string> = {
   accepted: "collecting",
   collecting: "in_transit",
-  in_transit: "completed",
+  in_transit: "delivered",
 };
 
 export async function advanceDelivery(delivery: any) {
@@ -565,7 +565,7 @@ export async function fetchEarnings(driverId: string) {
     .from("deliveries")
     .select("value, commission, completed_at, created_at")
     .in("driver_id", ids)
-    .in("status", ["completed", "delivered"]);
+    .in("status", ["delivered"]);
 
   console.log("DELIVERIES:", deliveries);
   console.log("DELIVERIES ERROR:", deliveriesError);
