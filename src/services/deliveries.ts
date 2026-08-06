@@ -542,9 +542,12 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
       return dataById.id;
     }
 
+    const payload: Record<string, any> = { user_id: userId };
+    if (regionId) payload.region_id = regionId;
+
     const { data: created, error: errCreated } = await supabase
       .from("delivery_drivers")
-      .insert({ user_id: userId, region_id: regionId ?? null } as any)
+      .insert(payload as any)
       .select("id")
       .maybeSingle();
 
@@ -564,9 +567,8 @@ export async function fetchEarnings(driverId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   const ids = Array.from(new Set([driverId, user?.id].filter(Boolean)));
 
-  console.log("driverId recebido:", driverId);
-  console.log("auth.uid:", user?.id);
-  console.log("ids utilizados:", ids);
+  console.log("AUTH USER:", user);
+  console.log("IDS CONSULTADOS:", ids);
 
   const { data: deliveries, error: deliveriesError } = await supabase
     .from("deliveries")
@@ -574,7 +576,8 @@ export async function fetchEarnings(driverId: string) {
     .in("driver_id", ids)
     .in("status", ["completed", "delivered"]);
 
-  console.log("deliveries encontradas:", deliveries);
+  console.log("DELIVERIES:", deliveries);
+  console.log("DELIVERIES ERROR:", deliveriesError);
 
   if (deliveriesError) throw deliveriesError;
 
