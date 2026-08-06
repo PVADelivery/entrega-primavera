@@ -405,7 +405,7 @@ export async function fetchAvailableDeliveries() {
   const { data, error } = await supabase
     .from("deliveries")
     .select("*")
-    .eq("status", "pending")
+    .in("status", ["pending", "broadcasted"])
     .is("driver_id", null)
     .order("created_at", { ascending: false });
   if (error) throw error;

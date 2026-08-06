@@ -212,7 +212,7 @@ export function useAvailableDeliveries() {
       const { data, error } = await supabase
         .from("deliveries")
         .select("*, companies(name)")
-        .eq("status", "pending")
+        .in("status", ["pending", "broadcasted"])
         .is("driver_id", null);
 
       if (error) throw error;
