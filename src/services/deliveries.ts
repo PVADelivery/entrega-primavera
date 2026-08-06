@@ -557,11 +557,17 @@ export async function fetchEarnings(driverId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   const ids = Array.from(new Set([driverId, user?.id, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
 
+  console.log("driverId recebido:", driverId);
+  console.log("auth.uid:", user?.id);
+  console.log("ids utilizados:", ids);
+
   const { data: deliveries, error: deliveriesError } = await supabase
     .from("deliveries")
     .select("value, delivery_fee, commission, completed_at, delivered_at, created_at")
     .in("driver_id", ids)
     .in("status", ["completed", "delivered"]);
+
+  console.log("deliveries encontradas:", deliveries);
 
   if (deliveriesError) throw deliveriesError;
 
