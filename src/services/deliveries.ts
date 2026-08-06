@@ -563,7 +563,7 @@ export async function fetchEarnings(driverId: string) {
 
   const { data: deliveries, error: deliveriesError } = await supabase
     .from("deliveries")
-    .select("value, delivery_fee, commission, completed_at, delivered_at, created_at")
+    .select("value, commission, completed_at, delivered_at, created_at")
     .in("driver_id", ids)
     .in("status", ["completed", "delivered"]);
 
@@ -595,7 +595,7 @@ export async function fetchEarnings(driverId: string) {
     const t = new Date(dateStr).getTime();
     
     // Calcula 75% do valor da entrega (o app retém 25%)
-    const fee = Number(r.delivery_fee) > 0 ? Number(r.delivery_fee) : Number(r.value || 0);
+    const fee = Number(r.value || 0);
     const c = fee * 0.75;
     
     total += c;
