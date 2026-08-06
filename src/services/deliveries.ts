@@ -419,7 +419,7 @@ export async function fetchAvailableDeliveries() {
 }
 
 export async function fetchMyActiveDeliveries(driverId: string, userId?: string | null) {
-  const ids = Array.from(new Set([driverId, userId, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
+  const ids = Array.from(new Set([driverId, userId].filter(Boolean)));
   const { data, error } = await supabase
     .from("deliveries")
     .select("*")
