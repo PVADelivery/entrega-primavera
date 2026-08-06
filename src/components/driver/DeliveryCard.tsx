@@ -73,7 +73,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 Comissão
               </p>
               <p className="font-display text-base font-bold tracking-tight text-foreground">
-                R$ {Number(delivery.commission ?? 0).toFixed(2)}
+                R$ {Number(delivery.commission || (delivery.value ? delivery.value * 0.75 : 0)).toFixed(2)}
               </p>
             </div>
           </div>
