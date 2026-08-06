@@ -59,7 +59,7 @@ function DriverHome() {
     safeServices.includes("carro");
 
   const available = useQuery({
-    queryKey: ["deliveries", "available", safeServices],
+    queryKey: ["deliveries", "available"],
     queryFn: async () => {
       const raw = await fetchAvailableDeliveries();
       if (!raw || raw.length === 0) return [];
@@ -142,7 +142,8 @@ function DriverHome() {
     const channel = supabase
       .channel("deliveries-home")
       .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
-        qc.invalidateQueries({ queryKey: ["deliveries"] });
+        qc.invalidateQueries({ queryKey: ["deliveries", "available"] });
+        qc.invalidateQueries({ queryKey: ["deliveries", "active"] });
         qc.invalidateQueries({ queryKey: ["earnings"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => {
