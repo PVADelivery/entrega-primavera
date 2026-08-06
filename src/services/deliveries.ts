@@ -588,6 +588,9 @@ export async function fetchEarnings(driverId: string) {
     .eq("driver_id", driverId)
     .eq("status", "completed");
 
+  console.log("RIDES:", rides);
+  console.log("RIDES ERROR:", ridesError);
+
   const now = new Date();
   const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const startWeek = startDay - now.getDay() * 86400000;
@@ -629,5 +632,7 @@ export async function fetchEarnings(driverId: string) {
     }
   }
 
-  return { day, week, month, total, count };
+  const result = { day, week, month, total, count };
+  console.log("EARNINGS RESULTADO FINAL:", result);
+  return result;
 }
