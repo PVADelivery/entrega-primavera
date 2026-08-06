@@ -62,24 +62,7 @@ function DriverHome() {
     queryKey: ["deliveries", "available"],
     queryFn: async () => {
       const raw = await fetchAvailableDeliveries();
-      if (!raw || raw.length === 0) return [];
-      
-      // Se não tiver restrição explícita, mostra todas as entregas disponíveis
-      if (safeServices.length === 0) return raw;
-
-      return raw.filter((del: any) => {
-        const requestedVehicle = del.vehicle_type || "moto";
-        if (safeServices.length === 0) return true;
-        
-        const hasMoto = safeServices.includes("delivery_moto") || safeServices.includes("moto");
-        const hasCarro = safeServices.includes("delivery_car") || safeServices.includes("carro");
-        const hasCarroAberto = safeServices.includes("delivery_carro_aberto") || safeServices.includes("carro_aberto");
-
-        if (requestedVehicle === "moto" && hasMoto) return true;
-        if (requestedVehicle === "carro" && hasCarro) return true;
-        if (requestedVehicle === "carro_aberto" && hasCarroAberto) return true;
-        return false;
-      });
+      return raw ?? [];
     },
     enabled: mode === "delivery",
   });
@@ -386,7 +369,7 @@ function DriverHome() {
         </section>
       )}
 
-      {mode === "delivery" && isDeliveryDriver && (
+      {mode === "delivery" && (
         <section className="mt-8 px-4">
           <SectionTitle
             title="Entregas disponíveis"
