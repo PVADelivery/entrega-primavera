@@ -128,6 +128,8 @@ function DriverHome() {
     enabled: !!driverId && mode === "ride",
   });
 
+  console.log("driverId antes do useQuery:", driverId);
+
   const earnings = useQuery({
     queryKey: ["earnings", driverId],
     queryFn: () => (driverId ? fetchEarnings(driverId) : Promise.resolve({ day: 0, week: 0, month: 0, total: 0, count: 0 })),

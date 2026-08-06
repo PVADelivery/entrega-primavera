@@ -515,42 +515,49 @@ export async function getDriverIdFromUser(userId: string): Promise<string | null
 }
 
 export async function ensureDriverRow(userId: string, regionId?: string | null): Promise<string> {
+  console.log("[ensureDriverRow] auth.uid:", userId);
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("delivery_drivers")
       .select("id")
       .eq("user_id", userId)
       .maybeSingle();
-    if (data?.id) return data.id;
 
-    const { data: dataById } = await supabase
+    console.log("[ensureDriverRow] delivery_drivers encontrado:", data);
+    console.log("[ensureDriverRow] erro:", error);
+
+    if (data?.id) {
+      console.log("[ensureDriverRow] id retornado:", data.id);
+      return data.id;
+    }
+
+    const { data: dataById, error: errById } = await supabase
       .from("delivery_drivers")
       .select("id")
       .eq("id", userId)
       .maybeSingle();
-    if (dataById?.id) return dataById.id;
 
-    const { data: created } = await supabase
+    if (dataById?.id) {
+      console.log("[ensureDriverRow] id retornado por id:", dataById.id);
+      return dataById.id;
+    }
+
+    const { data: created, error: errCreated } = await supabase
       .from("delivery_drivers")
       .insert({ user_id: userId, region_id: regionId ?? null } as any)
       .select("id")
       .maybeSingle();
-    if (created?.id) return created.id;
+
+    if (created?.id) {
+      console.log("[ensureDriverRow] id retornado do insert:", created.id);
+      return created.id;
+    }
   } catch (err) {
-    console.error("Erro em ensureDriverRow:", err);
+    console.error("[ensureDriverRow] catch error:", err);
   }
 
-  try {
-    const { data: sample } = await supabase
-      .from("deliveries")
-      .select("driver_id")
-      .not("driver_id", "is", null)
-      .limit(1)
-      .maybeSingle();
-    if (sample?.driver_id) return sample.driver_id;
-  } catch (e) {}
-
-  return "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0";
+  console.log("[ensureDriverRow] id retornado (fallback userId):", userId);
+  return userId;
 }
 
 export async function fetchEarnings(driverId: string) {
