@@ -124,11 +124,11 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             {onCancel && delivery.status !== "delivered" && delivery.status !== "cancelled" && (
               <Button
                 variant="outline"
-                className="h-11 rounded-xl"
+                className="h-11 rounded-xl text-destructive hover:bg-destructive/10 border-destructive/20"
                 disabled={pending}
                 onClick={onCancel}
               >
-                Cancelar
+                Rejeitar corrida
               </Button>
             )}
           </div>
