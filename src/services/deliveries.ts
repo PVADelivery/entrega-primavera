@@ -5,11 +5,13 @@ import type { DeliveryStatus } from "@/types/models";
 
 function toDbStatus(status: string) {
   if (status === "in_transit") return "in_route";
+  if (status === "delivered") return "completed";
   return status;
 }
 
 function toAppStatus(status: string) {
   if (status === "in_route") return "in_transit";
+  if (status === "completed") return "delivered";
   return status as DeliveryStatus;
 }
 
@@ -468,7 +470,11 @@ export async function advanceDelivery(delivery: any) {
   const next = nextStatus[delivery.status];
   if (!next) return;
   const dbNextStatus = toDbStatus(next);
-  const { error } = await supabase.from("deliveries").update({ status: dbNextStatus as any }).eq("id", delivery.id);
+  const updateData: any = { status: dbNextStatus };
+  if (dbNextStatus === "completed") {
+    updateData.completed_at = new Date().toISOString();
+  }
+  const { error } = await supabase.from("deliveries").update(updateData).eq("id", delivery.id);
   if (error) throw error;
 }
 
