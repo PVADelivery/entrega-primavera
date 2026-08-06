@@ -69,10 +69,11 @@ function DriverHome() {
 
       return raw.filter((del: any) => {
         const requestedVehicle = del.vehicle_type || "moto";
+        if (safeServices.length === 0) return true;
         if (requestedVehicle === "moto" && (safeServices.includes("delivery_moto") || safeServices.includes("moto"))) return true;
         if (requestedVehicle === "carro" && (safeServices.includes("delivery_car") || safeServices.includes("carro"))) return true;
         if (requestedVehicle === "carro_aberto" && (safeServices.includes("delivery_carro_aberto") || safeServices.includes("carro_aberto"))) return true;
-        return true; // Fallback para mostrar entregas disponíveis por padrão
+        return false;
       });
     },
     enabled: mode === "delivery",
