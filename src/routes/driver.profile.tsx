@@ -93,7 +93,7 @@ function ProfilePage() {
 
         // Status válidos no banco (enum delivery_status)
         const DELIVERED_STATUSES = ["completed", "delivered"] as any;
-        const candidateDriverIds = Array.from(new Set([driver.id, user.id, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
+        const candidateDriverIds = Array.from(new Set([driver.id, user.id].filter(Boolean)));
 
         // Calcula janela de datas
         let start = new Date();
@@ -134,7 +134,7 @@ function ProfilePage() {
 
           const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
             .from("deliveries")
-            .select("value, delivery_fee, completed_at, delivered_at, created_at")
+            .select("value, commission, completed_at, created_at")
             .in("driver_id", candidateDriverIds)
             .in("status", DELIVERED_STATUSES);
 
@@ -143,11 +143,11 @@ function ProfilePage() {
           }
 
           for (const d of deliveriesForPeriod ?? []) {
-            const dateStr = d.completed_at || d.delivered_at || d.created_at;
+            const dateStr = d.completed_at || d.created_at;
             if (!dateStr) continue;
             const t = new Date(dateStr).getTime();
             if (t >= start.getTime() && t <= end.getTime()) {
-              const fee = Number(d.delivery_fee) > 0 ? Number(d.delivery_fee) : Number(d.value || 0);
+              const fee = Number(d.value || 0);
               grossEarnings += fee;
               periodCount++;
             }

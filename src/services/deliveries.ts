@@ -563,7 +563,7 @@ export async function fetchEarnings(driverId: string) {
 
   const { data: deliveries, error: deliveriesError } = await supabase
     .from("deliveries")
-    .select("value, commission, completed_at, delivered_at, created_at")
+    .select("value, commission, completed_at, created_at")
     .in("driver_id", ids)
     .in("status", ["completed", "delivered"]);
 
@@ -590,7 +590,7 @@ export async function fetchEarnings(driverId: string) {
 
   // Processa Entregas (deliveries)
   for (const r of deliveries ?? []) {
-    const dateStr = r.completed_at || r.delivered_at || r.created_at;
+    const dateStr = r.completed_at || r.created_at;
     if (!dateStr) continue;
     const t = new Date(dateStr).getTime();
     
