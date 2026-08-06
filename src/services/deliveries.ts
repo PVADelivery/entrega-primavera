@@ -454,15 +454,6 @@ export async function acceptDelivery(deliveryId: string, driverId: string) {
   
   if (error) {
     console.error("[acceptDelivery] Supabase error:", error);
-    if (error.code === "23503" || error.message?.includes("foreign key constraint")) {
-      const fallbackId = "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0";
-      const { error: retryErr } = await supabase
-        .from("deliveries")
-        .update({ driver_id: fallbackId, status: "accepted", accepted_at: new Date().toISOString() } as any)
-        .eq("id", deliveryId);
-      if (retryErr) throw retryErr;
-      return;
-    }
     throw error;
   }
 }

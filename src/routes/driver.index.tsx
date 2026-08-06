@@ -161,7 +161,7 @@ function DriverHome() {
         if (id) return id;
       } catch (e) {}
     }
-    return "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0";
+    return user?.id || "";
   }
 
   async function handleAccept(id: string) {
