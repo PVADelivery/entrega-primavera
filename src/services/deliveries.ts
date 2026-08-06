@@ -424,7 +424,7 @@ export async function fetchMyActiveDeliveries(driverId: string, userId?: string 
     .from("deliveries")
     .select("*")
     .in("driver_id", ids)
-    .in("status", ["accepted", "collecting", "in_route"])
+    .in("status", ["accepted", "collecting", "in_route", "in_transit"])
     .order("accepted_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
