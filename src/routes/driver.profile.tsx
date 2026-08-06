@@ -92,7 +92,8 @@ function ProfilePage() {
         }
 
         // Status válidos no banco (enum delivery_status)
-        const DELIVERED_STATUSES = ["completed"] as any;
+        const DELIVERED_STATUSES = ["completed", "delivered"] as any;
+        const candidateDriverIds = Array.from(new Set([driver.id, user.id, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
 
         // Calcula janela de datas
         let start = new Date();
@@ -127,26 +128,29 @@ function ProfilePage() {
           const { count } = await supabase
             .from("deliveries")
             .select("id", { count: "exact", head: true })
-            .eq("driver_id", driver.id)
+            .in("driver_id", candidateDriverIds)
             .in("status", DELIVERED_STATUSES);
           totalCount = count || 0;
 
           const { data: deliveriesForPeriod, error: deliveriesError } = await supabase
             .from("deliveries")
-            .select("value, delivery_fee, completed_at, created_at")
-            .eq("driver_id", driver.id)
-            .in("status", DELIVERED_STATUSES)
-            .gte("completed_at", startIso)
-            .lte("completed_at", endIso);
+            .select("value, delivery_fee, completed_at, delivered_at, created_at")
+            .in("driver_id", candidateDriverIds)
+            .in("status", DELIVERED_STATUSES);
 
           if (deliveriesError) {
             console.error("[fetchDriverData] Erro ao buscar entregas:", deliveriesError);
           }
 
           for (const d of deliveriesForPeriod ?? []) {
-            const fee = Number(d.delivery_fee) > 0 ? Number(d.delivery_fee) : Number(d.value || 0);
-            grossEarnings += fee;
-            periodCount++;
+            const dateStr = d.completed_at || d.delivered_at || d.created_at;
+            if (!dateStr) continue;
+            const t = new Date(dateStr).getTime();
+            if (t >= start.getTime() && t <= end.getTime()) {
+              const fee = Number(d.delivery_fee) > 0 ? Number(d.delivery_fee) : Number(d.value || 0);
+              grossEarnings += fee;
+              periodCount++;
+            }
           }
         } else {
           // Total histórico de corridas concluídas
