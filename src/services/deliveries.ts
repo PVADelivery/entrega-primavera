@@ -555,7 +555,7 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
 
 export async function fetchEarnings(driverId: string) {
   const { data: { user } } = await supabase.auth.getUser();
-  const ids = Array.from(new Set([driverId, user?.id, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
+  const ids = Array.from(new Set([driverId, user?.id].filter(Boolean)));
 
   console.log("driverId recebido:", driverId);
   console.log("auth.uid:", user?.id);
