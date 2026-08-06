@@ -481,10 +481,26 @@ export async function advanceDelivery(delivery: any) {
   if (error) throw error;
 }
 
+export async function releaseDeliveryToPool(deliveryId: string) {
+  const { error } = await supabase
+    .from("deliveries")
+    .update({ 
+      status: "pending" as any,
+      driver_id: null,
+      accepted_at: null
+    })
+    .eq("id", deliveryId);
+  if (error) throw error;
+}
+
 export async function cancelDelivery(deliveryId: string) {
   const { error } = await supabase
     .from("deliveries")
-    .update({ status: "cancelled" as any })
+    .update({ 
+      status: "pending" as any,
+      driver_id: null,
+      accepted_at: null
+    })
     .eq("id", deliveryId);
   if (error) throw error;
 }

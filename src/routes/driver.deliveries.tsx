@@ -154,14 +154,14 @@ function DeliveriesPage() {
   }
 
   async function handleCancel(id: string) {
-    if (!confirm("Cancelar esta entrega?")) return;
+    if (!confirm("Recusar/Desistir desta entrega e disponibilizar para outros entregadores?")) return;
     setPending(id);
     try {
       await cancelDelivery(id);
-      toast.success("Entrega cancelada");
+      toast.success("Entrega devolvida para os entregadores");
       qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch {
-      toast.error("Falha ao cancelar");
+      toast.error("Falha ao devolver entrega");
     } finally {
       setPending(null);
     }
