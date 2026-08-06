@@ -436,8 +436,8 @@ export async function fetchMyHistory(driverId: string, userId?: string | null) {
     .from("deliveries")
     .select("*")
     .in("driver_id", ids)
-    .in("status", ["completed", "cancelled", "delivered"])
-    .order("updated_at", { ascending: false })
+    .in("status", ["completed", "cancelled", "delivered", "finalized", "concluded"])
+    .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw error;
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
