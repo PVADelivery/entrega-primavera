@@ -472,15 +472,15 @@ function InvitePage() {
               )}
             </div>
 
-            <div className="flex gap-4 pt-4 mt-2">
+            <div className="flex flex-row items-center gap-3 pt-4 mt-2 w-full">
               {step > 0 && (
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="h-14 px-6 rounded-2xl font-bold bg-transparent border-white/10 text-white hover:bg-white/5 hover:text-white transition-all" 
+                  className="h-14 px-4 sm:px-6 rounded-2xl font-bold bg-slate-900/80 border-slate-700 text-white hover:bg-slate-800 transition-all shrink-0" 
                   onClick={() => setStep(step - 1)}
                 >
-                  <ArrowLeft className="h-5 w-5 mr-2" /> Voltar
+                  <ArrowLeft className="h-5 w-5 mr-1.5" /> Voltar
                 </Button>
               )}
               
@@ -488,7 +488,7 @@ function InvitePage() {
                 <Button 
                   key="btn-next"
                   type="button" 
-                  className="flex-1 h-14 rounded-2xl font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 text-white" 
+                  className="flex-1 h-14 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 text-white" 
                   onClick={nextStep}
                 >
                   Continuar <ArrowRight className="h-5 w-5 ml-2" />
@@ -498,14 +498,13 @@ function InvitePage() {
                   key="btn-submit"
                   type="button" 
                   onClick={handleSubmit}
-                  className="flex-1 h-14 rounded-2xl font-black shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 text-white relative overflow-hidden group" 
+                  className="flex-1 h-14 min-w-0 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(234,179,8,0.4)] hover:shadow-[0_0_30px_rgba(234,179,8,0.6)] transition-all bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center px-2 py-1 leading-tight text-center" 
                   disabled={loading}
                 >
-                  <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-[100%] group-hover:animate-[shimmer_1.5s_infinite]" />
                   {loading ? (
-                    <><Loader2 className="h-5 w-5 animate-spin mr-2" /> Processando...</>
+                    <><Loader2 className="h-5 w-5 animate-spin mr-1.5 shrink-0" /> <span className="truncate">Processando...</span></>
                   ) : (
-                    <><CheckCircle2 className="h-5 w-5 mr-2" /> Finalizar Cadastro</>
+                    <><CheckCircle2 className="h-5 w-5 mr-1.5 shrink-0" /> <span className="truncate">Finalizar Cadastro</span></>
                   )}
                 </Button>
               )}
