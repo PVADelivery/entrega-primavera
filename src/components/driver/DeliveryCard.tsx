@@ -187,21 +187,8 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
           </div>
         </div>
 
-        {/* Botão de WhatsApp direto em destaque se a corrida foi aceita */}
-        {whatsappUrl && delivery.status !== "pending" && delivery.status !== "broadcasted" && delivery.status !== "delivered" && (
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 font-bold text-white shadow-md transition-all hover:bg-emerald-500 active:scale-[0.99]"
-          >
-            <MessageSquare className="h-5 w-5" />
-            Conversar com o Cliente no WhatsApp
-          </a>
-        )}
-
-        {(onAccept || (next && onAdvance) || onCancel || (!onAccept && !onAdvance)) && (
-          <div className="mt-3 flex gap-2">
+        {(onAccept || (next && onAdvance) || onCancel || (!onAccept && !onAdvance) || whatsappUrl) && (
+          <div className="mt-3 flex items-center gap-2">
             {onAccept && (
               <Button
                 className="group/btn h-11 flex-1 rounded-xl font-semibold shadow-[var(--shadow-elegant)] transition-all"
@@ -225,6 +212,20 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 {next}
               </Button>
             )}
+
+            {/* Botão pequeno apenas com o ícone do WhatsApp na mesma linha */}
+            {whatsappUrl && (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Conversar no WhatsApp"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-md transition-all hover:bg-emerald-500 active:scale-95"
+              >
+                <MessageSquare className="h-5 w-5" />
+              </a>
+            )}
+
             {!onAccept && !onAdvance && (
               <Button
                 variant="outline"
