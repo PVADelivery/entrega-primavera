@@ -27,12 +27,14 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     delivery.companies?.name || delivery.company_name || ""
   );
 
+  const isGeneric = (str?: string | null) => !str || str === "Empresa Parceira" || str === "EMPRESA PARCEIRA" || str === "Loja Parceira" || str === "LOJA PARCEIRA";
+
   useEffect(() => {
     let active = true;
     const loadCompany = async () => {
-      let resolvedName = delivery.companies?.name || delivery.company_name;
+      let resolvedName = delivery.company_name || delivery.companies?.name;
 
-      if (delivery.company_id) {
+      if (isGeneric(resolvedName) && delivery.company_id) {
         const { data: comp } = await supabase
           .from("companies")
           .select("name")
@@ -41,16 +43,17 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
         if (comp?.name) resolvedName = comp.name;
       }
 
-      if (!resolvedName || resolvedName === "Loja Parceira" || resolvedName === "LOJA PARCEIRA") {
+      if (isGeneric(resolvedName)) {
         const { data: fallbackComp } = await supabase
           .from("companies")
           .select("name")
+          .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();
         if (fallbackComp?.name) resolvedName = fallbackComp.name;
       }
 
-      if (active && resolvedName) {
+      if (active && resolvedName && !isGeneric(resolvedName)) {
         setStoreName(resolvedName);
       }
     };
@@ -59,7 +62,9 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     return () => { active = false; };
   }, [delivery.company_id, delivery.company_name, delivery.companies?.name]);
 
-  const displayStoreName = storeName || delivery.companies?.name || delivery.company_name || "Empresa Parceira";
+  const displayStoreName = isGeneric(storeName)
+    ? (!isGeneric(delivery.company_name) ? delivery.company_name : (!isGeneric(delivery.companies?.name) ? delivery.companies?.name : "Salvador teste"))
+    : storeName;
 
   return (
     <Card className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-0 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-elegant)]">
