@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { MapPin, Wallet, ArrowRight, X, Volume2, Sparkles } from "lucide-react";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
 
 export function NewDeliveryPopupModal() {
@@ -11,32 +10,35 @@ export function NewDeliveryPopupModal() {
   useEffect(() => {
     // Escuta novas solicitações de entrega em tempo real
     const channel = supabase
-      .channel(`popup-delivery-new-${Math.random().toString(36).substring(2, 9)}`)
+      .channel(`popup-delivery-epraja-${Math.random().toString(36).substring(2, 9)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "deliveries" },
         async (payload) => {
           const newDel = payload.new as any;
           if (newDel.status === "pending" || newDel.status === "broadcasted") {
-            // Tocar som em volume alto
+            // Tocar som de chamada de entrega
             try {
               const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
               audio.volume = 1.0;
               audio.play().catch(() => {});
             } catch (e) {}
 
-            // Buscar dados completos da loja
-            let companyName = newDel.company_name || "Loja Parceira";
-            if (newDel.company_id) {
+            // Buscar nome completo da loja se não vier diretamente
+            let storeName = newDel.company_name || "LOJA PARCEIRA";
+            if (newDel.company_id && storeName === "LOJA PARCEIRA") {
               const { data: comp } = await supabase
                 .from("companies")
                 .select("name")
                 .eq("id", newDel.company_id)
                 .maybeSingle();
-              if (comp?.name) companyName = comp.name;
+              if (comp?.name) storeName = comp.name;
             }
 
-            setActiveDelivery({ ...newDel, storeName: companyName });
+            setActiveDelivery({
+              ...newDel,
+              storeName: storeName.toUpperCase()
+            });
           }
         }
       )
@@ -70,90 +72,90 @@ export function NewDeliveryPopupModal() {
           .eq("id", activeDelivery.id);
       }
     } catch (e) {
-      console.error("Erro ao aceitar corrida no popup:", e);
+      console.error("Erro ao aceitar entrega:", e);
     } finally {
       setActiveDelivery(null);
       window.location.href = "/driver/deliveries";
     }
   };
 
+  const handleReject = () => {
+    setActiveDelivery(null);
+  };
+
   if (!activeDelivery) return null;
+
+  const earnings = Number(
+    (activeDelivery.commission && Number(activeDelivery.commission) > 0)
+      ? activeDelivery.commission
+      : (activeDelivery.delivery_fee && Number(activeDelivery.delivery_fee) > 0)
+        ? activeDelivery.delivery_fee
+        : (activeDelivery.value && Number(activeDelivery.value) > 0)
+          ? activeDelivery.value
+          : (activeDelivery.price && Number(activeDelivery.price) > 0)
+            ? activeDelivery.price
+            : 0
+  ).toFixed(2);
 
   return (
     <Dialog open={true} onOpenChange={(open) => { if (!open) setActiveDelivery(null); }}>
-      <DialogContent className="sm:max-w-md bg-slate-950 border-2 border-amber-500/80 text-white rounded-3xl p-6 shadow-[0_0_50px_rgba(234,179,8,0.3)] animate-in zoom-in-95 duration-200">
+      <DialogContent className="w-[95%] max-w-sm bg-[#0b1329] border-none text-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
         
-        {/* Cabeçalho com Alerta de Nova Corrida */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse">
-              <Sparkles className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
-                Nova Entrega Disponível!
-              </p>
-              <h3 className="text-lg font-bold text-white tracking-tight">
-                {activeDelivery.storeName}
-              </h3>
-            </div>
-          </div>
-          <button
-            onClick={() => setActiveDelivery(null)}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Detalhes da Coleta e Valor */}
-        <div className="space-y-4 py-2">
-          {/* Endereço de Coleta / Entrega */}
-          <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2.5">
-            <div className="flex items-start gap-2 text-xs">
-              <MapPin className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-slate-300">Coleta (Loja):</span>
-                <p className="text-white font-medium">{activeDelivery.pickup_address || "Endereço da Loja"}</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2 text-xs pt-1 border-t border-slate-800/80">
-              <MapPin className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-slate-300">Entrega:</span>
-                <p className="text-white font-medium">{activeDelivery.address || "Endereço do Cliente"}</p>
-              </div>
-            </div>
+        {/* Layout idêntico ao modelo "É Pra Já" */}
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          
+          {/* Logo Central do Aplicativo */}
+          <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-amber-500/10 p-2 shadow-lg border border-amber-500/20">
+            <img src={iconPrimavera} alt="MT 24 Horas Express" className="h-20 w-20 object-contain" />
           </div>
 
-          {/* Valor de Ganhos */}
-          <div className="flex items-center justify-between p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-500 text-slate-950 font-black">
-                <Wallet className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                  Ganhos da Corrida
-                </p>
-                <p className="text-2xl font-black text-white">
-                  R$ {Number(activeDelivery.commission || activeDelivery.delivery_fee || activeDelivery.price || (activeDelivery.value ? activeDelivery.value * 0.75 : 0)).toFixed(2)}
-                </p>
-              </div>
-            </div>
+          {/* Título Principal */}
+          <h2 className="text-2xl font-black tracking-tight text-white">
+            Nova Corrida Disponível!
+          </h2>
+
+          {/* Nome da Loja */}
+          <p className="text-lg font-black text-slate-300 uppercase tracking-wide">
+            {activeDelivery.storeName}
+          </p>
+
+          {/* Coleta */}
+          <div className="text-sm text-slate-300 font-medium leading-tight max-w-[280px]">
+            <span className="font-semibold text-slate-400">Coleta: </span>
+            {activeDelivery.pickup_address || "Endereço da Loja"}
           </div>
+
+          {/* Entrega */}
+          <div className="text-sm text-slate-300 font-medium leading-tight max-w-[280px]">
+            <span className="font-semibold text-slate-400">Entrega: </span>
+            {activeDelivery.address || "Endereço do Cliente"}
+          </div>
+
+          {/* Ganhos */}
+          <p className="text-lg font-black text-white pt-1">
+            Ganhos: R$ {earnings}
+          </p>
+
+          {/* Botões RECUSAR e ACEITAR lado a lado */}
+          <div className="grid grid-cols-2 gap-3 w-full pt-4">
+            <Button
+              type="button"
+              onClick={handleReject}
+              className="h-13 rounded-xl font-black text-base uppercase bg-red-600 hover:bg-red-700 text-white border-none shadow-md transition-transform active:scale-95"
+            >
+              RECUSAR
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAccept}
+              className="h-13 rounded-xl font-black text-base uppercase bg-emerald-500 hover:bg-emerald-600 text-white border-none shadow-md transition-transform active:scale-95"
+            >
+              ACEITAR
+            </Button>
+          </div>
+
         </div>
 
-        {/* Botão de Aceite Imediato */}
-        <div className="pt-2">
-          <Button
-            onClick={handleAccept}
-            className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-wider bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_30px_rgba(234,179,8,0.4)] transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            Aceitar Entrega Agora <ArrowRight className="h-5 w-5 ml-2" />
-          </Button>
-        </div>
       </DialogContent>
     </Dialog>
   );
