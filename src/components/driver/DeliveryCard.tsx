@@ -35,19 +35,29 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate font-display text-base font-bold tracking-tight text-foreground">
-                {delivery.customer_name}
+                {delivery.status === "pending" || delivery.status === "broadcasted"
+                  ? (delivery.companies?.name || "Loja Parceira")
+                  : (delivery.customer_name || "Cliente")}
               </p>
               {delivery.short_id && <span className="bg-primary/10 text-primary font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">{delivery.short_id}</span>}
             </div>
+
+            {/* Se aceito/em andamento, exibe também quem é a loja ou cliente */}
+            {delivery.status !== "pending" && delivery.status !== "broadcasted" && delivery.companies?.name && (
+              <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                Retirada: <span className="text-foreground">{delivery.companies.name}</span>
+              </p>
+            )}
+
             {delivery.pickup_address ? (
               <>
                 <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
-                  <span className="line-clamp-2"><span className="font-medium text-foreground">Coletar em:</span> {delivery.pickup_address}</span>
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  <span className="line-clamp-2"><span className="font-semibold text-foreground">Retirada (Loja):</span> {delivery.pickup_address}</span>
                 </p>
                 <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
-                  <span className="line-clamp-2"><span className="font-medium text-foreground">Entregar em:</span> {delivery.address}</span>
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <span className="line-clamp-2"><span className="font-semibold text-foreground">Entrega:</span> {delivery.address}</span>
                 </p>
               </>
             ) : (

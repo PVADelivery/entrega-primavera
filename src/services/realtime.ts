@@ -80,8 +80,9 @@ export function useDriverRealtime() {
             // Trigger System/Browser Push Notification for Lock Screen & Background
             if ("Notification" in window && Notification.permission === "granted") {
               const val = newDel.value ? `R$ ${Number(newDel.value).toFixed(2)}` : "";
+              const storeName = newDel.company_name || newDel.companies?.name || "Loja Parceira";
               const notification = new Notification("🛵 Nova Entrega Disponível!", {
-                body: `Cliente: ${newDel.customer_name || "Cliente"}\nEndereço: ${newDel.address || "Endereço"}\nValor: ${val}`,
+                body: `Loja: ${storeName}\nLocal de Retirada: ${newDel.pickup_address || "Loja"}\nValor do Pedido: ${val}`,
                 icon: "/favicon-v3.png",
                 tag: `delivery-${newDel.id}`,
                 requireInteraction: true
