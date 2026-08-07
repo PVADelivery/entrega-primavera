@@ -95,15 +95,20 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               <Wallet className="h-3.5 w-3.5" />
             </span>
             <div className="leading-tight">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Ganhos Entregador
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                GANHOS
               </p>
               <p className="font-display text-base font-bold tracking-tight text-amber-400">
                 R$ {Number(
-                  delivery.commission ?? 
-                  delivery.delivery_fee ?? 
-                  delivery.price ?? 
-                  (delivery.value ? Number(delivery.value) * 0.75 : 0)
+                  (delivery.commission && Number(delivery.commission) > 0)
+                    ? delivery.commission
+                    : (delivery.delivery_fee && Number(delivery.delivery_fee) > 0)
+                      ? delivery.delivery_fee
+                      : (delivery.value && Number(delivery.value) > 0)
+                        ? Number(delivery.value)
+                        : (delivery.price && Number(delivery.price) > 0)
+                          ? Number(delivery.price)
+                          : 0
                 ).toFixed(2)}
               </p>
             </div>
