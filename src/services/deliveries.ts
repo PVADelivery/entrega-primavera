@@ -412,7 +412,7 @@ export function useDeliveryTracking(orderId?: string | null) {
 export async function fetchAvailableDeliveries() {
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*")
+    .select("*, companies(name, phone)")
     .in("status", ["pending", "broadcasted"])
     .is("driver_id", null)
     .order("created_at", { ascending: false });
@@ -424,7 +424,7 @@ export async function fetchMyActiveDeliveries(driverId: string, userId?: string 
   const ids = Array.from(new Set([driverId, userId].filter(Boolean)));
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*")
+    .select("*, companies(name, phone)")
     .in("driver_id", ids)
     .in("status", ["accepted", "collecting", "in_route"])
     .order("accepted_at", { ascending: false });
@@ -436,7 +436,7 @@ export async function fetchMyHistory(driverId: string, userId?: string | null) {
   const ids = Array.from(new Set([driverId, userId].filter(Boolean)));
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*")
+    .select("*, companies(name, phone)")
     .in("driver_id", ids)
     .in("status", ["completed", "cancelled", "returned"])
     .order("created_at", { ascending: false })

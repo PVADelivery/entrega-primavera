@@ -34,18 +34,18 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="truncate font-display text-base font-bold tracking-tight text-foreground">
+              <p className="truncate font-display text-base font-bold tracking-tight text-amber-400">
                 {delivery.status === "pending" || delivery.status === "broadcasted"
-                  ? (delivery.companies?.name || "Loja Parceira")
+                  ? (delivery.companies?.name || delivery.company_name || "Coleta em Loja Parceira")
                   : (delivery.customer_name || "Cliente")}
               </p>
               {delivery.short_id && <span className="bg-primary/10 text-primary font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">{delivery.short_id}</span>}
             </div>
 
-            {/* Se aceito/em andamento, exibe também quem é a loja ou cliente */}
-            {delivery.status !== "pending" && delivery.status !== "broadcasted" && delivery.companies?.name && (
+            {/* Exibe o cliente apenas após o aceite do entregador */}
+            {delivery.status !== "pending" && delivery.status !== "broadcasted" && delivery.customer_name && (
               <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-                Retirada: <span className="text-foreground">{delivery.companies.name}</span>
+                Cliente: <span className="text-foreground">{delivery.customer_name}</span>
               </p>
             )}
 
