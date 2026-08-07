@@ -13,6 +13,21 @@ export function DriverShell({ children }: { children: ReactNode }) {
     }
   }, [loading, user, navigate]);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="mt-4 text-xs font-bold text-muted-foreground uppercase tracking-widest animate-pulse">
+          Verificando acesso...
+        </p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24 text-foreground">
       <div className="mx-auto max-w-md">{children}</div>
