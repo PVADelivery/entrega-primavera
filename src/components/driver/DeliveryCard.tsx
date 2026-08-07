@@ -27,14 +27,14 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     delivery.companies?.name || delivery.company_name || ""
   );
 
-  const isGeneric = (str?: string | null) => !str || str === "Empresa Parceira" || str === "EMPRESA PARCEIRA" || str === "Loja Parceira" || str === "LOJA PARCEIRA";
+  const isGeneric = (str?: string | null) => !str || str === "Empresa Parceira" || str === "EMPRESA PARCEIRA" || str === "Loja Parceira" || str === "LOJA PARCEIRA" || str === "MT 24 HORAS";
 
   useEffect(() => {
     let active = true;
     const loadCompany = async () => {
       let resolvedName = delivery.company_name || delivery.companies?.name;
 
-      if (delivery.company_id && (isGeneric(resolvedName) || !resolvedName)) {
+      if (delivery.company_id && isGeneric(resolvedName)) {
         const { data: comp } = await supabase
           .from("companies")
           .select("name")
@@ -43,24 +43,37 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
         if (comp?.name) resolvedName = comp.name;
       }
 
-      if (isGeneric(resolvedName) || !resolvedName) {
-        const { data: anyCompany } = await supabase
-          .from("companies")
-          .select("name")
-          .order("created_at", { ascending: true })
-          .limit(1)
+      // Se ainda for genérico, buscar empresa pelo order_id
+      if (isGeneric(resolvedName) && delivery.order_id) {
+        const { data: ord } = await supabase
+          .from("orders")
+          .select("company_id, companies(name)")
+          .eq("id", delivery.order_id)
           .maybeSingle();
-        if (anyCompany?.name) resolvedName = anyCompany.name;
+        if ((ord as any)?.companies?.name) {
+          resolvedName = (ord as any).companies.name;
+        }
       }
 
-      if (active && resolvedName && !isGeneric(resolvedName)) {
+      // Se ainda for genérico, buscar a última empresa de loja cadastrada no sistema
+      if (isGeneric(resolvedName)) {
+        const { data: lastCompany } = await supabase
+          .from("companies")
+          .select("name")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastCompany?.name) resolvedName = lastCompany.name;
+      }
+
+      if (active && resolvedName) {
         setStoreName(resolvedName);
       }
     };
 
     loadCompany();
     return () => { active = false; };
-  }, [delivery.company_id, delivery.company_name, delivery.companies?.name]);
+  }, [delivery.company_id, delivery.company_name, delivery.companies?.name, delivery.order_id]);
 
   const displayStoreName = (!isGeneric(storeName) ? storeName : null) ||
     (!isGeneric(delivery.company_name) ? delivery.company_name : null) ||
