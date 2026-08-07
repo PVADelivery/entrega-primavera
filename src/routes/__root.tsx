@@ -13,6 +13,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WorkModeProvider } from "@/hooks/useWorkMode";
 import { Toaster } from "@/components/ui/sonner";
+import { PermissionModal } from "@/components/driver/PermissionModal";
 
 function NotFoundComponent() {
   return (
@@ -137,6 +138,7 @@ function RootComponent() {
       <ThemeProvider>
         <AuthProvider>
           <WorkModeProvider>
+            <PermissionModal />
             <Outlet />
             <Toaster position="top-center" richColors />
           </WorkModeProvider>
