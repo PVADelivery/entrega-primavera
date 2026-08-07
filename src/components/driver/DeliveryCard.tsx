@@ -144,18 +144,18 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             </span>
             <div className="leading-tight">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                GANHOS
+                GANHOS ENTREGADOR
               </p>
-              <p className="font-display text-base font-bold tracking-tight text-amber-400">
+              <p className="font-display text-base font-bold tracking-tight text-emerald-400">
                 R$ {Number(
-                  (delivery.commission && Number(delivery.commission) > 0)
-                    ? delivery.commission
-                    : (delivery.delivery_fee && Number(delivery.delivery_fee) > 0)
-                      ? delivery.delivery_fee
-                      : (delivery.value && Number(delivery.value) > 0)
-                        ? Number(delivery.value)
-                        : (delivery.price && Number(delivery.price) > 0)
-                          ? Number(delivery.price)
+                  (delivery.delivery_fee && Number(delivery.delivery_fee) > 0)
+                    ? delivery.delivery_fee
+                    : (delivery.value && Number(delivery.value) > 0)
+                      ? delivery.value
+                      : (delivery.price && Number(delivery.price) > 0)
+                        ? delivery.price
+                        : (delivery.commission && Number(delivery.commission) > 0)
+                          ? delivery.commission
                           : 0
                 ).toFixed(2)}
               </p>
@@ -163,18 +163,12 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
           </div>
           <div className="text-right leading-tight">
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Valor do Pedido
+              Cobrar do Cliente
             </p>
-            <p className="text-sm font-semibold text-foreground/80">
-              R$ {Number(
-                (delivery as any).order_value && Number((delivery as any).order_value) > 0
-                  ? (delivery as any).order_value
-                  : (delivery.value && Number(delivery.value) > 0)
-                    ? delivery.value
-                    : (delivery.price && Number(delivery.price) > 0)
-                      ? delivery.price
-                      : 0
-              ).toFixed(2)}
+            <p className="text-sm font-bold text-amber-400">
+              {Number((delivery as any).order_value || 0) > 0
+                ? `R$ ${Number((delivery as any).order_value).toFixed(2)}`
+                : "Já pago / R$ 0,00"}
             </p>
           </div>
         </div>
