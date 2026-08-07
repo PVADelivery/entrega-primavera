@@ -32,9 +32,10 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
   useEffect(() => {
     let active = true;
     const loadCompany = async () => {
-      let resolvedName = delivery.company_name || delivery.companies?.name;
+      let resolvedName = null;
 
-      if (delivery.company_id && isGeneric(resolvedName)) {
+      // 1. Se tem company_id, busca direta na tabela companies
+      if (delivery.company_id) {
         const { data: comp } = await supabase
           .from("companies")
           .select("name")
@@ -43,20 +44,13 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
         if (comp?.name) resolvedName = comp.name;
       }
 
-      // Se ainda for genérico, buscar empresa pelo order_id
-      if (isGeneric(resolvedName) && delivery.order_id) {
-        const { data: ord } = await supabase
-          .from("orders")
-          .select("company_id, companies(name)")
-          .eq("id", delivery.order_id)
-          .maybeSingle();
-        if ((ord as any)?.companies?.name) {
-          resolvedName = (ord as any).companies.name;
-        }
+      // 2. Se não encontrou e tem company_name preenchido (que não seja genérico)
+      if (!resolvedName && delivery.company_name && !isGeneric(delivery.company_name)) {
+        resolvedName = delivery.company_name;
       }
 
-      // Se ainda for genérico, buscar a última empresa de loja cadastrada no sistema
-      if (isGeneric(resolvedName)) {
+      // 3. Se ainda não encontrou, busca a empresa mais recente no banco
+      if (!resolvedName) {
         const { data: lastCompany } = await supabase
           .from("companies")
           .select("name")
@@ -75,10 +69,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     return () => { active = false; };
   }, [delivery.company_id, delivery.company_name, delivery.companies?.name, delivery.order_id]);
 
-  const displayStoreName = (!isGeneric(storeName) ? storeName : null) ||
-    (!isGeneric(delivery.company_name) ? delivery.company_name : null) ||
-    (!isGeneric(delivery.companies?.name) ? delivery.companies?.name : null) ||
-    "MT 24 HORAS";
+  const displayStoreName = storeName || delivery.company_name || delivery.companies?.name || "Loja";
 
   // Formatação do link do WhatsApp do cliente
   const customerPhoneClean = (delivery.customer_phone || "").replace(/\D/g, "");
