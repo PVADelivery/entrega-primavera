@@ -76,19 +76,24 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             </span>
             <div className="leading-tight">
               <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Comissão
+                Ganhos Entregador
               </p>
-              <p className="font-display text-base font-bold tracking-tight text-foreground">
-                R$ {Number(delivery.commission || (delivery.value ? delivery.value * 0.75 : 0)).toFixed(2)}
+              <p className="font-display text-base font-bold tracking-tight text-amber-400">
+                R$ {Number(
+                  delivery.commission ?? 
+                  delivery.delivery_fee ?? 
+                  delivery.price ?? 
+                  (delivery.value ? Number(delivery.value) * 0.75 : 0)
+                ).toFixed(2)}
               </p>
             </div>
           </div>
           <div className="text-right leading-tight">
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Pedido
+              Valor do Pedido
             </p>
             <p className="text-sm font-semibold text-foreground/80">
-              R$ {Number(delivery.value ?? 0).toFixed(2)}
+              R$ {Number(delivery.value ?? delivery.price ?? 0).toFixed(2)}
             </p>
           </div>
         </div>
