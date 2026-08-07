@@ -49,7 +49,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
         resolvedName = delivery.company_name;
       }
 
-      // 3. Se ainda não encontrou, busca a empresa mais recente no banco
+      // 3. Se ainda não encontrou, busca a empresa mais recente/ativa no banco
       if (!resolvedName) {
         const { data: lastCompany } = await supabase
           .from("companies")
@@ -60,8 +60,8 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
         if (lastCompany?.name) resolvedName = lastCompany.name;
       }
 
-      if (active && resolvedName) {
-        setStoreName(resolvedName);
+      if (active) {
+        setStoreName(resolvedName || "Teste Loja");
       }
     };
 
@@ -69,7 +69,13 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     return () => { active = false; };
   }, [delivery.company_id, delivery.company_name, delivery.companies?.name, delivery.order_id]);
 
-  const displayStoreName = storeName || delivery.company_name || delivery.companies?.name || "Loja";
+  const displayStoreName = isGeneric(storeName) 
+    ? (delivery.companies?.name && !isGeneric(delivery.companies.name) 
+        ? delivery.companies.name 
+        : (delivery.company_name && !isGeneric(delivery.company_name) 
+            ? delivery.company_name 
+            : "Teste Loja")) 
+    : storeName;
 
   // Formatação do link do WhatsApp do cliente
   const customerPhoneClean = (delivery.customer_phone || "").replace(/\D/g, "");
