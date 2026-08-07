@@ -197,8 +197,8 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               </Button>
             )}
 
-            {/* Botão pequeno apenas com o ícone do WhatsApp na mesma linha */}
-            {whatsappUrl && (
+            {/* Botão pequeno apenas com o ícone do WhatsApp na mesma linha (somente APÓS aceitar a entrega) */}
+            {whatsappUrl && !onAccept && (
               <a
                 href={whatsappUrl}
                 target="_blank"
