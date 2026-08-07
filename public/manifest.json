@@ -1,6 +1,6 @@
 {
-  "name": "MT 24horas express — Entregador",
-  "short_name": "Entregador MT",
+  "name": "MT 24 Horas Express - Entregador",
+  "short_name": "MT Entregador",
   "description": "Aplicativo de entregas e fretes do MT 24horas express",
   "start_url": "/",
   "display": "standalone",
