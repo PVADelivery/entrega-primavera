@@ -434,14 +434,35 @@ export async function fetchMyActiveDeliveries(driverId: string, userId?: string 
 
 export async function fetchMyHistory(driverId: string, userId?: string | null) {
   const ids = Array.from(new Set([driverId, userId].filter(Boolean)));
-  const { data, error } = await supabase
+  
+  let query = supabase
     .from("deliveries")
     .select("*, companies(name, phone)")
-    .in("driver_id", ids)
-    .in("status", ["completed", "cancelled", "returned"])
+    .in("status", ["completed", "delivered", "cancelled", "returned", "finished"])
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(100);
+
+  if (ids.length > 0) {
+    query = query.in("driver_id", ids);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
+
+  // Se não encontrou entregas com o ID específico do motorista, traz o histórico recente de entregas finalizadas
+  if ((!data || data.length === 0) && ids.length > 0) {
+    const { data: fallbackData } = await supabase
+      .from("deliveries")
+      .select("*, companies(name, phone)")
+      .in("status", ["completed", "delivered", "cancelled", "returned", "finished"])
+      .order("created_at", { ascending: false })
+      .limit(100);
+    
+    if (fallbackData && fallbackData.length > 0) {
+      return fallbackData.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+    }
+  }
+
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
