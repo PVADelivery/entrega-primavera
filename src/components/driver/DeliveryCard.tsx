@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Wallet, ArrowRight, Eye } from "lucide-react";
+import { MapPin, Wallet, ArrowRight, Eye, Phone, MessageSquare, AlertCircle } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import type { DeliveryWithRelations as Delivery } from "@/services/deliveries";
 
@@ -67,6 +67,12 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     (!isGeneric(delivery.companies?.name) ? delivery.companies?.name : null) ||
     "MT 24 HORAS";
 
+  // Formatação do link do WhatsApp do cliente
+  const customerPhoneClean = (delivery.customer_phone || "").replace(/\D/g, "");
+  const whatsappUrl = customerPhoneClean
+    ? `https://wa.me/55${customerPhoneClean}?text=${encodeURIComponent(`Olá ${delivery.customer_name || ""}, sou o entregador do seu pedido #${delivery.short_id || ""} da ${displayStoreName}!`)}`
+    : null;
+
   return (
     <Card className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-0 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-elegant)]">
       {/* gold accent line */}
@@ -85,10 +91,23 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               {delivery.short_id && <span className="bg-primary/10 text-primary font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">{delivery.short_id}</span>}
             </div>
 
-            {/* Nome do cliente na linha secundária */}
-            <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-              Cliente: <span className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</span>
-            </p>
+            {/* Nome do cliente e telefone */}
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-xs text-muted-foreground font-medium">
+                Cliente: <span className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</span>
+              </p>
+              {whatsappUrl && (
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  WhatsApp
+                </a>
+              )}
+            </div>
 
             {delivery.pickup_address ? (
               <>
@@ -106,6 +125,13 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
                 <span className="line-clamp-2">{delivery.address}</span>
               </p>
+            )}
+
+            {/* Observações preenchidas pelo lojista */}
+            {delivery.notes && (
+              <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2 text-xs text-amber-300">
+                <span className="font-bold flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Obs do Lojista:</span> {delivery.notes}
+              </div>
             )}
           </div>
           <StatusBadge status={delivery.status} />
@@ -148,8 +174,21 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
           </div>
         </div>
 
+        {/* Botão de WhatsApp direto em destaque se a corrida foi aceita */}
+        {whatsappUrl && delivery.status !== "pending" && delivery.status !== "broadcasted" && delivery.status !== "delivered" && (
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 font-bold text-white shadow-md transition-all hover:bg-emerald-500 active:scale-[0.99]"
+          >
+            <MessageSquare className="h-5 w-5" />
+            Conversar com o Cliente no WhatsApp
+          </a>
+        )}
+
         {(onAccept || (next && onAdvance) || onCancel || (!onAccept && !onAdvance)) && (
-          <div className="mt-4 flex gap-2">
+          <div className="mt-3 flex gap-2">
             {onAccept && (
               <Button
                 className="group/btn h-11 flex-1 rounded-xl font-semibold shadow-[var(--shadow-elegant)] transition-all"
@@ -185,11 +224,11 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             {onCancel && delivery.status !== "delivered" && delivery.status !== "cancelled" && (
               <Button
                 variant="outline"
-                className="h-11 rounded-xl text-destructive hover:bg-destructive/10 border-destructive/20"
+                className="h-11 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"
                 disabled={pending}
                 onClick={onCancel}
               >
-                Rejeitar corrida
+                Cancelar
               </Button>
             )}
           </div>
