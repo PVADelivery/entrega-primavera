@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { PermissionModal } from "./PermissionModal";
+import { NewDeliveryPopupModal } from "./NewDeliveryPopupModal";
 
 export function DriverShell({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -32,6 +33,7 @@ export function DriverShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background pb-24 text-foreground">
       <PermissionModal />
+      <NewDeliveryPopupModal />
       <div className="mx-auto max-w-md">{children}</div>
       <BottomNav />
     </div>
