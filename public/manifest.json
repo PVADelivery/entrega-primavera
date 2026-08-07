@@ -1,0 +1,17 @@
+{
+  "name": "MT 24horas express — Entregador",
+  "short_name": "Entregador MT",
+  "description": "Aplicativo de entregas e fretes do MT 24horas express",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    {
+      "src": "/favicon-v3.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
