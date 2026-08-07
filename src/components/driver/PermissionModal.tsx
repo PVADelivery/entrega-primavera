@@ -10,8 +10,10 @@ export function PermissionModal() {
   useEffect(() => {
     // Checar no carregamento se as permissões de notificação/sobreposição precisam ser orientadas
     if (typeof window !== "undefined") {
-      const isDismissed = localStorage.getItem("permission_modal_dismissed_v1");
-      if ("Notification" in window && Notification.permission !== "granted" && !isDismissed) {
+      if ("Notification" in window && Notification.permission !== "granted") {
+        setOpen(true);
+      } else if (!("Notification" in window)) {
+        // No Android WebView onde Notification web API não é nativa, abre por padrão
         setOpen(true);
       }
     }
