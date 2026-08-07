@@ -38,15 +38,6 @@ export function NewDeliveryPopupModal() {
               }
             }
 
-            if (!storeName || storeName === "LOJA PARCEIRA" || storeName === "Loja Parceira") {
-              const { data: compFallback } = await supabase
-                .from("companies")
-                .select("name")
-                .limit(1)
-                .maybeSingle();
-              if (compFallback?.name) storeName = compFallback.name;
-            }
-
             setActiveDelivery({
               ...newDel,
               storeName: (storeName || "Empresa Parceira").toUpperCase()

@@ -34,7 +34,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     const loadCompany = async () => {
       let resolvedName = delivery.company_name || delivery.companies?.name;
 
-      if (isGeneric(resolvedName) && delivery.company_id) {
+      if (delivery.company_id && (isGeneric(resolvedName) || !resolvedName)) {
         const { data: comp } = await supabase
           .from("companies")
           .select("name")
@@ -43,17 +43,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
         if (comp?.name) resolvedName = comp.name;
       }
 
-      if (isGeneric(resolvedName)) {
-        const { data: fallbackComp } = await supabase
-          .from("companies")
-          .select("name")
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (fallbackComp?.name) resolvedName = fallbackComp.name;
-      }
-
-      if (active && resolvedName && !isGeneric(resolvedName)) {
+      if (active && resolvedName) {
         setStoreName(resolvedName);
       }
     };
@@ -62,9 +52,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     return () => { active = false; };
   }, [delivery.company_id, delivery.company_name, delivery.companies?.name]);
 
-  const displayStoreName = isGeneric(storeName)
-    ? (!isGeneric(delivery.company_name) ? delivery.company_name : (!isGeneric(delivery.companies?.name) ? delivery.companies?.name : "Salvador teste"))
-    : storeName;
+  const displayStoreName = storeName || delivery.company_name || delivery.companies?.name || "Loja Parceira";
 
   return (
     <Card className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-0 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-elegant)]">
