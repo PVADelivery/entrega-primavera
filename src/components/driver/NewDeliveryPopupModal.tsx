@@ -24,20 +24,32 @@ export function NewDeliveryPopupModal() {
               audio.play().catch(() => {});
             } catch (e) {}
 
-            // Buscar nome completo da loja se não vier diretamente
-            let storeName = newDel.company_name || "LOJA PARCEIRA";
-            if (newDel.company_id && storeName === "LOJA PARCEIRA") {
+            // Buscar nome real da loja incondicionalmente na tabela companies
+            let storeName = newDel.company_name;
+
+            if (newDel.company_id) {
               const { data: comp } = await supabase
                 .from("companies")
                 .select("name")
                 .eq("id", newDel.company_id)
                 .maybeSingle();
-              if (comp?.name) storeName = comp.name;
+              if (comp?.name) {
+                storeName = comp.name;
+              }
+            }
+
+            if (!storeName || storeName === "LOJA PARCEIRA" || storeName === "Loja Parceira") {
+              const { data: compFallback } = await supabase
+                .from("companies")
+                .select("name")
+                .limit(1)
+                .maybeSingle();
+              if (compFallback?.name) storeName = compFallback.name;
             }
 
             setActiveDelivery({
               ...newDel,
-              storeName: storeName.toUpperCase()
+              storeName: (storeName || "Empresa Parceira").toUpperCase()
             });
           }
         }
