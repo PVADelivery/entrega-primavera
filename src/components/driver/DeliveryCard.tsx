@@ -95,23 +95,10 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               {delivery.short_id && <span className="bg-primary/10 text-primary font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">{delivery.short_id}</span>}
             </div>
 
-            {/* Nome do cliente e telefone */}
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-muted-foreground font-medium">
-                Cliente: <span className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</span>
-              </p>
-              {whatsappUrl && (
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-400 transition-colors hover:bg-emerald-500/20"
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  WhatsApp
-                </a>
-              )}
-            </div>
+            {/* Nome do cliente */}
+            <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+              Cliente: <span className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</span>
+            </p>
 
             {delivery.pickup_address ? (
               <>
