@@ -1,4 +1,5 @@
-// @ts-nocheck
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Wallet, ArrowRight, Eye } from "lucide-react";
@@ -22,6 +23,25 @@ const nextLabels: Record<string, string> = {
 
 export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending }: Props) {
   const next = nextLabels[delivery.status];
+  const [storeName, setStoreName] = useState<string>(
+    delivery.companies?.name || delivery.company_name || ""
+  );
+
+  useEffect(() => {
+    if (!storeName && delivery.company_id) {
+      supabase
+        .from("companies")
+        .select("name")
+        .eq("id", delivery.company_id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.name) setStoreName(data.name);
+        });
+    }
+  }, [delivery.company_id, storeName]);
+
+  const displayStoreName = storeName || delivery.companies?.name || delivery.company_name || "Loja Parceira";
+
   return (
     <Card className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-0 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-elegant)]">
       {/* gold accent line */}
@@ -35,7 +55,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate font-display text-base font-bold tracking-tight text-amber-400">
-                {delivery.companies?.name || delivery.company_name || "Loja Parceira"}
+                {displayStoreName}
               </p>
               {delivery.short_id && <span className="bg-primary/10 text-primary font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">{delivery.short_id}</span>}
             </div>
