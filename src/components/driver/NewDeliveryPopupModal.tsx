@@ -24,23 +24,38 @@ export function NewDeliveryPopupModal() {
               audio.play().catch(() => {});
             } catch (e) {}
 
-            // Buscar nome real da loja incondicionalmente na tabela companies
+            // Buscar nome real da loja e endereço de coleta incondicionalmente na tabela companies
             let storeName = newDel.company_name;
+            let pickupAddress = newDel.pickup_address;
 
             if (newDel.company_id) {
               const { data: comp } = await supabase
                 .from("companies")
-                .select("name")
+                .select("name, address")
                 .eq("id", newDel.company_id)
                 .maybeSingle();
-              if (comp?.name) {
-                storeName = comp.name;
+              if (comp?.name) storeName = comp.name;
+              if (comp?.address) pickupAddress = comp.address;
+            }
+
+            if (!storeName || storeName === "Empresa Parceira" || storeName === "EMPRESA PARCEIRA" || storeName === "Loja Parceira") {
+              const { data: lastComp } = await supabase
+                .from("companies")
+                .select("name, address")
+                .eq("is_active", true)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (lastComp?.name) {
+                storeName = lastComp.name;
+                if (!pickupAddress) pickupAddress = lastComp.address;
               }
             }
 
             setActiveDelivery({
               ...newDel,
-              storeName: (storeName || "Empresa Parceira").toUpperCase()
+              pickup_address: pickupAddress || newDel.pickup_address,
+              storeName: (storeName || "Teste Loja").toUpperCase()
             });
           }
         }
