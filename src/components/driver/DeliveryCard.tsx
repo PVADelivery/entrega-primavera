@@ -166,7 +166,15 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               Valor do Pedido
             </p>
             <p className="text-sm font-semibold text-foreground/80">
-              R$ {Number(delivery.value ?? delivery.price ?? 0).toFixed(2)}
+              R$ {Number(
+                (delivery as any).order_value && Number((delivery as any).order_value) > 0
+                  ? (delivery as any).order_value
+                  : (delivery.value && Number(delivery.value) > 0)
+                    ? delivery.value
+                    : (delivery.price && Number(delivery.price) > 0)
+                      ? delivery.price
+                      : 0
+              ).toFixed(2)}
             </p>
           </div>
         </div>
