@@ -17,6 +17,12 @@ export function DriverHeader() {
   const [name, setName] = useState("Entregador");
 
   useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
     if (!user || typeof window === "undefined") return;
 
     // Carrega status salvo do localStorage como prioridade

@@ -72,11 +72,23 @@ export function useDriverRealtime() {
         (payload) => {
           const newDel = payload.new as any;
           if (newDel.status === "pending" || newDel.status === "broadcasted") {
-            // Play sound if enabled
-            if (sessionStorage.getItem("sound_enabled") === "true") {
-              const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
-              audio.volume = 0.8;
-              audio.play().catch(e => console.warn("Erro ao tocar áudio:", e));
+            // Play sound unconditionally on new delivery offer
+            const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+            audio.volume = 1.0;
+            audio.play().catch(e => console.warn("Erro ao tocar áudio:", e));
+
+            // Trigger System/Browser Push Notification for Lock Screen & Background
+            if ("Notification" in window && Notification.permission === "granted") {
+              const val = newDel.value ? `R$ ${Number(newDel.value).toFixed(2)}` : "";
+              const notification = new Notification("🛵 Nova Entrega Disponível!", {
+                body: `Cliente: ${newDel.customer_name || "Cliente"}\nEndereço: ${newDel.address || "Endereço"}\nValor: ${val}`,
+                icon: "/favicon-v3.png",
+                tag: `delivery-${newDel.id}`,
+                requireInteraction: true
+              });
+              notification.onclick = () => {
+                window.focus();
+              };
             }
           }
           qc.invalidateQueries({ queryKey: ["deliveries"] });
