@@ -80,7 +80,7 @@ function InvitePage() {
           if (expiresAt && expiresAt < new Date()) {
             setError("Este link de convite expirou.");
           } else {
-            if (inv.email) {
+            if (inv.email && !inv.email.startsWith("convite_")) {
               setFormData(prev => ({ ...prev, email: inv.email }));
             }
           }
