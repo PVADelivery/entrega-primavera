@@ -419,7 +419,7 @@ function ProfilePage() {
                   <p className="text-xl font-black text-destructive truncate">
                     - R$ {driverStats.platformFee.toFixed(2).replace('.', ',')}
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Devido ao App</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Devido a Central</p>
                 </div>
               </div>
 
