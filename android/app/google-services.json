@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1038982142761",
+    "project_id": "mt-24-horas-54389",
+    "storage_bucket": "mt-24-horas-54389.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1038982142761:android:83e2ca54a42c7c6833b538",
+        "android_client_info": {
+          "package_name": "com.mt24horasexpress.entregador"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdS1hmucAyqp8y3h16_qgMogSICHfFwgE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
