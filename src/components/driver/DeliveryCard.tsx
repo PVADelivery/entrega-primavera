@@ -160,20 +160,25 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             </span>
             <div className="leading-tight">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                GANHOS ENTREGADOR
+                GANHOS ENTREGADOR (75%)
               </p>
               <p className="font-display text-base font-bold tracking-tight text-emerald-400">
-                R$ {Number(
-                  (delivery.delivery_fee && Number(delivery.delivery_fee) > 0)
-                    ? delivery.delivery_fee
-                    : (delivery.value && Number(delivery.value) > 0)
-                      ? delivery.value
-                      : (delivery.price && Number(delivery.price) > 0)
-                        ? delivery.price
-                        : (delivery.commission && Number(delivery.commission) > 0)
-                          ? delivery.commission
-                          : 0
-                ).toFixed(2)}
+                R$ {(() => {
+                  const grossFee = Number(
+                    (delivery.delivery_fee && Number(delivery.delivery_fee) > 0)
+                      ? delivery.delivery_fee
+                      : (delivery.value && Number(delivery.value) > 0)
+                        ? delivery.value
+                        : (delivery.price && Number(delivery.price) > 0)
+                          ? delivery.price
+                          : (delivery.commission && Number(delivery.commission) > 0)
+                            ? delivery.commission
+                            : 0
+                  );
+                  // O entregador recebe 75% da taxa de entrega (25% retido pela plataforma)
+                  const netEarnings = grossFee * 0.75;
+                  return netEarnings.toFixed(2);
+                })()}
               </p>
             </div>
           </div>

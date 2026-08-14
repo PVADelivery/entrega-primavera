@@ -539,51 +539,43 @@ export async function getDriverIdFromUser(userId: string): Promise<string | null
 }
 
 export async function ensureDriverRow(userId: string, regionId?: string | null): Promise<string> {
-  console.log("[ensureDriverRow] auth.uid:", userId);
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("delivery_drivers")
       .select("id")
       .eq("user_id", userId)
       .maybeSingle();
 
-    console.log("[ensureDriverRow] delivery_drivers encontrado:", data);
-    console.log("[ensureDriverRow] erro:", error);
-
     if (data?.id) {
-      console.log("[ensureDriverRow] id retornado:", data.id);
       return data.id;
     }
 
-    const { data: dataById, error: errById } = await supabase
+    const { data: dataById } = await supabase
       .from("delivery_drivers")
       .select("id")
       .eq("id", userId)
       .maybeSingle();
 
     if (dataById?.id) {
-      console.log("[ensureDriverRow] id retornado por id:", dataById.id);
       return dataById.id;
     }
 
     const payload: Record<string, any> = { user_id: userId };
     if (regionId) payload.region_id = regionId;
 
-    const { data: created, error: errCreated } = await supabase
+    const { data: created } = await supabase
       .from("delivery_drivers")
       .insert(payload as any)
       .select("id")
       .maybeSingle();
 
     if (created?.id) {
-      console.log("[ensureDriverRow] id retornado do insert:", created.id);
       return created.id;
     }
   } catch (err) {
-    console.error("[ensureDriverRow] catch error:", err);
+    console.error("[ensureDriverRow] erro:", err);
   }
 
-  console.log("[ensureDriverRow] id retornado (fallback userId):", userId);
   return userId;
 }
 
@@ -591,17 +583,11 @@ export async function fetchEarnings(driverId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   const ids = Array.from(new Set([driverId, user?.id].filter(Boolean)));
 
-  console.log("AUTH USER:", user);
-  console.log("IDS CONSULTADOS:", ids);
-
   const { data: deliveries, error: deliveriesError } = await supabase
     .from("deliveries")
     .select("value, commission, completed_at, created_at")
     .in("driver_id", ids)
     .in("status", ["completed"]);
-
-  console.log("DELIVERIES:", deliveries);
-  console.log("DELIVERIES ERROR:", deliveriesError);
 
   if (deliveriesError) throw deliveriesError;
 
@@ -611,9 +597,6 @@ export async function fetchEarnings(driverId: string) {
     .select("price, created_at, updated_at")
     .eq("driver_id", driverId)
     .eq("status", "completed");
-
-  console.log("RIDES:", rides);
-  console.log("RIDES ERROR:", ridesError);
 
   const now = new Date();
   const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();

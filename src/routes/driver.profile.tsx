@@ -129,7 +129,7 @@ function ProfilePage() {
       if (!driver) return;
       if (driver.service_types) setServiceTypes(driver.service_types);
 
-      const DONE = ["completed", "delivered"];
+      const DONE = ["completed"];
       const cids = Array.from(new Set([driver.id, user.id].filter(Boolean)));
 
       let start = new Date(), end = new Date();
@@ -153,7 +153,7 @@ function ProfilePage() {
         for (const d of all ?? []) {
           const ts = new Date(d.completed_at || d.created_at).getTime();
           if (ts >= start.getTime() && ts <= end.getTime()) {
-            if (DONE.includes(d.status)) { gross += Number(d.value || 0); periodCount++; }
+            if (DONE.includes(d.status)) { gross += (Number(d.value || 0) * 0.75); periodCount++; }
             else if (d.status === "cancelled") cancelled++;
           }
         }
