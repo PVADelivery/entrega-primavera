@@ -63,6 +63,11 @@ export interface DeliveryWithRelations {
     name: string | null;
     phone: string | null;
   } | null;
+  regions?: {
+    id: string;
+    name: string;
+    price: number | null;
+  } | null;
   region_name?: string | null;
 }
 
@@ -89,6 +94,7 @@ export function useDeliveries(params?: UseDeliveriesParams) {
         .select(`
           *,
           companies(name, phone),
+          regions(id, name, price),
           delivery_drivers(id, user_id, vehicle, license_plate)
         `, { count: "exact" })
         .order("created_at", { ascending: false })
@@ -412,7 +418,7 @@ export function useDeliveryTracking(orderId?: string | null) {
 export async function fetchAvailableDeliveries() {
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*, companies(name, phone)")
+    .select("*, companies(name, phone), regions(id, name, price)")
     .in("status", ["pending", "broadcasted"])
     .is("driver_id", null)
     .order("created_at", { ascending: false });
@@ -424,7 +430,7 @@ export async function fetchMyActiveDeliveries(driverId: string, userId?: string 
   const ids = Array.from(new Set([driverId, userId].filter(Boolean)));
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*, companies(name, phone)")
+    .select("*, companies(name, phone), regions(id, name, price)")
     .in("driver_id", ids)
     .in("status", ["accepted", "collecting", "in_route"])
     .order("accepted_at", { ascending: false });
@@ -437,7 +443,7 @@ export async function fetchMyHistory(driverId: string, userId?: string | null) {
   
   let query = supabase
     .from("deliveries")
-    .select("*, companies(name, phone)")
+    .select("*, companies(name, phone), regions(id, name, price)")
     .in("status", ["completed", "delivered", "cancelled", "returned", "finished"])
     .order("created_at", { ascending: false })
     .limit(100);

@@ -124,6 +124,22 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               </p>
             )}
 
+            {/* Região e Bairro definidos pelo Admin / Lojista */}
+            {(delivery.regions?.name || delivery.region_name || delivery.customer_neighborhood) && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {(delivery.regions?.name || delivery.region_name) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-black text-[11px] uppercase tracking-wide border border-primary/20">
+                    <MapPin className="h-3 w-3" /> {delivery.regions?.name || delivery.region_name}
+                  </span>
+                )}
+                {delivery.customer_neighborhood && delivery.customer_neighborhood !== (delivery.regions?.name || delivery.region_name) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary text-secondary-foreground font-bold text-[11px] border border-border/50">
+                    Bairro: {delivery.customer_neighborhood}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Observações preenchidas pelo lojista */}
             {delivery.notes && (
               <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2 text-xs text-amber-300">
