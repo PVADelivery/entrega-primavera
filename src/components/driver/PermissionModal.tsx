@@ -8,30 +8,44 @@ export function PermissionModal() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    // Checar no carregamento se as permissões de notificação/sobreposição precisam ser orientadas
     if (typeof window !== "undefined") {
-      if ("Notification" in window && Notification.permission !== "granted") {
-        setOpen(true);
-      } else if (!("Notification" in window)) {
-        // No Android WebView onde Notification web API não é nativa, abre por padrão
-        setOpen(true);
+      const isDismissed = localStorage.getItem("permission_modal_dismissed_v1");
+      if (isDismissed === "true") {
+        return; // Nunca mais abre se o usuário já aceitou ou fechou uma vez
+      }
+
+      if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+          localStorage.setItem("permission_modal_dismissed_v1", "true");
+          return;
+        }
+        if (Notification.permission === "default") {
+          setOpen(true);
+        }
       }
     }
   }, []);
 
+  const handleClose = () => {
+    localStorage.setItem("permission_modal_dismissed_v1", "true");
+    setOpen(false);
+  };
+
   const handleGrantPermissions = async () => {
-    // 1. Pedir permissão de Notificação nativa do navegador/Capacitor
-    if ("Notification" in window && Notification.permission === "default") {
-      await Notification.requestPermission();
+    try {
+      if ("Notification" in window && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+    } catch (e) {
+      console.warn("Erro ao solicitar permissão de notificação:", e);
     }
     
-    // Marca como visto no armazenamento local
     localStorage.setItem("permission_modal_dismissed_v1", "true");
     setOpen(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(val) => { if (!val) handleClose(); }}>
       <DialogContent className="sm:max-w-md bg-slate-950 border-slate-800 text-white rounded-3xl p-6 shadow-2xl">
         <DialogHeader className="flex flex-col items-center text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 mb-3 shadow-[0_0_20px_rgba(234,179,8,0.2)]">
@@ -82,7 +96,7 @@ export function PermissionModal() {
           </Button>
           <Button
             variant="ghost"
-            onClick={() => setOpen(false)}
+            onClick={handleClose}
             className="text-xs text-slate-500 hover:text-slate-400 hover:bg-transparent"
           >
             Já ativei / Entendi
