@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { TrendingUp, Package2, CalendarDays, Sparkles } from "lucide-react";
 import { useWorkMode } from "@/hooks/useWorkMode";
 import { WorkModeSwitch } from "@/components/driver/WorkModeSwitch";
+import { useDriverNotifications } from "@/hooks/useDriverNotifications";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
@@ -31,6 +32,7 @@ function DriverHome() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { mode } = useWorkMode();
+  useDriverNotifications();
   const [driverId, setDriverId] = useState<string | null>(null);
   const [driverServiceTypes, setDriverServiceTypes] = useState<string[]>([]);
   const [pending, setPending] = useState<string | null>(null);
