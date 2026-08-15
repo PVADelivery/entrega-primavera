@@ -88,10 +88,6 @@ export function DriverHeader() {
             .from("delivery_drivers")
             .update({ latitude: lat, longitude: lng, is_online: true } as any)
             .eq("id", user.id),
-          supabase
-            .from("profiles")
-            .update({ latitude: lat, longitude: lng } as any)
-            .eq("id", user.id),
         ]);
       };
 

@@ -256,7 +256,7 @@ export function useDriverNotifications() {
       try {
         const { data: fullDelivery } = await supabase
           .from("deliveries")
-          .select("*, companies(name, address, trade_name), orders(delivery_fee)")
+          .select("*, companies(name, address, trade_name)")
           .eq("id", rawDelivery.id)
           .single();
         if (fullDelivery) delivery = fullDelivery;
@@ -386,7 +386,7 @@ export function useDriverNotifications() {
         try {
           const { data: initial } = await supabase
             .from("deliveries")
-            .select("*, companies(name, address, trade_name), orders(delivery_fee)")
+            .select("*, companies(name, address, trade_name)")
             .in("status", ["pending", "broadcasted"])
             .is("driver_id", null);
           if (initial && !cancelled) {
@@ -403,7 +403,7 @@ export function useDriverNotifications() {
         try {
           const { data } = await supabase
             .from("deliveries")
-            .select("*, companies(name, address, trade_name), orders(delivery_fee)")
+            .select("*, companies(name, address, trade_name)")
             .in("status", ["pending", "broadcasted"])
             .is("driver_id", null);
           if (data && !cancelled) {
