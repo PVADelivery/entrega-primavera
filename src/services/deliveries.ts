@@ -69,6 +69,13 @@ export interface DeliveryWithRelations {
     price: number | null;
   } | null;
   region_name?: string | null;
+  company_name?: string | null;
+  short_id?: string | null;
+  customer_neighborhood?: string | null;
+  delivery_fee?: number | null;
+  order_value?: number | null;
+  change_for?: number | null;
+  [key: string]: any;
 }
 
 interface UseDeliveriesParams {
