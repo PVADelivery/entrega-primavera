@@ -183,11 +183,11 @@
 #lovable-badge,
 .lovable-badge,
 lovable-badge,
-div[id*="lovable" i],
-div[class*="lovable" i],
-span[class*="lovable" i],
-a[href*="lovable" i],
-iframe[src*="lovable" i],
+div[id*="lovable"],
+div[class*="lovable"],
+span[class*="lovable"],
+a[href*="lovable"],
+iframe[src*="lovable"],
 [data-lovable-badge],
 [data-component-tag] {
   display: none !important;
