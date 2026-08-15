@@ -116,8 +116,8 @@ export function NewDeliveryPopupModal() {
   ).toFixed(2);
 
   return (
-    <Dialog open={true} onOpenChange={(open) => { if (!open) setActiveDelivery(null); }}>
-      <DialogContent className="w-[95%] max-w-sm bg-[#0b1329] border-none text-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-sm bg-[#0b1329] border border-slate-800 text-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
         
         {/* Layout idêntico ao modelo "É Pra Já" */}
         <div className="flex flex-col items-center text-center space-y-4 py-2">
@@ -174,7 +174,7 @@ export function NewDeliveryPopupModal() {
 
         </div>
 
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
