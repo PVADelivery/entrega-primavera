@@ -188,7 +188,6 @@ div[class*="lovable" i],
 span[class*="lovable" i],
 a[href*="lovable" i],
 iframe[src*="lovable" i],
-button:has(svg + span:contains("Lovable")),
 [data-lovable-badge],
 [data-component-tag] {
   display: none !important;
