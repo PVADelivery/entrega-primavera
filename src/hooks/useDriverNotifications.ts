@@ -113,88 +113,89 @@ export function useDriverNotifications() {
       let errListener: any = null;
       let actListener: any = null;
 
-      try {
-        const syncFcmToken = async (tokenVal: string) => {
-          if (!tokenVal) return;
-          console.log("[FCM] Sincronizando token:", tokenVal.slice(0, 15) + "...");
-          localStorage.setItem("driver_fcm_token", tokenVal);
+      const isPushAvailable = Capacitor.isPluginAvailable("PushNotifications");
 
-          if (user?.id) {
-            const { error } = await supabase
-              .from("delivery_drivers")
-              .update({ fcm_token: tokenVal } as any)
-              .eq("user_id", user.id);
-            if (error) console.error("[FCM] Erro ao salvar token:", error.message);
+      if (isPushAvailable) {
+        try {
+          const syncFcmToken = async (tokenVal: string) => {
+            if (!tokenVal) return;
+            console.log("[FCM] Sincronizando token:", tokenVal.slice(0, 15) + "...");
+            localStorage.setItem("driver_fcm_token", tokenVal);
+
+            if (user?.id) {
+              const { error } = await supabase
+                .from("delivery_drivers")
+                .update({ fcm_token: tokenVal } as any)
+                .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+              if (error) console.error("[FCM] Erro ao salvar token:", error.message);
+            }
+          };
+
+          PushNotifications.addListener("registration", (token) => {
+            console.log("[FCM] Token recebido:", token.value);
+            syncFcmToken(token.value);
+          }).then((handle) => { regListener = handle; }).catch(() => {});
+
+          const cachedToken = localStorage.getItem("driver_fcm_token");
+          if (cachedToken && user?.id) {
+            syncFcmToken(cachedToken);
           }
-        };
 
-        regListener = PushNotifications.addListener("registration", (token) => {
-          console.log("[FCM] Token recebido:", token.value);
-          syncFcmToken(token.value);
-        });
+          PushNotifications.requestPermissions().then((result) => {
+            if (result.receive === "granted") {
+              PushNotifications.register().catch((e) => console.warn("[FCM] register erro:", e));
+            }
+          }).catch((e) => console.warn("[FCM] requestPermissions erro:", e));
 
-        // Tenta sincronizar token já existente em cache
-        const cachedToken = localStorage.getItem("driver_fcm_token");
-        if (cachedToken && user?.id) {
-          syncFcmToken(cachedToken);
+          PushNotifications.addListener("registrationError", (error: any) => {
+            console.warn("[FCM] Erro no register:", error);
+          }).then((handle) => { errListener = handle; }).catch(() => {});
+
+          PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+            console.log("[FCM] Push action performed:", action);
+            const data = action.notification?.data;
+            const deliveryId = data?.deliveryId || data?.delivery_id;
+            const targetRoute = deliveryId ? `/driver?deliveryId=${deliveryId}` : "/driver";
+            if (targetRoute && typeof window !== "undefined") {
+              window.location.href = targetRoute;
+            }
+          }).then((handle) => { actListener = handle; }).catch(() => {});
+
+          PushNotifications.addListener("pushNotificationReceived", async (notification) => {
+            console.log("[FCM] Push recebido em foreground:", notification);
+            const deliveryId = notification.data?.deliveryId;
+            if (!deliveryId) return;
+
+            if (notification.data?.type === "cancel_delivery") {
+              activeAlertsRef.current.delete(deliveryId);
+              if (activeAlertsRef.current.size === 0) stopAlert();
+              return;
+            }
+
+            const storeName = notification.data?.storeName || APP_NAME;
+            const dropoff = notification.data?.dropoff || "Endereço do cliente";
+            const fee = notification.data?.fee || "";
+            const details = notification.data?.details || `${storeName}\n🏁 Entrega: ${dropoff}`;
+
+            toast(`🏬 ${storeName}`, {
+              description: `🏁 ${dropoff}${fee ? ` • 💰 ${fee}` : ""}`,
+            });
+
+            if (!Capacitor.isNativePlatform() && permissionRef.current === "granted") {
+              try {
+                new Notification(`🏬 ${storeName}`, { body: details, icon: "/favicon-v3.png" });
+              } catch {}
+            }
+          }).catch(() => {});
+        } catch (e) {
+          console.warn("[FCM] Indisponível no dispositivo:", e);
         }
-
-        PushNotifications.requestPermissions().then((result) => {
-          if (result.receive === "granted") {
-            PushNotifications.register().catch(e => console.warn("[FCM] register erro:", e));
-          }
-        }).catch(e => console.warn("[FCM] requestPermissions erro:", e));
-
-        errListener = PushNotifications.addListener("registrationError", (error: any) => {
-          console.error("[FCM] Erro no register:", error);
-        });
-
-        actListener = PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-          console.log("[FCM] Push action performed:", action);
-          const data = action.notification?.data;
-          const deliveryId = data?.deliveryId || data?.delivery_id;
-          const targetRoute = deliveryId ? `/driver?deliveryId=${deliveryId}` : "/driver";
-          if (targetRoute && typeof window !== "undefined") {
-            window.location.href = targetRoute;
-          }
-        });
-
-        // Receber push com app em foreground — mostrar toast + som
-        PushNotifications.addListener("pushNotificationReceived", async (notification) => {
-          console.log("[FCM] Push recebido em foreground:", notification);
-          const deliveryId = notification.data?.deliveryId;
-          if (!deliveryId) return;
-
-          // Se for cancelamento
-          if (notification.data?.type === "cancel_delivery") {
-            activeAlertsRef.current.delete(deliveryId);
-            if (activeAlertsRef.current.size === 0) stopAlert();
-            return;
-          }
-
-          const storeName = notification.data?.storeName || APP_NAME;
-          const dropoff = notification.data?.dropoff || "Endereço do cliente";
-          const fee = notification.data?.fee || "";
-          const details = notification.data?.details || `${storeName}\n🏁 Entrega: ${dropoff}`;
-
-          toast(`🏬 ${storeName}`, {
-            description: `🏁 ${dropoff}${fee ? ` • 💰 ${fee}` : ""}`,
-          });
-
-          if (!Capacitor.isNativePlatform() && permissionRef.current === "granted") {
-            try {
-              new Notification(`🏬 ${storeName}`, { body: details, icon: "/favicon-v3.png" });
-            } catch {}
-          }
-        });
-      } catch (e) {
-        console.warn("[FCM] Indisponível no dispositivo:", e);
       }
 
       return () => {
-        if (regListener) regListener.then((l: any) => l.remove()).catch(() => {});
-        if (errListener) errListener.then((l: any) => l.remove()).catch(() => {});
-        if (actListener) actListener.then((l: any) => l.remove()).catch(() => {});
+        if (regListener?.remove) regListener.remove();
+        if (errListener?.remove) errListener.remove();
+        if (actListener?.remove) actListener.remove();
       };
     } else {
       // Browser web
