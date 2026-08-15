@@ -267,7 +267,7 @@ function DriverHome() {
         <div className="mb-3 w-full">
           <SectionTitle title="Filtro de Corridas" badge="Atribuídos pelo Administrador" />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {[
             { value: "delivery_moto", label: "Entregas de Lojas (Moto)" },
             { value: "delivery_car", label: "Entregas de Lojas (Carro)" },
@@ -281,8 +281,8 @@ function DriverHome() {
                 key={item.value}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border select-none ${
                   active
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-secondary/30 text-muted-foreground opacity-50"
+                    ? "border-amber-400/50 bg-amber-400/10 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.15)]"
+                    : "border-white/10 bg-white/[0.03] text-slate-400 opacity-60"
                 }`}
               >
                 {item.label}

@@ -49,10 +49,10 @@ export function BottomNav() {
   const totalActive =
     mode === "ride" ? activeRides.data?.length || 0 : activeDeliveries.data?.length || 0;
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-3 pt-2">
-      <div className="mx-auto max-w-md">
+    <nav className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 pt-2 pointer-events-none">
+      <div className="mx-auto max-w-md pointer-events-auto">
         <div
-          className="relative flex items-center justify-between rounded-2xl border border-border/60 bg-card/85 px-2 py-1.5 shadow-[var(--shadow-card)] backdrop-blur-xl"
+          className="relative flex items-center justify-around rounded-[26px] border border-white/10 bg-[#0d121f]/90 px-2 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.65)] backdrop-blur-2xl transition-all"
         >
           {items.map(({ to, label, icon: Icon }) => {
             const active = pathname === to || (to !== "/driver" && pathname.startsWith(to));
@@ -61,27 +61,33 @@ export function BottomNav() {
                 key={to}
                 to={to}
                 className={cn(
-                  "group relative flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[10px] transition-colors",
-                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                  "group relative flex flex-1 flex-col items-center justify-center gap-1 rounded-2xl py-1.5 transition-all duration-200",
+                  active ? "text-amber-400 font-bold scale-[1.03]" : "text-slate-400 hover:text-slate-200"
                 )}
               >
-                <span
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
-                    active
-                      ? "text-primary-foreground shadow-[var(--shadow-elegant)]"
-                      : "bg-transparent group-hover:bg-secondary/70",
-                  )}
-                  style={active ? { background: "var(--gradient-gold)" } : undefined}
-                >
-                  <Icon className={cn("h-[18px] w-[18px]", active && "stroke-[2.4]")} />
+                <div className="relative flex items-center justify-center">
+                  <span
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-300",
+                      active
+                        ? "bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-300 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.45)] ring-2 ring-amber-400/20"
+                        : "bg-white/[0.04] group-hover:bg-white/[0.08]"
+                    )}
+                  >
+                    <Icon className={cn("h-5 w-5 transition-transform duration-200", active ? "stroke-[2.5]" : "stroke-[1.8] group-hover:scale-110")} />
+                  </span>
+
                   {to === "/driver/deliveries" && totalActive > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm">
+                    <span className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-[0_0_10px_rgba(244,63,94,0.6)] ring-2 ring-[#0d121f] animate-pulse">
                       {totalActive}
                     </span>
                   )}
-                </span>
-                <span className={cn("font-semibold tracking-tighter whitespace-nowrap text-[9px] sm:text-[10px] leading-none mt-0.5 max-w-full truncate", active && "text-foreground")}>
+                </div>
+
+                <span className={cn(
+                  "text-[10px] tracking-tight whitespace-nowrap leading-none transition-colors",
+                  active ? "text-amber-300 font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" : "text-slate-400 font-semibold"
+                )}>
                   {label}
                 </span>
               </Link>
