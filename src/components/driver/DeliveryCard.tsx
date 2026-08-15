@@ -107,16 +107,16 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             </p>
 
             {delivery.pickup_address ? (
-              <>
-                <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+              <div className="space-y-1 mt-1.5">
+                <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-                  <span className="line-clamp-2"><span className="font-semibold text-foreground">Retirada (Loja):</span> {delivery.pickup_address}</span>
+                  <span className="line-clamp-2"><strong className="text-foreground">Retirada (Loja):</strong> {delivery.pickup_address}</span>
                 </p>
-                <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+                <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                  <span className="line-clamp-2"><span className="font-semibold text-foreground">Entrega:</span> {delivery.address}</span>
+                  <span className="line-clamp-2"><strong className="text-foreground">Entrega:</strong> {delivery.address}</span>
                 </p>
-              </>
+              </div>
             ) : (
               <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
@@ -125,14 +125,14 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             )}
 
             {/* Região e Bairro definidos pelo Admin / Lojista */}
-            {(delivery.regions?.name || delivery.region_name || delivery.customer_neighborhood) && (
+            {Boolean(delivery.regions?.name || delivery.region_name || delivery.customer_neighborhood) && (
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {(delivery.regions?.name || delivery.region_name) && (
+                {Boolean(delivery.regions?.name || delivery.region_name) && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-black text-[11px] uppercase tracking-wide border border-primary/20">
                     <MapPin className="h-3 w-3" /> {delivery.regions?.name || delivery.region_name}
                   </span>
                 )}
-                {delivery.customer_neighborhood && delivery.customer_neighborhood !== (delivery.regions?.name || delivery.region_name) && (
+                {Boolean(delivery.customer_neighborhood && delivery.customer_neighborhood !== (delivery.regions?.name || delivery.region_name)) && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary text-secondary-foreground font-bold text-[11px] border border-border/50">
                     Bairro: {delivery.customer_neighborhood}
                   </span>
@@ -141,7 +141,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             )}
 
             {/* Observações preenchidas pelo lojista */}
-            {delivery.notes && (
+            {Boolean(delivery.notes) && (
               <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2 text-xs text-amber-300">
                 <span className="font-bold flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Obs do Lojista:</span> {delivery.notes}
               </div>
