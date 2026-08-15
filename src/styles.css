@@ -176,3 +176,29 @@
   background-clip: text;
   color: transparent;
 }
+
+/* ── BLOQUEIO TOTAL E REMOÇÃO DA MARCA LOVABLE ── */
+#lovable-badge-container,
+.lovable-badge-container,
+#lovable-badge,
+.lovable-badge,
+lovable-badge,
+div[id*="lovable" i],
+div[class*="lovable" i],
+span[class*="lovable" i],
+a[href*="lovable" i],
+iframe[src*="lovable" i],
+button:has(svg + span:contains("Lovable")),
+[data-lovable-badge],
+[data-component-tag] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  z-index: -9999 !important;
+}
