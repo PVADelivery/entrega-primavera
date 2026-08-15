@@ -72,12 +72,27 @@ export function DriverHeader() {
   useEffect(() => {
     let watchId: number;
     if (typeof window !== "undefined" && online && user && typeof navigator !== "undefined" && navigator.geolocation) {
-      const onPos = (pos: GeolocationPosition) => {
+      const onPos = async (pos: GeolocationPosition) => {
         if (!pos?.coords) return;
-        supabase
-          .from("delivery_drivers")
-          .update({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
-          .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+        const lat = Number(pos.coords.latitude);
+        const lng = Number(pos.coords.longitude);
+        if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+
+        // Atualiza na tabela delivery_drivers por user_id e por id
+        await Promise.allSettled([
+          supabase
+            .from("delivery_drivers")
+            .update({ latitude: lat, longitude: lng, is_online: true } as any)
+            .eq("user_id", user.id),
+          supabase
+            .from("delivery_drivers")
+            .update({ latitude: lat, longitude: lng, is_online: true } as any)
+            .eq("id", user.id),
+          supabase
+            .from("profiles")
+            .update({ latitude: lat, longitude: lng } as any)
+            .eq("id", user.id),
+        ]);
       };
 
       navigator.geolocation.getCurrentPosition(
