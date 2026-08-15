@@ -72,28 +72,33 @@ export function DriverHeader() {
   useEffect(() => {
     let watchId: number;
     if (typeof window !== "undefined" && online && user && typeof navigator !== "undefined" && navigator.geolocation) {
-      // Envia posição inicial imediatamente
+      const onPos = (pos: GeolocationPosition) => {
+        if (!pos?.coords) return;
+        supabase
+          .from("delivery_drivers")
+          .update({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
+          .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+      };
+
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          supabase
-            .from("delivery_drivers")
-            .update({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
-            .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+        onPos,
+        () => {
+          // Fallback sem highAccuracy se o dispositivo demorar para travar satélite
+          navigator.geolocation.getCurrentPosition(onPos, () => {}, { enableHighAccuracy: false, timeout: 15000 });
         },
-        () => {},
-        { enableHighAccuracy: true, timeout: 5000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
       );
 
       // Acompanha movimento contínuo
       watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          supabase
-            .from("delivery_drivers")
-            .update({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
-            .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+        onPos,
+        (err) => {
+          // Trata silenciosamente timeouts temporários de GPS
+          if (err.code !== 3) {
+            console.warn("Aviso de geolocalização:", err.message);
+          }
         },
-        (err) => console.error("Error watching position", err),
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 }
       );
     }
     return () => {

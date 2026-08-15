@@ -433,8 +433,10 @@ export async function fetchAvailableDeliveries() {
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
-export async function fetchMyActiveDeliveries(driverId: string, userId?: string | null) {
-  const ids = Array.from(new Set([driverId, userId].filter(Boolean)));
+export async function fetchMyActiveDeliveries(driverId?: string | null, userId?: string | null) {
+  const ids = Array.from(new Set([driverId, userId].filter(Boolean))) as string[];
+  if (ids.length === 0) return [];
+
   const { data, error } = await supabase
     .from("deliveries")
     .select("*, companies(name, phone), regions(id, name, price)")
@@ -445,8 +447,8 @@ export async function fetchMyActiveDeliveries(driverId: string, userId?: string 
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
-export async function fetchMyHistory(driverId: string, userId?: string | null) {
-  const ids = Array.from(new Set([driverId, userId].filter(Boolean)));
+export async function fetchMyHistory(driverId?: string | null, userId?: string | null) {
+  const ids = Array.from(new Set([driverId, userId].filter(Boolean))) as string[];
   
   let query = supabase
     .from("deliveries")
