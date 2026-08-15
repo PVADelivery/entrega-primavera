@@ -49,8 +49,8 @@ export function WorkModeProvider({ children }: { children: ReactNode }) {
     (async () => {
       const { data } = await supabase
         .from("delivery_drivers")
-        .select("service_types")
-        .eq("user_id", user.id)
+        .select("service_types, vehicle")
+        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
         .maybeSingle();
       if (cancelled) return;
       const list = Array.isArray((data as any)?.service_types) ? (data as any).service_types : [];
@@ -62,6 +62,7 @@ export function WorkModeProvider({ children }: { children: ReactNode }) {
     };
   }, [user?.id]);
 
+  // Se não houver restrição explícita cadastrada, permite ambas as categorias por padrão
   const canDelivery = serviceTypes.length === 0 || serviceTypes.some((s) => DELIVERY_SERVICES.includes(s));
   const canRide = serviceTypes.length === 0 || serviceTypes.some((s) => RIDE_SERVICES.includes(s));
 
