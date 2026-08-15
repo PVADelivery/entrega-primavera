@@ -1,4 +1,4 @@
-"use client";
+?"use client";
 
 import * as React from "react";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
@@ -51,8 +51,8 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends
-    React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
+  VariantProps<typeof sheetVariants> {
   hideClose?: boolean;
 }
 

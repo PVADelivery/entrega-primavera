@@ -88,15 +88,40 @@ function ProfilePage() {
   const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
   const [serviceTypes, setServiceTypes] = useState<string[]>(["delivery_moto"]);
 
+  const loadProfile = async () => {
+    if (!user) return;
+    await ensureDriverRow(user.id);
+    const [profRes, drvRes] = await Promise.all([
+      supabase.from("profiles").select("*").or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle(),
+      supabase.from("delivery_drivers").select("*").or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle(),
+    ]);
+
+    const p = profRes.data as any;
+    const d = drvRes.data as any;
+
+    setProfile(p || d);
+    setFullName(p?.full_name || d?.full_name || "");
+    setPhone(p?.phone || d?.phone || "");
+    if (d?.service_types) setServiceTypes(d.service_types);
+  };
+
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      await ensureDriverRow(user.id);
-      const { data: p } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
-      setProfile(p);
-      setFullName(p?.full_name ?? "");
-      setPhone(p?.phone ?? "");
-    })();
+    loadProfile();
+
+    const ch = supabase
+      .channel(`driver-profile-page-sync-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, () => loadProfile())
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` }, () => loadProfile())
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` }, () => {
+        loadProfile();
+        fetchDriverData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, [user]);
 
   useEffect(() => {

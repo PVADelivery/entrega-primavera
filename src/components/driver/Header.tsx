@@ -31,29 +31,42 @@ export function DriverHeader() {
       setOnline(true);
     }
 
-    (async () => {
-      const { data: driver } = await supabase
-        .from("delivery_drivers")
-        .select("is_online")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const loadDriverInfo = async () => {
+        const [drvRes, profRes] = await Promise.all([
+          supabase.from("delivery_drivers").select("is_online, full_name").or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle(),
+          supabase.from("profiles").select("full_name").or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle(),
+        ]);
 
-      if (driver && typeof driver.is_online === "boolean") {
-        setOnline(driver.is_online);
-        localStorage.setItem(`driver_is_online_${user.id}`, String(driver.is_online));
-      } else if (localStatus === "true") {
-        await supabase
-          .from("delivery_drivers")
-          .update({ is_online: true } as any)
-          .eq("user_id", user.id);
-      }
+        const drv = drvRes.data as any;
+        const prof = profRes.data as any;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (profile?.full_name) setName(profile.full_name);
+        if (drv && typeof drv.is_online === "boolean") {
+          setOnline(drv.is_online);
+          localStorage.setItem(`driver_is_online_${user.id}`, String(drv.is_online));
+        } else if (localStatus === "true") {
+          await supabase
+            .from("delivery_drivers")
+            .update({ is_online: true } as any)
+            .eq("user_id", user.id);
+        }
+
+        const finalName = prof?.full_name || drv?.full_name;
+        if (finalName) setName(finalName);
+      };
+
+      loadDriverInfo();
+
+      // Realtime listener para refletir alterações do Admin instantaneamente
+      const ch = supabase
+        .channel(`driver-profile-sync-${user.id}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, () => loadDriverInfo())
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` }, () => loadDriverInfo())
+        .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` }, () => loadDriverInfo())
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(ch);
+      };
     })();
   }, [user]);
 
