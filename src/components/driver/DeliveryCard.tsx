@@ -134,7 +134,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 )}
                 {Boolean(delivery.customer_neighborhood && delivery.customer_neighborhood !== (delivery.regions?.name || delivery.region_name)) && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary text-secondary-foreground font-bold text-[11px] border border-border/50">
-                    Bairro: {delivery.customer_neighborhood}
+                    Região: {delivery.customer_neighborhood}
                   </span>
                 )}
               </div>
