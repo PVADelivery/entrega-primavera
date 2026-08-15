@@ -64,10 +64,9 @@ export function DriverHeader() {
         .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` }, () => loadDriverInfo())
         .subscribe();
 
-      return () => {
-        supabase.removeChannel(ch);
-      };
-    })();
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, [user]);
 
   useEffect(() => {
