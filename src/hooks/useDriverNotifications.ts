@@ -318,15 +318,17 @@ export function useDriverNotifications() {
     };
 
     const setup = async () => {
+      const localOnline = typeof window !== "undefined" ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : false;
+
       const { data: driverRow } = await supabase
         .from("delivery_drivers")
         .select("id, is_online")
-        .eq("user_id", user.id)
-        .single();
+        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+        .maybeSingle();
 
-      if (!driverRow || cancelled) return;
-      const driverId = driverRow.id;
-      isOnlineRef.current = driverRow.is_online ?? false;
+      if (cancelled) return;
+      const driverId = driverRow?.id || user.id;
+      isOnlineRef.current = typeof driverRow?.is_online === "boolean" ? driverRow.is_online : localOnline;
 
       // Listener de status online/offline
       const driverChannel = supabase
