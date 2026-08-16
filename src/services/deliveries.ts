@@ -531,9 +531,8 @@ export async function cancelDelivery(deliveryId: string) {
   const { error } = await supabase
     .from("deliveries")
     .update({ 
-      status: "pending" as any,
-      driver_id: null,
-      accepted_at: null
+      status: "cancelled" as any,
+      cancelled_at: new Date().toISOString()
     })
     .eq("id", deliveryId);
   if (error) throw error;
