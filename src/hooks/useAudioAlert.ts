@@ -174,11 +174,11 @@ export function useAudioAlert() {
         globalAudio.currentTime = 0;
         globalAudio.loop = loop;
         globalAudio.volume = 1.0;
-        globalAudio.play().catch((e: any) => {
-          console.warn("[AudioAlert] HTML5 Audio play bloqueado:", e);
+        globalAudio.play().catch(() => {
+          // Autoplay policy do navegador interceptada - WebAudio sintetizador e notificação nativa operam como fallback
         });
       } catch (e) {
-        console.warn("[AudioAlert] HTML5 Audio erro:", e);
+        // Silenciado
       }
     }
 
