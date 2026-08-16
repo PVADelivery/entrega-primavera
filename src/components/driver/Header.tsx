@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ export function DriverHeader() {
     return false;
   });
   const [name, setName] = useState("Entregador");
+  const locationWatchRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
@@ -70,15 +71,29 @@ export function DriverHeader() {
   }, [user]);
 
   useEffect(() => {
-    let watchId: number;
-    if (typeof window !== "undefined" && online && user && typeof navigator !== "undefined" && navigator.geolocation) {
-      const onPos = async (pos: GeolocationPosition) => {
-        if (!pos?.coords) return;
-        const lat = Number(pos.coords.latitude);
-        const lng = Number(pos.coords.longitude);
-        if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+    return () => {
+      if (locationWatchRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+        locationWatchRef.current = null;
+      }
+    };
+  }, []);
 
-        // Atualiza na tabela delivery_drivers por user_id e por id
+  function stopLocationTracking() {
+    if (locationWatchRef.current === null || typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.clearWatch(locationWatchRef.current);
+    locationWatchRef.current = null;
+  }
+
+  function startLocationTracking() {
+    if (!user || typeof navigator === "undefined" || !navigator.geolocation || locationWatchRef.current !== null) return;
+
+    locationWatchRef.current = navigator.geolocation.watchPosition(
+      async (pos) => {
+        const lat = Number(pos.coords?.latitude);
+        const lng = Number(pos.coords?.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
         await Promise.allSettled([
           supabase
             .from("delivery_drivers")
@@ -89,26 +104,16 @@ export function DriverHeader() {
             .update({ latitude: lat, longitude: lng, is_online: true } as any)
             .eq("id", user.id),
         ]);
-      };
-
-      // Acompanha movimento contínuo
-      try {
-        watchId = navigator.geolocation.watchPosition(
-          onPos,
-          () => {},
-          { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 }
-        );
-      } catch (e) {}
-    }
-    return () => {
-      if (watchId && typeof navigator !== "undefined" && navigator.geolocation) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, [online, user]);
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 },
+    );
+  }
 
   async function toggle(value: boolean) {
     if (!user) return;
+    if (value) startLocationTracking();
+    else stopLocationTracking();
     setOnline(value);
     localStorage.setItem(`driver_is_online_${user.id}`, String(value));
 
@@ -118,6 +123,7 @@ export function DriverHeader() {
       .eq("user_id", user.id);
 
     if (error) {
+      if (value) stopLocationTracking();
       console.error("Status update error:", error);
       toast.error("Erro: " + error.message);
       setOnline(!value);

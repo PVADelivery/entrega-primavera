@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverShell } from "@/components/driver/DriverShell";
@@ -39,6 +39,7 @@ function DriverHome() {
   const [driverServiceTypes, setDriverServiceTypes] = useState<string[]>([]);
   const [pending, setPending] = useState<string | null>(null);
   const [pendingRide, setPendingRide] = useState<string | null>(null);
+  const acceptingDeliveryRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
@@ -159,16 +160,20 @@ function DriverHome() {
   }
 
   async function handleAccept(id: string) {
-    const targetDriverId = await getEffectiveDriverId();
+    if (acceptingDeliveryRef.current) return;
+    acceptingDeliveryRef.current = true;
     setPending(id);
-    acceptDeliveryLocally(id);
     try {
+      const targetDriverId = await getEffectiveDriverId();
       await acceptDelivery(id, targetDriverId);
+      acceptDeliveryLocally(id);
       toast.success("Entrega aceita com sucesso!");
-      qc.invalidateQueries({ queryKey: ["deliveries"] });
+      await qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
+      await qc.invalidateQueries({ queryKey: ["deliveries"] });
       toast.error(`Erro ao aceitar entrega: ${err?.message || JSON.stringify(err)}`);
     } finally {
+      acceptingDeliveryRef.current = false;
       setPending(null);
     }
   }
