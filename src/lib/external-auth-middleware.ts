@@ -53,14 +53,14 @@ export const requireExternalSupabaseAuth = createMiddleware({ type: "function" }
     if (error || !data.user) {
       const claims = decodeClaims(token);
       console.warn(
-        `[AUTH DEBUG] getUser falhou | code=${error?.code ?? "no_user"} | message=${error?.message ?? "usuário ausente"} | iss=${claims.iss ?? "?"} | sub=${claims.sub ?? "?"} | exp=${claims.exp ?? "?"} | now=${Math.floor(Date.now() / 1000)}`,
+        `[AUTH DEBUG] getUser falhou | at=${new Date().toISOString()} | code=${error?.code ?? "no_user"} | status=${(error as any)?.status ?? "?"} | message=${error?.message ?? "usuário ausente"} | iss=${claims.iss ?? "?"} | sub=${claims.sub ?? "?"} | exp=${claims.exp ?? "?"} | now=${Math.floor(Date.now() / 1000)} | expired=${claims.exp ? claims.exp < Math.floor(Date.now() / 1000) : "?"}`,
       );
       throw new Response("Sessão expirada. Entre novamente.", { status: 401 });
     }
 
     const okClaims = decodeClaims(token);
     console.info(
-      `[AUTH DEBUG] getUser ok | authUserId=${data.user.id} | sub=${okClaims.sub ?? "?"} | iss=${okClaims.iss ?? "?"} | exp=${okClaims.exp ?? "?"}`,
+      `[AUTH DEBUG] getUser ok | at=${new Date().toISOString()} | authUserId=${data.user.id} | sub=${okClaims.sub ?? "?"} | iss=${okClaims.iss ?? "?"} | exp=${okClaims.exp ?? "?"} | now=${Math.floor(Date.now() / 1000)}`,
     );
 
     return next({
