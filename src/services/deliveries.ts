@@ -101,7 +101,6 @@ export function useDeliveries(params?: UseDeliveriesParams) {
         .select(`
           *,
           companies(name, phone),
-          regions(id, name, price),
           delivery_drivers(id, user_id, vehicle, license_plate)
         `, { count: "exact" })
         .order("created_at", { ascending: false })
