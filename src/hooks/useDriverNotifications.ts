@@ -37,6 +37,9 @@ export const declineDeliveryLocally = (deliveryId: string) => {
     declined.add(deliveryId);
     localStorage.setItem("declined_deliveries", JSON.stringify(Array.from(declined)));
     window.dispatchEvent(new CustomEvent("delivery-declined", { detail: { deliveryId } }));
+    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
+      LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }, { id: 7777 }] }).catch(() => {});
+    }
   } catch (e) {
     console.error("[Notify] erro ao declinar localmente:", e);
   }
