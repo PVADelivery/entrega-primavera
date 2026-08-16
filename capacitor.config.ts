@@ -6,7 +6,11 @@ const config: CapacitorConfig = {
   webDir: 'dist/client',
   server: {
     url: 'https://entregador.mt24horasexpress.com',
-    cleartext: true
+    cleartext: true,
+    androidScheme: 'https'
+  },
+  android: {
+    allowMixedContent: true
   }
 };
 
