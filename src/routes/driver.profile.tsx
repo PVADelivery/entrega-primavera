@@ -478,12 +478,12 @@ function ProfilePage() {
           <div>
             <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3 ml-4">Legal e Conta</h3>
             <div className="bg-card rounded-[2rem] shadow-[var(--shadow-card)] border border-border/40 overflow-hidden mb-6">
-              <button onClick={() => {}} className="w-full flex items-center gap-4 px-6 py-4 border-b border-border/40 hover:bg-secondary/50 transition-colors">
+              <button onClick={() => navigate({ to: "/terms" })} className="w-full flex items-center gap-4 px-6 py-4 border-b border-border/40 hover:bg-secondary/50 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0"><FileText className="h-4 w-4 text-muted-foreground" /></div>
                 <span className="flex-1 text-sm font-bold text-foreground text-left">Termos de Uso</span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
               </button>
-              <button onClick={() => {}} className="w-full flex items-center gap-4 px-6 py-4 border-b border-border/40 hover:bg-secondary/50 transition-colors">
+              <button onClick={() => navigate({ to: "/privacy" })} className="w-full flex items-center gap-4 px-6 py-4 border-b border-border/40 hover:bg-secondary/50 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0"><ShieldCheck className="h-4 w-4 text-muted-foreground" /></div>
                 <span className="flex-1 text-sm font-bold text-foreground text-left">Politica de Privacidade</span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
