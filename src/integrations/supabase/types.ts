@@ -635,6 +635,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      driver_can_read_company: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
