@@ -424,7 +424,7 @@ export function useDeliveryTracking(orderId?: string | null) {
 export async function fetchAvailableDeliveries() {
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*, companies(name, phone)")
+    .select("*")
     .in("status", ["pending", "broadcasted"])
     .is("driver_id", null)
     .order("created_at", { ascending: false });
@@ -438,7 +438,7 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
 
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*, companies(name, phone)")
+    .select("*")
     .in("driver_id", ids)
     .in("status", ["accepted", "collecting", "in_transit"])
     .order("created_at", { ascending: false });
@@ -451,7 +451,7 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   
   let query = supabase
     .from("deliveries")
-    .select("*, companies(name, phone)")
+    .select("*")
     .in("status", ["delivered", "cancelled", "returned"])
     .order("created_at", { ascending: false })
     .limit(100);
@@ -467,7 +467,7 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   if ((!data || data.length === 0) && ids.length > 0) {
     const { data: fallbackData } = await supabase
       .from("deliveries")
-      .select("*, companies(name, phone)")
+      .select("*")
       .in("status", ["delivered", "cancelled", "returned"])
       .order("created_at", { ascending: false })
       .limit(100);
