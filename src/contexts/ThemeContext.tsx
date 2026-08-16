@@ -20,28 +20,23 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "dark";
+    const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
+  });
 
   useEffect(() => {
-    const stored = (typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_KEY)) as Theme | null;
-    const prefersDark =
-      typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-    const initial: Theme = stored ?? (prefersDark ? "dark" : "light");
-    setThemeState(initial);
-    applyTheme(initial);
-  }, []);
-
-  const setTheme = (t: Theme) => {
-    setThemeState(t);
-    applyTheme(t);
+    if (typeof window === "undefined") return;
+    applyTheme(theme);
     try {
-      localStorage.setItem(STORAGE_KEY, t);
-    } catch {
-      /* ignore */
-    }
-  };
+      localStorage.setItem(STORAGE_KEY, theme);
+    } catch {}
+  }, [theme]);
 
-  const toggle = () => setTheme(theme === "dark" ? "light" : "dark");
+  const setTheme = (t: Theme) => setThemeState(t);
+  const toggle = () => setThemeState((t) => (t === "dark" ? "light" : "dark"));
 
   return <ThemeContext.Provider value={{ theme, toggle, setTheme }}>{children}</ThemeContext.Provider>;
 }

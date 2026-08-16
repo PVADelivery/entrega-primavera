@@ -215,15 +215,29 @@ function ProfilePage() {
     if (!file || !user) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${user.id}-${Math.random()}.${ext}`;
-      const { error } = await supabase.storage.from("avatars").upload(path, file);
-      if (error) throw error;
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-      await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("user_id", user.id);
-      setProfile({ ...profile, avatar_url: publicUrl });
-      toast.success("Foto atualizada!");
-    } catch (err: any) { toast.error("Erro no upload: " + err.message); }
+      
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+      
+      if (profileError) {
+        console.warn("[uploadAvatar] Aviso ao atualizar profiles:", profileError.message);
+      }
+
+      setProfile((prev: any) => ({ ...prev, avatar_url: publicUrl }));
+      toast.success("Foto atualizada com sucesso!");
+    } catch (err: any) { 
+      console.error("[handleAvatarUpload] Erro:", err);
+      toast.error("Erro no upload: " + (err.message || "Permissão negada")); 
+    }
     finally { setUploading(false); }
   };
 
