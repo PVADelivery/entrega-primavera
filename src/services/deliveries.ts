@@ -425,7 +425,7 @@ export function useDeliveryTracking(orderId?: string | null) {
 export async function fetchAvailableDeliveries() {
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*, companies(name, phone), regions(id, name, price)")
+    .select("*, companies(name, phone)")
     .in("status", ["pending", "broadcasted"])
     .is("driver_id", null)
     .order("created_at", { ascending: false });

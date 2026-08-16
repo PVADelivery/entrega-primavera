@@ -67,6 +67,8 @@ function DriverHome() {
       return raw ?? [];
     },
     enabled: mode === "delivery",
+    refetchInterval: 5000,
+    staleTime: 3000,
   });
 
   const active = useQuery({
