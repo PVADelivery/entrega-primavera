@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import type { DeliveryStatus } from "@/types/models";
 
 function toDbStatus(status: string) {
+  // O banco usa "in_route", mas o app usa "in_transit" internamente
+  if (status === "in_transit") return "in_route";
+  if (status === "delivered") return "completed";
   return status;
 }
 
@@ -434,7 +437,21 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
 
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*")
+    .select(`
+      *,
+      companies(name, phone),
+      orders(
+        id,
+        customer_name,
+        customer_phone,
+        customer_neighborhood,
+        delivery_address,
+        delivery_street,
+        delivery_number,
+        delivery_neighborhood
+      ),
+      regions(id, name, price)
+    `)
     .in("driver_id", ids)
     .order("created_at", { ascending: false });
   
@@ -442,7 +459,28 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
   
   return (data ?? [])
     .filter((d: any) => !["completed", "delivered", "cancelled", "returned"].includes(d.status))
-    .map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+    .map((d: any) => {
+      const order = d.orders;
+      // Resolve nome do cliente: delivery.customer_name pode estar mascarado ("Cliente", "XXXXXXXX", etc.)
+      const isMasked = !d.customer_name || d.customer_name === "Cliente" || d.customer_name === "XXXXXXXX" || /^X+$/.test(d.customer_name);
+      const resolvedCustomerName = isMasked ? (order?.customer_name || d.customer_name || "Cliente") : d.customer_name;
+      // Resolve endereço de entrega
+      const isMaskedAddr = !d.address || d.address === "XXXXXX, XXX" || /^X+/.test(d.address);
+      const resolvedAddress = isMaskedAddr
+        ? (order?.delivery_address
+            || (order?.delivery_street ? `${order.delivery_street}, ${order.delivery_number || "s/n"} - ${order.delivery_neighborhood || ""}` : null)
+            || d.dropoff_address
+            || d.address)
+        : d.address;
+      return {
+        ...d,
+        status: toAppStatus(d.status),
+        customer_name: resolvedCustomerName,
+        customer_phone: d.customer_phone || order?.customer_phone || null,
+        address: resolvedAddress,
+        customer_neighborhood: d.customer_neighborhood || order?.customer_neighborhood || null,
+      };
+    });
 }
 
 export async function fetchMyHistory(driverId?: string | null, userId?: string | null) {
@@ -502,7 +540,7 @@ export async function acceptDelivery(deliveryId: string, driverId: string) {
 
 const nextStatus: Record<string, string> = {
   accepted: "collecting",
-  collecting: "in_transit",
+  collecting: "in_route",
   in_transit: "delivered",
   in_route: "delivered",
 };
