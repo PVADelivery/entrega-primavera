@@ -824,13 +824,16 @@ export async function fetchEarnings(driverId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   const ids = Array.from(new Set([driverId, user?.id].filter(Boolean)));
 
-  const { data: deliveries, error: deliveriesError } = await supabase
+  let deliveries: any[] = [];
+  // Alguns bancos usam "delivered", outros ainda gravam "completed"
+  const { data: rows, error: deliveriesError } = await supabase
     .from("deliveries")
-    .select("value, commission, completed_at, created_at")
-    .in("driver_id", ids)
-    .in("status", ["delivered"]);
-
+    .select("*")
+    .in("driver_id", ids);
   if (deliveriesError) throw deliveriesError;
+  deliveries = (rows ?? []).filter((d: any) =>
+    ["delivered", "completed"].includes(String(d.status))
+  );
 
   // Tenta buscar também as corridas de passageiros
   const { data: rides, error: ridesError } = await supabase
@@ -847,12 +850,15 @@ export async function fetchEarnings(driverId: string) {
 
   // Processa Entregas (deliveries)
   for (const r of deliveries ?? []) {
-    const dateStr = r.completed_at || r.created_at;
+    const dateStr = r.completed_at || r.delivered_at || r.updated_at || r.created_at;
     if (!dateStr) continue;
     const t = new Date(dateStr).getTime();
-    
-    // Calcula 75% do valor da entrega (o app retém 25%)
-    const fee = Number(r.value || 0);
+
+    // Taxa bruta da entrega: usa a primeira coluna preenchida
+    const fee = Number(
+      r.delivery_fee ?? 0
+    ) || Number(r.value ?? 0) || Number(r.price ?? 0) || Number(r.commission ?? 0) || 0;
+    // O entregador recebe 75% (25% fica com a plataforma)
     const c = fee * 0.75;
     
     total += c;
