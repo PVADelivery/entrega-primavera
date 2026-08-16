@@ -654,13 +654,6 @@ function statusCandidates(status: string): string[] {
   return [status];
 }
 
-function describeDbErrorFull(err: any) {
-  if (!err) return "Erro desconhecido";
-  const parts = [err.message, err.details, err.hint].filter(Boolean);
-  const code = err.code ? `[${err.code}] ` : "";
-  return `${code}${parts.join(" — ") || "Erro desconhecido"}`;
-}
-
 export async function advanceDelivery(delivery: any) {
   const next = nextStatus[delivery.status] || "collecting";
   const now = new Date().toISOString();
