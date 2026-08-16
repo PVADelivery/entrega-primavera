@@ -91,26 +91,14 @@ export function DriverHeader() {
         ]);
       };
 
-      navigator.geolocation.getCurrentPosition(
-        onPos,
-        () => {
-          // Fallback sem highAccuracy se o dispositivo demorar para travar satélite
-          navigator.geolocation.getCurrentPosition(onPos, () => {}, { enableHighAccuracy: false, timeout: 15000 });
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-      );
-
       // Acompanha movimento contínuo
-      watchId = navigator.geolocation.watchPosition(
-        onPos,
-        (err) => {
-          // Trata silenciosamente timeouts temporários de GPS
-          if (err.code !== 3) {
-            console.warn("Aviso de geolocalização:", err.message);
-          }
-        },
-        { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 }
-      );
+      try {
+        watchId = navigator.geolocation.watchPosition(
+          onPos,
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 }
+        );
+      } catch (e) {}
     }
     return () => {
       if (watchId && typeof navigator !== "undefined" && navigator.geolocation) {
