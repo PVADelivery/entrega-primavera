@@ -184,6 +184,18 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             ch.enableVibration(true);
             ch.setVibrationPattern(new long[]{0, 600, 200, 600, 200, 600});
             ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+
+            try {
+                android.net.Uri soundUri = android.net.Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.ring);
+                android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .build();
+                ch.setSound(soundUri, audioAttributes);
+            } catch (Exception e) {
+                Log.w(TAG, "Falha ao definir som ring.mp3 no canal: " + e.getMessage());
+            }
+
             nm.createNotificationChannel(ch);
         }
     }
