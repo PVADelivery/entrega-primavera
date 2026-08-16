@@ -421,13 +421,23 @@ export function useDeliveryTracking(orderId?: string | null) {
 }
 
 export async function fetchAvailableDeliveries() {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("deliveries")
-    .select("*")
+    .select("*, companies(name, phone), regions(id, name, price)")
     .in("status", ["pending", "broadcasted"])
     .is("driver_id", null)
     .order("created_at", { ascending: false });
-  if (error) throw error;
+
+  if (error) {
+    const fb = await supabase
+      .from("deliveries")
+      .select("*")
+      .in("status", ["pending", "broadcasted"])
+      .is("driver_id", null)
+      .order("created_at", { ascending: false });
+    if (fb.error) throw fb.error;
+    data = fb.data;
+  }
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 

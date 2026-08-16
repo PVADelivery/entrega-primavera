@@ -28,15 +28,20 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     delivery.companies?.name || delivery.company_name || ""
   );
 
-  const isGeneric = (str?: string | null) => !str || str === "Empresa Parceira" || str === "EMPRESA PARCEIRA" || str === "Loja Parceira" || str === "LOJA PARCEIRA" || str === "MT 24 HORAS";
+  const isGeneric = (str?: string | null) => !str || str === "Empresa Parceira" || str === "EMPRESA PARCEIRA" || str === "Loja Parceira" || str === "LOJA PARCEIRA" || str === "MT 24 HORAS" || str === "Teste Loja";
 
   useEffect(() => {
     let active = true;
     const loadCompany = async () => {
-      let resolvedName = null;
+      let resolvedName: string | null = null;
+
+      // 0. Nome já embutido na consulta (join com companies)
+      if (delivery.companies?.name && !isGeneric(delivery.companies.name)) {
+        resolvedName = delivery.companies.name;
+      }
 
       // 1. Se tem company_id, busca direta na tabela companies
-      if (delivery.company_id) {
+      if (!resolvedName && delivery.company_id) {
         const { data: comp } = await supabase
           .from("companies")
           .select("name")
@@ -50,19 +55,8 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
         resolvedName = delivery.company_name;
       }
 
-      // 3. Se ainda não encontrou, busca a empresa mais recente/ativa no banco
-      if (!resolvedName) {
-        const { data: lastCompany } = await supabase
-          .from("companies")
-          .select("name")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (lastCompany?.name) resolvedName = lastCompany.name;
-      }
-
       if (active) {
-        setStoreName(resolvedName || "Teste Loja");
+        setStoreName(resolvedName || "Loja");
       }
     };
 
@@ -70,13 +64,13 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
     return () => { active = false; };
   }, [delivery.company_id, delivery.company_name, delivery.companies?.name, delivery.order_id]);
 
-  const displayStoreName = isGeneric(storeName) 
-    ? (delivery.companies?.name && !isGeneric(delivery.companies.name) 
-        ? delivery.companies.name 
-        : (delivery.company_name && !isGeneric(delivery.company_name) 
-            ? delivery.company_name 
-            : "Teste Loja")) 
-    : storeName;
+  const displayStoreName = !isGeneric(storeName)
+    ? storeName
+    : delivery.companies?.name && !isGeneric(delivery.companies.name)
+      ? delivery.companies.name
+      : delivery.company_name && !isGeneric(delivery.company_name)
+        ? delivery.company_name
+        : "Loja";
 
   // Formatação do link do WhatsApp do cliente
   const customerPhoneClean = (delivery.customer_phone || "").replace(/\D/g, "");
