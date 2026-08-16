@@ -629,20 +629,10 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
 }
 
 export async function acceptDelivery(deliveryId: string, driverId: string) {
-  let targetId = driverId;
-  const { data, error } = await supabase
-    .from("deliveries")
-    .update({ driver_id: targetId, status: "accepted", accepted_at: new Date().toISOString() } as any)
-    .eq("id", deliveryId)
-    .in("status", ["pending", "broadcasted"])
-    .is("driver_id", null)
-    .select()
-    .maybeSingle();
-  
-  if (error) {
-    console.error("[acceptDelivery] Supabase error:", error);
-    throw error;
-  }
+  const result = await updateDriverDelivery({
+    data: { deliveryId, status: "accepted", driverId },
+  });
+  if (!result.success) throw new Error("Não foi possível aceitar a entrega.");
 }
 
 const nextStatus: Record<string, string> = {
