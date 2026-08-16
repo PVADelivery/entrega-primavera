@@ -77,148 +77,151 @@ export function useDriverNotifications() {
 
   // ── Permissões e registro FCM
   useEffect(() => {
+    // 1. Notificações locais do dispositivo (se suportado nativamente)
     if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
-      // Permissão de notificações locais
-      LocalNotifications.requestPermissions().then((res) => {
-        permissionRef.current = res.display === "granted" ? "granted" : "denied";
-        if (permissionRef.current === "granted" && Capacitor.getPlatform() === "android") {
-          LocalNotifications.registerActionTypes({
-            types: [
-              {
-                id: "DELIVERY_ACTION",
-                actions: [
-                  { id: "accept", title: "✅ Aceitar" },
-                  { id: "reject", title: "❌ Rejeitar", destructive: true },
-                ],
-              },
-            ],
-          }).catch(() => {});
+      try {
+        LocalNotifications.requestPermissions().then((res) => {
+          permissionRef.current = res.display === "granted" ? "granted" : "denied";
+          if (permissionRef.current === "granted" && Capacitor.getPlatform() === "android") {
+            LocalNotifications.registerActionTypes({
+              types: [
+                {
+                  id: "DELIVERY_ACTION",
+                  actions: [
+                    { id: "accept", title: "✅ Aceitar" },
+                    { id: "reject", title: "❌ Rejeitar", destructive: true },
+                  ],
+                },
+              ],
+            }).catch(() => {});
 
-          LocalNotifications.listChannels().then((channels) => {
-            const hasChannel = channels.channels.some(c => c.id === NOTIFICATION_CHANNEL_ID);
-            if (!hasChannel) {
-              LocalNotifications.createChannel({
-                id: NOTIFICATION_CHANNEL_ID,
-                name: `Novas Corridas ${APP_NAME}`,
-                description: "Alerta de alta prioridade para novas corridas",
-                importance: 5,
-                visibility: 1,
-                sound: "ring.mp3",
-                vibration: true,
-              }).catch(() => {});
-            }
-          }).catch(() => {});
-        }
-      }).catch(() => {});
-
-      // ── Registro e sincronização do token FCM
-      let regListener: any = null;
-      let errListener: any = null;
-      let actListener: any = null;
-
-      const isPushAvailable = Capacitor.isPluginAvailable("PushNotifications");
-
-      if (isPushAvailable) {
-        try {
-          const syncFcmToken = async (tokenVal: string) => {
-            if (!tokenVal) return;
-            console.log("[FCM] Sincronizando token:", tokenVal.slice(0, 15) + "...");
-            localStorage.setItem("driver_fcm_token", tokenVal);
-
-            if (user?.id) {
-              const { error } = await supabase
-                .from("delivery_drivers")
-                .update({ fcm_token: tokenVal } as any)
-                .or(`user_id.eq.${user.id},id.eq.${user.id}`);
-              if (error) console.error("[FCM] Erro ao salvar token:", error.message);
-            }
-          };
-
-          PushNotifications.addListener("registration", (token) => {
-            console.log("[FCM] Token recebido:", token.value);
-            syncFcmToken(token.value);
-          }).then((handle) => { regListener = handle; }).catch(() => {});
-
-          const cachedToken = localStorage.getItem("driver_fcm_token");
-          if (cachedToken && user?.id) {
-            syncFcmToken(cachedToken);
+            LocalNotifications.listChannels().then((channels) => {
+              const hasChannel = channels.channels.some(c => c.id === NOTIFICATION_CHANNEL_ID);
+              if (!hasChannel) {
+                LocalNotifications.createChannel({
+                  id: NOTIFICATION_CHANNEL_ID,
+                  name: `Novas Corridas ${APP_NAME}`,
+                  description: "Alerta de alta prioridade para novas corridas",
+                  importance: 5,
+                  visibility: 1,
+                  sound: "ring.mp3",
+                  vibration: true,
+                }).catch(() => {});
+              }
+            }).catch(() => {});
           }
-
-          PushNotifications.requestPermissions().then((result) => {
-            if (result.receive === "granted") {
-              PushNotifications.register().catch((e) => console.warn("[FCM] register erro:", e));
-            }
-          }).catch((e) => console.warn("[FCM] requestPermissions erro:", e));
-
-          PushNotifications.addListener("registrationError", (error: any) => {
-            console.warn("[FCM] Erro no register:", error);
-          }).then((handle) => { errListener = handle; }).catch(() => {});
-
-          PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-            console.log("[FCM] Push action performed:", action);
-            const actionId = action.actionId;
-            const data = action.notification?.data;
-            const deliveryId = data?.deliveryId || data?.delivery_id;
-
-            // Se a ação for de rejeitar, apenas descarta e NÃO redireciona/abre a tela da corrida
-            if (actionId === "reject" || actionId === "tap_reject") {
-              if (deliveryId) declineDeliveryLocally(deliveryId);
-              return;
-            }
-
-            const targetRoute = deliveryId ? `/driver?deliveryId=${deliveryId}` : "/driver";
-            if (targetRoute && typeof window !== "undefined") {
-              window.location.href = targetRoute;
-            }
-          }).then((handle) => { actListener = handle; }).catch(() => {});
-
-          PushNotifications.addListener("pushNotificationReceived", async (notification) => {
-            console.log("[FCM] Push recebido em foreground:", notification);
-            const deliveryId = notification.data?.deliveryId;
-            if (!deliveryId) return;
-
-            if (notification.data?.type === "cancel_delivery") {
-              activeAlertsRef.current.delete(deliveryId);
-              if (activeAlertsRef.current.size === 0) stopAlert();
-              return;
-            }
-
-            const storeName = notification.data?.storeName || APP_NAME;
-            const dropoff = notification.data?.dropoff || "Endereço do cliente";
-            const fee = notification.data?.fee || "";
-            const details = notification.data?.details || `${storeName}\n🏁 Entrega: ${dropoff}`;
-
-            toast(`🏬 ${storeName}`, {
-              description: `🏁 ${dropoff}${fee ? ` • 💰 ${fee}` : ""}`,
-            });
-
-            if (!Capacitor.isNativePlatform() && permissionRef.current === "granted") {
-              try {
-                new Notification(`🏬 ${storeName}`, { body: details, icon: "/favicon-v3.png" });
-              } catch {}
-            }
-          }).catch(() => {});
-        } catch (e) {
-          console.warn("[FCM] Indisponível no dispositivo:", e);
-        }
-      }
-
-      return () => {
-        if (regListener?.remove) regListener.remove();
-        if (errListener?.remove) errListener.remove();
-        if (actListener?.remove) actListener.remove();
-      };
-    } else {
-      // Browser web
-      if (!("Notification" in window)) return;
-      if (Notification.permission === "granted") {
-        permissionRef.current = "granted";
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then((p) => {
-          permissionRef.current = p;
-        });
+        }).catch(() => {});
+      } catch (err) {
+        console.warn("[LocalNotifications] Não suportado:", err);
       }
     }
+
+    // 2. Registro e sincronização do token FCM / Push Notifications
+    let regListener: any = null;
+    let errListener: any = null;
+    let actListener: any = null;
+
+    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("PushNotifications")) {
+      try {
+        const syncFcmToken = async (tokenVal: string) => {
+          if (!tokenVal) return;
+          console.log("[FCM] Sincronizando token:", tokenVal.slice(0, 15) + "...");
+          localStorage.setItem("driver_fcm_token", tokenVal);
+
+          if (user?.id) {
+            const { error } = await supabase
+              .from("delivery_drivers")
+              .update({ fcm_token: tokenVal } as any)
+              .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+            if (error) console.error("[FCM] Erro ao salvar token:", error.message);
+          }
+        };
+
+        PushNotifications.addListener("registration", (token) => {
+          console.log("[FCM] Token recebido:", token.value);
+          syncFcmToken(token.value);
+        }).then((handle) => { regListener = handle; }).catch(() => {});
+
+        const cachedToken = localStorage.getItem("driver_fcm_token");
+        if (cachedToken && user?.id) {
+          syncFcmToken(cachedToken);
+        }
+
+        PushNotifications.requestPermissions().then((result) => {
+          if (result.receive === "granted") {
+            PushNotifications.register().catch((e) => console.warn("[FCM] register erro:", e));
+          }
+        }).catch((e) => console.warn("[FCM] requestPermissions erro:", e));
+
+        PushNotifications.addListener("registrationError", (error: any) => {
+          console.warn("[FCM] Erro no register:", error);
+        }).then((handle) => { errListener = handle; }).catch(() => {});
+
+        PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+          console.log("[FCM] Push action performed:", action);
+          const actionId = action.actionId;
+          const data = action.notification?.data;
+          const deliveryId = data?.deliveryId || data?.delivery_id;
+
+          // Se a ação for de rejeitar, apenas descarta e NÃO redireciona/abre a tela da corrida
+          if (actionId === "reject" || actionId === "tap_reject") {
+            if (deliveryId) declineDeliveryLocally(deliveryId);
+            return;
+          }
+
+          const targetRoute = deliveryId ? `/driver?deliveryId=${deliveryId}` : "/driver";
+          if (targetRoute && typeof window !== "undefined") {
+            window.location.href = targetRoute;
+          }
+        }).then((handle) => { actListener = handle; }).catch(() => {});
+
+        PushNotifications.addListener("pushNotificationReceived", async (notification) => {
+          console.log("[FCM] Push recebido em foreground:", notification);
+          const deliveryId = notification.data?.deliveryId;
+          if (!deliveryId) return;
+
+          if (notification.data?.type === "cancel_delivery") {
+            activeAlertsRef.current.delete(deliveryId);
+            if (activeAlertsRef.current.size === 0) stopAlert();
+            return;
+          }
+
+          const storeName = notification.data?.storeName || APP_NAME;
+          const dropoff = notification.data?.dropoff || "Endereço do cliente";
+          const fee = notification.data?.fee || "";
+          const details = notification.data?.details || `${storeName}\n🏁 Entrega: ${dropoff}`;
+
+          toast(`🏬 ${storeName}`, {
+            description: `🏁 ${dropoff}${fee ? ` • 💰 ${fee}` : ""}`,
+          });
+
+          if (!Capacitor.isNativePlatform() && permissionRef.current === "granted") {
+            try {
+              new Notification(`🏬 ${storeName}`, { body: details, icon: "/favicon-v3.png" });
+            } catch {}
+          }
+        }).catch(() => {});
+      } catch (e) {
+        console.warn("[FCM] Indisponível no dispositivo:", e);
+      }
+    } else if (!Capacitor.isNativePlatform()) {
+      // Browser web
+      if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+          permissionRef.current = "granted";
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then((p) => {
+            permissionRef.current = p;
+          });
+        }
+      }
+    }
+
+    return () => {
+      if (regListener?.remove) regListener.remove();
+      if (errListener?.remove) errListener.remove();
+      if (actListener?.remove) actListener.remove();
+    };
   }, [user?.id]);
 
   // ── Listener de corridas em tempo real + polling
