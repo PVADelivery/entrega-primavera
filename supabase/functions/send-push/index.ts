@@ -137,11 +137,11 @@ serve(async (req) => {
     if (companyId) {
       const { data: comp } = await supabaseClient
         .from('companies')
-        .select('name, address, trade_name')
+        .select('name, address')
         .eq('id', companyId)
         .maybeSingle();
       if (comp) {
-        companyName = comp.trade_name || comp.name || companyName || "MT 24 Horas Express";
+        companyName = comp.name || companyName || "MT 24 Horas Express";
         if (!pickupAddr && comp.address) pickupAddr = comp.address;
       }
     }
