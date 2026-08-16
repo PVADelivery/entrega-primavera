@@ -169,16 +169,17 @@ serve(async (req) => {
       .from('delivery_drivers')
       .select('fcm_token')
       .not('fcm_token', 'is', null)
-      .eq('is_online', true)
+      .neq('fcm_token', '');
 
     if (record.driver_id) {
-       query = query.eq('id', record.driver_id)
+       query = query.or(`id.eq.${record.driver_id},user_id.eq.${record.driver_id}`);
     }
 
-    const { data: drivers, error } = await query
+    const { data: drivers, error } = await query;
 
     if (error || !drivers || drivers.length === 0) {
-      return new Response("No online drivers with push tokens found", { status: 200 })
+      console.log("Nenhum entregador com token FCM encontrado para notificar");
+      return new Response("No drivers with push tokens found", { status: 200 });
     }
 
     const tokens = drivers.map(d => d.fcm_token).filter(Boolean)
