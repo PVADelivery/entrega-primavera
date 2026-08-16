@@ -18,7 +18,10 @@ const allowedTransitions: Record<string, DriverDeliveryStatus[]> = {
 };
 
 function externalAdminClient() {
-  const url = process.env["EXTERNAL_SUPABASE_URL"] || process.env["SUPABASE_URL"];
+  const url =
+    process.env["EXTERNAL_SUPABASE_URL"] ||
+    process.env["VITE_SUPABASE_URL"] ||
+    "https://owlbzwsdcognrgolvnzg.supabase.co";
   const key = process.env["EXTERNAL_SUPABASE_SERVICE_ROLE_KEY"];
 
   if (!url || !key) {
