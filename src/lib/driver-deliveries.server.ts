@@ -79,7 +79,12 @@ export async function updateDriverDeliveryAdmin(
 
   const allowed = allowedTransitions[String(delivery.status)] ?? [];
   if (!allowed.includes(nextStatus)) {
-    if (delivery.status === nextStatus) return { success: true, status: nextStatus };
+    // Idempotência: se a entrega já está no status desejado (ou em um apelido
+    // equivalente no enum deste banco), a chamada duplicada é um no-op.
+    const equivalents = statusAliases[nextStatus] ?? [nextStatus];
+    if (equivalents.includes(String(delivery.status))) {
+      return { success: true, status: String(delivery.status), idempotent: true };
+    }
     throw new Error("Esta alteração de status não é permitida.");
   }
 
