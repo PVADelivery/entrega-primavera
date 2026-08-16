@@ -601,28 +601,42 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
 // a promessa existente, então cliques duplicados nunca geram dois POSTs.
 const inFlightAccepts = new Map<string, Promise<void>>();
 
-export async function acceptDelivery(deliveryId: string, driverId: string) {
+export async function acceptDelivery(deliveryId: string, _driverId?: string) {
   const existing = inFlightAccepts.get(deliveryId);
   if (existing) return existing;
 
   const run = (async () => {
-    try {
-    const result = await updateDriverDelivery({
-      data: { deliveryId, status: "accepted", driverId },
+    const { data, error } = await supabase.rpc("accept_delivery" as any, {
+      p_delivery_id: deliveryId,
     });
-    if (!result.success) throw new Error("Não foi possível aceitar a entrega.");
-  } catch (error: any) {
-    const message = String(error?.message ?? error ?? "");
-    if (/401|unauthorized|sessão expirada|sessão inválida/i.test(message)) {
-      throw new Error("Sua sessão expirou. Entre novamente para aceitar a entrega.");
+
+    if (error) {
+      console.error("[acceptDelivery] RPC error:", error);
+      throw new Error(error.message || "Não foi possível aceitar a entrega.");
     }
-    throw error;
-  }
+
+    const result = data as any;
+    if (!result?.success) {
+      console.error("[acceptDelivery] RPC rejected:", result);
+      const messages: Record<string, string> = {
+        NOT_AUTHENTICATED: "Sessão expirada. Faça login novamente.",
+        DRIVER_NOT_FOUND: "Entregador não encontrado.",
+        DELIVERY_NOT_FOUND: "Entrega não encontrada.",
+        DELIVERY_NOT_AVAILABLE: "Esta entrega já foi aceita por outro entregador.",
+      };
+      throw new Error(
+        messages[result?.error] ||
+          result?.message ||
+          "Não foi possível aceitar a entrega.",
+      );
+    }
+
+    return result;
   })();
 
   inFlightAccepts.set(deliveryId, run);
   try {
-    await run;
+    return await run;
   } finally {
     inFlightAccepts.delete(deliveryId);
   }
