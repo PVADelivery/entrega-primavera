@@ -230,6 +230,18 @@ export function useDriverNotifications() {
     };
     window.addEventListener("delivery-declined", handleDeclineEvent);
 
+    const handleAcceptEvent = (e: any) => {
+      const { id } = e.detail || {};
+      if (id) {
+        activeAlertsRef.current.delete(id);
+        if (activeAlertsRef.current.size === 0) stopAlert();
+        if (Capacitor.isNativePlatform()) {
+          LocalNotifications.cancel({ notifications: [{ id: hashId(id) }] }).catch(() => {});
+        }
+      }
+    };
+    window.addEventListener("delivery-accepted", handleAcceptEvent);
+
     const notifyNewDelivery = async (rawDelivery: any) => {
       if (!rawDelivery?.id) return;
       if (!isOnlineRef.current) return;

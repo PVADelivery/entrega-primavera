@@ -5,6 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverShell } from "@/components/driver/DriverShell";
 import { DriverHeader } from "@/components/driver/Header";
+import { DeliveryDetailsSheet } from "@/components/driver/DeliveryDetailsSheet";
+import { acceptDeliveryLocally } from "@/hooks/useDriverNotifications";
 import { DeliveryCard } from "@/components/driver/DeliveryCard";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -159,6 +161,7 @@ function DriverHome() {
   async function handleAccept(id: string) {
     const targetDriverId = await getEffectiveDriverId();
     setPending(id);
+    acceptDeliveryLocally(id);
     try {
       await acceptDelivery(id, targetDriverId);
       toast.success("Entrega aceita com sucesso!");
