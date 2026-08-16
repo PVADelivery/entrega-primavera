@@ -524,63 +524,32 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
   const ids = Array.from(new Set([driverId, userId].filter(Boolean))) as string[];
   if (ids.length === 0) return [];
 
-  // Tenta primeiro com JOIN seguro de orders e companies
-  let data: any[] | null = null;
-  let usedJoin = false;
+  const { data, error } = await supabase
+    .from("deliveries")
+    .select("*")
+    .in("driver_id", ids)
+    .order("created_at", { ascending: false });
 
-  try {
-    const res = await supabase
-      .from("deliveries")
-      .select(`
-        *,
-        companies(name, phone),
-        orders(id, customer_name, customer_phone),
-        regions(id, name, price)
-      `)
-      .in("driver_id", ids)
-      .order("created_at", { ascending: false });
-
-    if (!res.error && res.data) {
-      data = res.data;
-      usedJoin = true;
-    } else {
-      console.warn("[fetchMyActiveDeliveries] JOIN falhou, tentando SELECT * simples:", res.error?.message);
-    }
-  } catch (e) {
-    console.warn("[fetchMyActiveDeliveries] Exceção no JOIN:", e);
-  }
-
-  // Fallback: SELECT * simples (sempre funciona)
-  if (!data) {
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from("deliveries")
-      .select("*")
-      .in("driver_id", ids)
-      .order("created_at", { ascending: false });
-
-    if (fallbackError) throw fallbackError;
-    data = fallbackData ?? [];
-  }
+  if (error) throw error;
 
   const resolvedData = await resolveDeliveryCompanies(data ?? []);
 
   return resolvedData
     .filter((d: any) => !["completed", "delivered", "cancelled", "returned"].includes(d.status))
     .map((d: any) => {
-      const order = usedJoin ? d.orders : null;
       // Resolve nome do cliente se estiver mascarado
       const isMasked = !d.customer_name || d.customer_name === "Cliente" || d.customer_name === "XXXXXXXX" || /^X+$/.test(d.customer_name);
-      const resolvedCustomerName = isMasked ? (order?.customer_name || d.customer_name || "Cliente") : d.customer_name;
+      const resolvedCustomerName = isMasked ? (d.customer_name || "Cliente") : d.customer_name;
       // Resolve endereço de entrega se estiver mascarado
       const isMaskedAddr = !d.address || d.address === "XXXXXX, XXX" || /^X+/.test(d.address);
       const resolvedAddress = isMaskedAddr
-        ? (d.dropoff_address || order?.delivery_address || d.address)
+        ? (d.dropoff_address || d.delivery_address || d.address)
         : d.address;
       return {
         ...d,
         status: toAppStatus(d.status),
         customer_name: resolvedCustomerName,
-        customer_phone: d.customer_phone || order?.customer_phone || null,
+        customer_phone: d.customer_phone || null,
         address: resolvedAddress,
         customer_neighborhood: d.customer_neighborhood || null,
       };
