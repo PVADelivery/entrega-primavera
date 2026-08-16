@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { updateDriverDeliveryAdmin } from "./driver-deliveries.server";
 
 export const updateDriverDelivery = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -14,6 +13,7 @@ export const updateDriverDelivery = createServerFn({ method: "POST" })
       })
       .parse(data),
   )
-  .handler(({ data, context }) =>
-    updateDriverDeliveryAdmin(context.userId, data.deliveryId, data.status, data.driverId),
-  );
+  .handler(async ({ data, context }) => {
+    const { updateDriverDeliveryAdmin } = await import("./driver-deliveries.server");
+    return updateDriverDeliveryAdmin(context.userId, data.deliveryId, data.status, data.driverId);
+  });
