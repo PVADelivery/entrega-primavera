@@ -137,6 +137,18 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
             PendingIntent tapPI = PendingIntent.getActivity(this, 1, fsIntent, piFlags);
 
+            // Intent de Aceitar (Abre o App)
+            Intent acceptIntent = new Intent(this, NotificationActionReceiver.class);
+            acceptIntent.setAction("com.mt24horasexpress.entregador.ACTION_ACCEPT");
+            acceptIntent.putExtra("deliveryId", deliveryId);
+            PendingIntent acceptPI = PendingIntent.getBroadcast(this, hashId("accept_" + deliveryId), acceptIntent, piFlags);
+
+            // Intent de Rejeitar (Descarta notificação e áudio SEM abrir o App)
+            Intent rejectIntent = new Intent(this, NotificationActionReceiver.class);
+            rejectIntent.setAction("com.mt24horasexpress.entregador.ACTION_REJECT");
+            rejectIntent.putExtra("deliveryId", deliveryId);
+            PendingIntent rejectPI = PendingIntent.getBroadcast(this, hashId("reject_" + deliveryId), rejectIntent, piFlags);
+
             Notification.Builder builder;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 builder = new Notification.Builder(this, CHANNEL_ID);
@@ -155,7 +167,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                     .setAutoCancel(true)
                     .setOngoing(false)
                     .setContentIntent(tapPI)
-                    .setFullScreenIntent(tapPI, true);
+                    .setFullScreenIntent(tapPI, true)
+                    .addAction(android.R.drawable.checkbox_on_background, "✅ Aceitar", acceptPI)
+                    .addAction(android.R.drawable.ic_delete, "❌ Rejeitar", rejectPI);
 
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) {
@@ -163,7 +177,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 if (deliveryId != null && !deliveryId.isEmpty()) {
                     nm.notify(hashId(deliveryId), builder.build());
                 }
-                Log.d(TAG, "Notificação heads-up disparada.");
+                Log.d(TAG, "Notificação heads-up disparada com botões nativos.");
             }
         } catch (Exception e) {
             Log.e(TAG, "Erro na notificação: " + e.getMessage());

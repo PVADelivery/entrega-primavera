@@ -39,6 +39,16 @@
             </intent-filter>
         </service>
 
+        <!-- Receptor de ações de notificação (Aceitar / Rejeitar) sem abrir o app ao rejeitar -->
+        <receiver
+            android:name=".NotificationActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.mt24horasexpress.entregador.ACTION_ACCEPT" />
+                <action android:name="com.mt24horasexpress.entregador.ACTION_REJECT" />
+            </intent-filter>
+        </receiver>
+
         <!-- Remove o serviço padrão do plugin Capacitor PushNotifications para evitar conflito -->
         <service
             android:name="com.capacitorjs.plugins.pushnotifications.MessagingService"
