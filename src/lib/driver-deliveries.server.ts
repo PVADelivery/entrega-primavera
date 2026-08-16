@@ -17,6 +17,15 @@ const allowedTransitions: Record<string, DriverDeliveryStatus[]> = {
   in_route: ["delivered", "cancelled"],
 };
 
+// Alguns bancos usam nomes diferentes no enum delivery_status.
+const statusAliases: Record<string, string[]> = {
+  accepted: ["accepted"],
+  collecting: ["collecting"],
+  in_transit: ["in_transit", "in_route", "delivering"],
+  delivered: ["delivered", "completed"],
+  cancelled: ["cancelled"],
+};
+
 function externalAdminClient() {
   const url =
     process.env["EXTERNAL_SUPABASE_URL"] ||
