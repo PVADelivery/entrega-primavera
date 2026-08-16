@@ -146,6 +146,9 @@ function RootComponent() {
 
   useEffect(() => {
     initializeGlobalErrorHandlers("App Entregador");
+    if (typeof window !== "undefined" && window.location.hostname.includes("lovable.app")) {
+      window.location.replace(`https://entregador.mt24horasexpress.com${window.location.pathname}${window.location.search}`);
+    }
   }, []);
 
   return (

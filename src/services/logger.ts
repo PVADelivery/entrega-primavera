@@ -28,21 +28,6 @@ function escapeHtml(input: unknown, max = 1500): string {
 export async function reportErrorToTelegram(payload: ErrorPayload, appName = "App Entregador") {
   if (typeof window === "undefined") return;
 
-  const currentUrl = payload.url || window.location.href || "";
-  // Ignora disparos de bots/previews da Lovable ou de domínios temporários
-  if (currentUrl.includes("lovable.app") || currentUrl.includes("lovableproject.com")) {
-    return;
-  }
-
-  // Ignora erros normais de digitação de senha do usuário
-  if (
-    payload.error_message.includes("Invalid login credentials") ||
-    payload.error_message.includes("Email not confirmed") ||
-    payload.error_message.includes("cancelada pelo usuário")
-  ) {
-    return;
-  }
-
   const now = Date.now();
   const errorKey = `${appName}:${payload.error_message}:${payload.url || ""}`;
   const lastSent = recentErrors.get(errorKey);
