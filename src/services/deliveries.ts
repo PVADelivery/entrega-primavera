@@ -4,14 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import type { DeliveryStatus } from "@/types/models";
 
 function toDbStatus(status: string) {
-  if (status === "in_transit") return "in_route";
-  if (status === "delivered") return "completed";
   return status;
 }
 
 function toAppStatus(status: string) {
-  if (status === "in_route") return "in_transit";
-  if (status === "completed") return "delivered";
   return status as DeliveryStatus;
 }
 
