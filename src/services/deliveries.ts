@@ -77,6 +77,69 @@ export interface DeliveryWithRelations {
   [key: string]: any;
 }
 
+async function resolveDeliveryCompanies(rows: any[]) {
+  if (rows.length === 0) return rows;
+
+  const orderIds = Array.from(new Set(rows.map((row) => row.order_id).filter(Boolean))) as string[];
+  const orderCompanies = new Map<string, { companyId: string | null; name: string | null; phone: string | null }>();
+
+  if (orderIds.length > 0) {
+    const { data: orders, error: ordersError } = await supabase
+      .from("orders")
+      .select("id, company_id, companies(name, phone)")
+      .in("id", orderIds);
+
+    if (ordersError) {
+      console.warn("[deliveries] Não foi possível resolver a loja pelo pedido:", ordersError.message);
+    } else {
+      (orders ?? []).forEach((order: any) => {
+        orderCompanies.set(order.id, {
+          companyId: order.company_id ?? null,
+          name: order.companies?.name ?? null,
+          phone: order.companies?.phone ?? null,
+        });
+      });
+    }
+  }
+
+  const companyIds = Array.from(new Set(rows.flatMap((row) => {
+    const orderCompanyId = row.order_id ? orderCompanies.get(row.order_id)?.companyId : null;
+    return [row.company_id, orderCompanyId].filter(Boolean);
+  }))) as string[];
+  const companiesById = new Map<string, { name: string | null; phone: string | null }>();
+
+  if (companyIds.length > 0) {
+    const { data: companies, error: companiesError } = await supabase
+      .from("companies")
+      .select("id, name, phone")
+      .in("id", companyIds);
+
+    if (companiesError) {
+      throw new Error(`Não foi possível carregar o nome da loja: ${companiesError.message}`);
+    }
+
+    (companies ?? []).forEach((company: any) => {
+      companiesById.set(company.id, { name: company.name ?? null, phone: company.phone ?? null });
+    });
+  }
+
+  return rows.map((row) => {
+    const orderCompany = row.order_id ? orderCompanies.get(row.order_id) : null;
+    const resolvedCompanyId = row.company_id ?? orderCompany?.companyId ?? null;
+    const directCompany = resolvedCompanyId ? companiesById.get(resolvedCompanyId) : null;
+    const embeddedCompany = row.companies ?? null;
+    const companyName = directCompany?.name ?? embeddedCompany?.name ?? orderCompany?.name ?? row.company_name ?? null;
+    const companyPhone = directCompany?.phone ?? embeddedCompany?.phone ?? orderCompany?.phone ?? null;
+
+    return {
+      ...row,
+      company_id: resolvedCompanyId,
+      company_name: companyName,
+      companies: companyName ? { name: companyName, phone: companyPhone } : null,
+    };
+  });
+}
+
 interface UseDeliveriesParams {
   status?: string;
   search?: string;
@@ -438,7 +501,8 @@ export async function fetchAvailableDeliveries() {
     if (fb.error) throw fb.error;
     data = fb.data;
   }
-  return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+  const resolved = await resolveDeliveryCompanies(data ?? []);
+  return resolved.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
 export async function fetchMyActiveDeliveries(driverId?: string | null, userId?: string | null) {
@@ -483,7 +547,9 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
     data = fallbackData ?? [];
   }
 
-  return (data ?? [])
+  const resolvedData = await resolveDeliveryCompanies(data ?? []);
+
+  return resolvedData
     .filter((d: any) => !["completed", "delivered", "cancelled", "returned"].includes(d.status))
     .map((d: any) => {
       const order = usedJoin ? d.orders : null;
@@ -536,13 +602,15 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
       .limit(100);
     
     if (fallbackData && fallbackData.length > 0) {
-      return fallbackData
+      const resolvedFallbackData = await resolveDeliveryCompanies(fallbackData);
+      return resolvedFallbackData
         .filter((d: any) => ["completed", "delivered", "cancelled", "returned"].includes(d.status))
         .map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
     }
   }
 
-  return historyDeliveries.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+  const resolvedHistory = await resolveDeliveryCompanies(historyDeliveries);
+  return resolvedHistory.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
 export async function acceptDelivery(deliveryId: string, driverId: string) {

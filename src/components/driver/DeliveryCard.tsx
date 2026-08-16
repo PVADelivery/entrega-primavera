@@ -1,5 +1,3 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Wallet, ArrowRight, Eye, Phone, MessageSquare, AlertCircle } from "lucide-react";
@@ -24,53 +22,7 @@ const nextLabels: Record<string, string> = {
 
 export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending }: Props) {
   const next = nextLabels[delivery.status];
-  const [storeName, setStoreName] = useState<string>(
-    delivery.companies?.name || delivery.company_name || ""
-  );
-
-  const isGeneric = (str?: string | null) => !str || str === "Empresa Parceira" || str === "EMPRESA PARCEIRA" || str === "Loja Parceira" || str === "LOJA PARCEIRA" || str === "MT 24 HORAS" || str === "Teste Loja";
-
-  useEffect(() => {
-    let active = true;
-    const loadCompany = async () => {
-      let resolvedName: string | null = null;
-
-      // 0. Nome já embutido na consulta (join com companies)
-      if (delivery.companies?.name && !isGeneric(delivery.companies.name)) {
-        resolvedName = delivery.companies.name;
-      }
-
-      // 1. Se tem company_id, busca direta na tabela companies
-      if (!resolvedName && delivery.company_id) {
-        const { data: comp } = await supabase
-          .from("companies")
-          .select("name")
-          .eq("id", delivery.company_id)
-          .maybeSingle();
-        if (comp?.name) resolvedName = comp.name;
-      }
-
-      // 2. Se não encontrou e tem company_name preenchido (que não seja genérico)
-      if (!resolvedName && delivery.company_name && !isGeneric(delivery.company_name)) {
-        resolvedName = delivery.company_name;
-      }
-
-      if (active) {
-        setStoreName(resolvedName || "Loja");
-      }
-    };
-
-    loadCompany();
-    return () => { active = false; };
-  }, [delivery.company_id, delivery.company_name, delivery.companies?.name, delivery.order_id]);
-
-  const displayStoreName = !isGeneric(storeName)
-    ? storeName
-    : delivery.companies?.name && !isGeneric(delivery.companies.name)
-      ? delivery.companies.name
-      : delivery.company_name && !isGeneric(delivery.company_name)
-        ? delivery.company_name
-        : "Loja";
+  const displayStoreName = delivery.company_name?.trim() || delivery.companies?.name?.trim() || "Loja não vinculada";
 
   // Formatação do link do WhatsApp do cliente
   const customerPhoneClean = (delivery.customer_phone || "").replace(/\D/g, "");
