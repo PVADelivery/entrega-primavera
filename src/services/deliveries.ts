@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCompanyNames } from "@/lib/companies.functions";
+import { updateDriverDelivery } from "@/lib/driver-deliveries.functions";
 import type { DeliveryStatus } from "@/types/models";
 
 function toDbStatus(status: string) {
@@ -676,18 +677,18 @@ export async function advanceDelivery(delivery: any) {
     }
   } catch {}
 
-  // 2. Tenta RPC segura com assinatura alternativa _delivery_id / _status
+  // 2. Fallback autenticado no servidor; valida o vínculo do motorista e
+  // evita a policy recursiva do banco externo.
   try {
-    const { data: rpcData2, error: rpcError2 } = await supabase.rpc("update_delivery_status_safe", {
-      _delivery_id: delivery.id,
-      _status: next,
+    const result = await updateDriverDelivery({
+      data: { deliveryId: delivery.id, status: dbNextStatus as any },
     });
-    if (!rpcError2 && rpcData2 && (rpcData2 as any).success) {
-      return;
-    }
-  } catch {}
+    if (result.success) return;
+  } catch (serverError: any) {
+    throw new Error(serverError?.message || "Não foi possível atualizar a entrega.");
+  }
 
-  // Atualização direta (colunas e enum válidos no banco)
+  // Compatibilidade para ambientes antigos sem a função segura.
   const updates: Record<string, any> = { status: dbNextStatus, updated_at: now };
   if (next === "accepted") updates.accepted_at = now;
   if (next === "collecting") updates.collected_at = now;
@@ -750,14 +751,13 @@ export async function cancelDelivery(deliveryId: string) {
   } catch {}
 
   try {
-    const { data: rpcData2, error: rpcError2 } = await supabase.rpc("update_delivery_status_safe", {
-      _delivery_id: deliveryId,
-      _status: "cancelled",
+    const result = await updateDriverDelivery({
+      data: { deliveryId, status: "cancelled" },
     });
-    if (!rpcError2 && rpcData2 && (rpcData2 as any).success) {
-      return;
-    }
-  } catch {}
+    if (result.success) return;
+  } catch (serverError: any) {
+    throw new Error(serverError?.message || "Não foi possível cancelar a entrega.");
+  }
 
   const { error } = await supabase
     .from("deliveries")
