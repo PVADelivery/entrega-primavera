@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Wallet, ArrowRight, Eye, Phone, MessageSquare, AlertCircle } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
+import { formatDateTime } from "@/lib/utils";
 import type { DeliveryWithRelations as Delivery } from "@/services/deliveries";
 
 interface Props {
@@ -101,10 +102,15 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               {delivery.short_id && <span className="bg-primary/10 text-primary font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">{delivery.short_id}</span>}
             </div>
 
-            {/* Nome do cliente */}
-            <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-              Cliente: <span className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</span>
-            </p>
+            {/* Nome do cliente e Horário */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground mt-0.5 font-medium">
+              <span>Cliente: <strong className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</strong></span>
+              {delivery.created_at && (
+                <span className="text-[11px] font-mono text-muted-foreground/80 bg-muted/50 px-1.5 py-0.5 rounded">
+                  {formatDateTime(delivery.created_at, "time")}
+                </span>
+              )}
+            </div>
 
             {delivery.pickup_address ? (
               <div className="space-y-1 mt-1.5">
