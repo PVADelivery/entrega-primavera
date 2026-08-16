@@ -156,8 +156,16 @@ export function useDriverNotifications() {
 
           PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
             console.log("[FCM] Push action performed:", action);
+            const actionId = action.actionId;
             const data = action.notification?.data;
             const deliveryId = data?.deliveryId || data?.delivery_id;
+
+            // Se a ação for de rejeitar, apenas descarta e NÃO redireciona/abre a tela da corrida
+            if (actionId === "reject" || actionId === "tap_reject") {
+              if (deliveryId) declineDeliveryLocally(deliveryId);
+              return;
+            }
+
             const targetRoute = deliveryId ? `/driver?deliveryId=${deliveryId}` : "/driver";
             if (targetRoute && typeof window !== "undefined") {
               window.location.href = targetRoute;
