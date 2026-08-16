@@ -17,6 +17,15 @@ const allowedTransitions: Record<string, DriverDeliveryStatus[]> = {
   in_route: ["delivered", "cancelled"],
 };
 
+// Alguns bancos usam nomes diferentes no enum delivery_status.
+const statusAliases: Record<string, string[]> = {
+  accepted: ["accepted"],
+  collecting: ["collecting"],
+  in_transit: ["in_transit", "in_route", "delivering"],
+  delivered: ["delivered", "completed"],
+  cancelled: ["cancelled"],
+};
+
 function externalAdminClient() {
   const url =
     process.env["EXTERNAL_SUPABASE_URL"] ||
@@ -75,25 +84,38 @@ export async function updateDriverDeliveryAdmin(
   }
 
   const now = new Date().toISOString();
-  const updates: Record<string, string> = { status: nextStatus, updated_at: now };
-  if (isAvailableClaim) updates.driver_id = targetDriverId;
-  if (nextStatus === "accepted") updates.accepted_at = now;
-  if (nextStatus === "collecting") updates.collected_at = now;
-  if (nextStatus === "delivered") updates.completed_at = now;
-  if (nextStatus === "cancelled") updates.cancelled_at = now;
+  const candidates = statusAliases[nextStatus] ?? [nextStatus];
+  let lastError: any = null;
 
-  let updateQuery = admin
-    .from("deliveries")
-    .update(updates)
-    .eq("id", deliveryId);
+  for (const candidate of candidates) {
+    const updates: Record<string, string> = { status: candidate, updated_at: now };
+    if (isAvailableClaim) updates.driver_id = targetDriverId;
+    if (nextStatus === "accepted") updates.accepted_at = now;
+    if (nextStatus === "collecting") updates.collected_at = now;
+    if (nextStatus === "delivered") updates.completed_at = now;
+    if (nextStatus === "cancelled") updates.cancelled_at = now;
 
-  updateQuery = isAvailableClaim
-    ? updateQuery.is("driver_id", null).in("status", ["pending", "broadcasted"])
-    : updateQuery.eq("driver_id", delivery.driver_id);
+    let updateQuery = admin.from("deliveries").update(updates).eq("id", deliveryId);
 
-  const { data: updated, error: updateError } = await updateQuery.select("id").maybeSingle();
+    updateQuery = isAvailableClaim
+      ? updateQuery.is("driver_id", null).in("status", ["pending", "broadcasted"])
+      : updateQuery.eq("driver_id", delivery.driver_id);
 
-  if (updateError) throw new Error("Não foi possível atualizar a entrega.");
-  if (!updated) throw new Error("Esta entrega já foi aceita por outro entregador.");
-  return { success: true, status: nextStatus };
+    const { data: updated, error: updateError } = await updateQuery.select("id").maybeSingle();
+
+    if (updateError) {
+      lastError = updateError;
+      // Valor inexistente no enum deste banco: tenta o próximo apelido.
+      if (updateError.code === "22P02") continue;
+      throw new Error("Não foi possível atualizar a entrega.");
+    }
+    if (!updated) throw new Error("Esta entrega já foi aceita por outro entregador.");
+    return { success: true, status: candidate };
+  }
+
+  throw new Error(
+    lastError?.code === "22P02"
+      ? "Este status não é aceito pelo banco de dados."
+      : "Não foi possível atualizar a entrega.",
+  );
 }

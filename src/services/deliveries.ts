@@ -645,10 +645,13 @@ const nextStatus: Record<string, string> = {
 };
 
 function describeDbError(err: any) {
-  if (!err) return "Erro desconhecido";
-  const parts = [err.message, err.details, err.hint].filter(Boolean);
-  const code = err.code ? `[${err.code}] ` : "";
-  return `${code}${parts.join(" — ") || "Erro desconhecido"}`;
+  return err ? String(err.message || "Erro desconhecido") : "Erro desconhecido";
+}
+
+function statusCandidates(status: string): string[] {
+  if (status === "in_transit" || status === "in_route") return ["in_transit", "in_route", "delivering"];
+  if (status === "delivered" || status === "completed") return ["delivered", "completed"];
+  return [status];
 }
 
 export async function advanceDelivery(delivery: any) {
@@ -679,20 +682,26 @@ export async function advanceDelivery(delivery: any) {
   }
 
   // Compatibilidade para ambientes antigos sem a função segura.
-  const updates: Record<string, any> = { status: dbNextStatus, updated_at: now };
-  if (next === "accepted") updates.accepted_at = now;
-  if (next === "collecting") updates.collected_at = now;
-  if (next === "delivered") updates.completed_at = now;
+  let res: any = null;
+  for (const candidate of statusCandidates(dbNextStatus)) {
+    const updates: Record<string, any> = { status: candidate, updated_at: now };
+    if (next === "accepted") updates.accepted_at = now;
+    if (next === "collecting") updates.collected_at = now;
+    if (next === "delivered") updates.completed_at = now;
 
-  let res = await supabase.from("deliveries").update(updates).eq("id", delivery.id).select("id,status");
+    res = await supabase.from("deliveries").update(updates).eq("id", delivery.id).select("id,status");
 
-  // Se alguma coluna de timestamp não existir neste schema, tenta só o status
-  if (res.error && res.error.code === "42703") {
-    res = await supabase
-      .from("deliveries")
-      .update({ status: dbNextStatus, updated_at: now })
-      .eq("id", delivery.id)
-      .select("id,status");
+    // Se alguma coluna de timestamp não existir neste schema, tenta só o status
+    if (res.error && res.error.code === "42703") {
+      res = await supabase
+        .from("deliveries")
+        .update({ status: candidate, updated_at: now })
+        .eq("id", delivery.id)
+        .select("id,status");
+    }
+
+    if (res.error?.code === "22P02") continue;
+    break;
   }
 
   if (res.error) {
@@ -709,7 +718,7 @@ export async function advanceDelivery(delivery: any) {
     .eq("id", delivery.id)
     .maybeSingle();
 
-  if (check && check.status === dbNextStatus) return;
+  if (check && statusCandidates(dbNextStatus).includes(String(check.status))) return;
 
   throw new Error(
     "Esta entrega não está mais vinculada à sua conta ou seu perfil não tem permissão para alterá-la. Atualize a lista e tente novamente.",
