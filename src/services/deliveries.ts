@@ -436,22 +436,13 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
     .from("deliveries")
     .select("*")
     .in("driver_id", ids)
-    .not("status", "in", '("completed","delivered","cancelled","returned")')
     .order("created_at", { ascending: false });
   
-  if (error) {
-    // Fallback caso a sintaxe PostgREST exija lista simples
-    const { data: fbData, error: fbError } = await supabase
-      .from("deliveries")
-      .select("*")
-      .in("driver_id", ids)
-      .order("created_at", { ascending: false });
-    if (fbError) throw fbError;
-    return (fbData ?? [])
-      .filter((d: any) => !["completed", "delivered", "cancelled", "returned"].includes(d.status))
-      .map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
-  }
-  return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+  if (error) throw error;
+  
+  return (data ?? [])
+    .filter((d: any) => !["completed", "delivered", "cancelled", "returned"].includes(d.status))
+    .map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
 export async function fetchMyHistory(driverId?: string | null, userId?: string | null) {
