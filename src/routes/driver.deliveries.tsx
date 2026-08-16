@@ -202,7 +202,7 @@ function DeliveriesPage() {
                 type="button"
                 onClick={() => {
                   if (!t.allowed) {
-                    toast.error("Categoria não habilitada pelo administrador.");
+                    toast.info("Peça à central para liberar esta categoria no seu cadastro.");
                     return;
                   }
                   setMode(t.value as any);
