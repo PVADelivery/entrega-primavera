@@ -189,6 +189,10 @@ serve(async (req) => {
       const message = {
         message: {
           token: token,
+          notification: {
+            title: pushTitle,
+            body: pushBody
+          },
           data: {
             type: "delivery",
             deliveryId: record.id,
@@ -204,7 +208,14 @@ serve(async (req) => {
           android: {
             priority: "HIGH",
             ttl: "300s",
-            direct_boot_ok: true
+            direct_boot_ok: true,
+            notification: {
+              channel_id: "delivery-incoming-v1",
+              sound: "ring",
+              default_sound: false,
+              priority: "MAX",
+              visibility: "PUBLIC"
+            }
           },
           apns: {
             payload: {
@@ -213,7 +224,7 @@ serve(async (req) => {
                   title: pushTitle,
                   body: pushBody
                 },
-                sound: "default",
+                sound: "ring.mp3",
                 category: "DELIVERY_ACTION"
               }
             }
