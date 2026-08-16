@@ -11,9 +11,10 @@ export function useRealtimeDeliveries() {
 
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND);
+    const channelId = `realtime-deliv-${Math.random().toString(36).substring(2, 9)}`;
 
     const channel = supabase
-      .channel("realtime-deliveries-global")
+      .channel(channelId)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "deliveries" },
