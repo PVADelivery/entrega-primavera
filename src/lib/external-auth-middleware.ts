@@ -38,11 +38,26 @@ export const requireExternalSupabaseAuth = createMiddleware({ type: "function" }
     }
 
     const url = process.env["EXTERNAL_SUPABASE_URL"] || EXTERNAL_SUPABASE_URL;
+    // Só aceita chaves que pertençam ao projeto externo correto; chaves de
+    // outros projetos causam "Invalid API key" ao validar o JWT.
+    const projectRef = url.replace("https://", "").split(".")[0];
+    const keyMatchesProject = (key?: string | null) => {
+      if (!key) return false;
+      try {
+        const payload = JSON.parse(
+          Buffer.from(key.split(".")[1] ?? "", "base64").toString("utf8"),
+        );
+        return payload?.ref === projectRef;
+      } catch {
+        return false;
+      }
+    };
     const publishableKey =
-      process.env["EXTERNAL_SUPABASE_ANON_KEY"] ||
-      process.env["VITE_SUPABASE_ANON_KEY"] ||
-      process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-      EXTERNAL_SUPABASE_PUBLISHABLE_KEY;
+      [
+        process.env["EXTERNAL_SUPABASE_ANON_KEY"],
+        process.env["VITE_SUPABASE_ANON_KEY"],
+        process.env["VITE_SUPABASE_PUBLISHABLE_KEY"],
+      ].find(keyMatchesProject) || EXTERNAL_SUPABASE_PUBLISHABLE_KEY;
     const supabase = createClient(url, publishableKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
       auth: {
