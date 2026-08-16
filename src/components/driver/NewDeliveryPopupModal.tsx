@@ -135,6 +135,7 @@ export function NewDeliveryPopupModal() {
   };
 
   const handleReject = () => {
+    if (acceptingRef.current) return;
     if (activeDelivery) {
       declineDeliveryLocally(activeDelivery.id);
     }

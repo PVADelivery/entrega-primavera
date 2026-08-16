@@ -597,8 +597,16 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   return resolvedHistory.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
+// Deduplicação de chamadas concorrentes: o mesmo deliveryId em voo reaproveita
+// a promessa existente, então cliques duplicados nunca geram dois POSTs.
+const inFlightAccepts = new Map<string, Promise<void>>();
+
 export async function acceptDelivery(deliveryId: string, driverId: string) {
-  try {
+  const existing = inFlightAccepts.get(deliveryId);
+  if (existing) return existing;
+
+  const run = (async () => {
+    try {
     const result = await updateDriverDelivery({
       data: { deliveryId, status: "accepted", driverId },
     });
@@ -609,6 +617,14 @@ export async function acceptDelivery(deliveryId: string, driverId: string) {
       throw new Error("Sua sessão expirou. Entre novamente para aceitar a entrega.");
     }
     throw error;
+  }
+  })();
+
+  inFlightAccepts.set(deliveryId, run);
+  try {
+    await run;
+  } finally {
+    inFlightAccepts.delete(deliveryId);
   }
 }
 
