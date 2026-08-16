@@ -3,7 +3,7 @@ import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 
 const EXTERNAL_SUPABASE_URL = "https://owlbzwsdcognrgolvnzg.supabase.co";
-const EXTERNAL_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJvd2xiendzZGNvZ25yZ29sdm56ZyIsInJlZiI6Im93bGJ6d3NkY29nbnJnb2x2bnpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTQ1NTMsImV4cCI6MjA5NTU3MDU1M30.R6-FUqubIr3uABzv1CS7jiS5cwygrNiIqk4oNbq7O44";
+const EXTERNAL_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bGJ6d3NkY29nbnJnb2x2bnpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTQ1NTMsImV4cCI6MjA5NTU3MDU1M30.R6-FUqubIr3uABzv1CS7jiS5cwygrNiIqk4oNbq7O44";
 
 function decodeClaims(token: string): { iss?: string; sub?: string; exp?: number } {
   try {
@@ -39,7 +39,10 @@ export const requireExternalSupabaseAuth = createMiddleware({ type: "function" }
 
     const url = process.env["EXTERNAL_SUPABASE_URL"] || EXTERNAL_SUPABASE_URL;
     const publishableKey =
-      process.env["EXTERNAL_SUPABASE_ANON_KEY"] || EXTERNAL_SUPABASE_PUBLISHABLE_KEY;
+      process.env["EXTERNAL_SUPABASE_ANON_KEY"] ||
+      process.env["VITE_SUPABASE_ANON_KEY"] ||
+      process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+      EXTERNAL_SUPABASE_PUBLISHABLE_KEY;
     const supabase = createClient(url, publishableKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
       auth: {
