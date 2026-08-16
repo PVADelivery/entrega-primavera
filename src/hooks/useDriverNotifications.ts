@@ -256,7 +256,7 @@ export function useDriverNotifications() {
       try {
         const { data: fullDelivery } = await supabase
           .from("deliveries")
-          .select("*, companies(name, address, trade_name)")
+          .select("*, companies(name, address)")
           .eq("id", rawDelivery.id)
           .single();
         if (fullDelivery) delivery = fullDelivery;
@@ -264,7 +264,7 @@ export function useDriverNotifications() {
         console.warn("[Notify] detalhe da corrida falhou:", e);
       }
 
-      const storeName = delivery.companies?.trade_name || delivery.companies?.name ||
+      const storeName = delivery.companies?.name ||
         delivery.company_name || delivery.store_name || APP_NAME;
       const pickup = delivery.pickup_address || delivery.origin_address ||
         delivery.store_address || delivery.companies?.address || "Retirada na Loja";
@@ -386,7 +386,7 @@ export function useDriverNotifications() {
         try {
           const { data: initial } = await supabase
             .from("deliveries")
-            .select("*, companies(name, address, trade_name)")
+            .select("*, companies(name, address)")
             .in("status", ["pending", "broadcasted"])
             .is("driver_id", null);
           if (initial && !cancelled) {
@@ -403,7 +403,7 @@ export function useDriverNotifications() {
         try {
           const { data } = await supabase
             .from("deliveries")
-            .select("*, companies(name, address, trade_name)")
+            .select("*, companies(name, address)")
             .in("status", ["pending", "broadcasted"])
             .is("driver_id", null);
           if (data && !cancelled) {
