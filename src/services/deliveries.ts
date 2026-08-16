@@ -512,13 +512,24 @@ export async function advanceDelivery(delivery: any) {
   const now = new Date().toISOString();
   const dbNextStatus = toDbStatus(next);
 
-  // 1. Tenta RPC segura se disponível
+  // 1. Tenta RPC segura com assinatura p_delivery_id / p_status
   try {
     const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
+      p_delivery_id: delivery.id,
+      p_status: next,
+    });
+    if (!rpcError && rpcData && (rpcData as any).success) {
+      return;
+    }
+  } catch {}
+
+  // 2. Tenta RPC segura com assinatura alternativa _delivery_id / _status
+  try {
+    const { data: rpcData2, error: rpcError2 } = await supabase.rpc("update_delivery_status_safe", {
       _delivery_id: delivery.id,
       _status: next,
     });
-    if (!rpcError && rpcData && (rpcData as any).success) {
+    if (!rpcError2 && rpcData2 && (rpcData2 as any).success) {
       return;
     }
   } catch {}
@@ -579,10 +590,20 @@ export async function cancelDelivery(deliveryId: string) {
   const now = new Date().toISOString();
   try {
     const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
+      p_delivery_id: deliveryId,
+      p_status: "cancelled",
+    });
+    if (!rpcError && rpcData && (rpcData as any).success) {
+      return;
+    }
+  } catch {}
+
+  try {
+    const { data: rpcData2, error: rpcError2 } = await supabase.rpc("update_delivery_status_safe", {
       _delivery_id: deliveryId,
       _status: "cancelled",
     });
-    if (!rpcError && rpcData && (rpcData as any).success) {
+    if (!rpcError2 && rpcData2 && (rpcData2 as any).success) {
       return;
     }
   } catch {}
