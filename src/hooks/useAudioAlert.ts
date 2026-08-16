@@ -124,8 +124,8 @@ export function useAudioAlert() {
           globalAudio?.pause();
           if (globalAudio) globalAudio.volume = originalVolume;
         })
-        .catch((e) => {
-          console.warn("[AudioAlert] Falha ao destravar áudio:", e);
+        .catch(() => {
+          // Destravamento silencioso aguardando o primeiro toque do usuario
         });
     }
     const ctx = getAudioContext();
