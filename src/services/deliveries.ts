@@ -436,17 +436,20 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
     .from("deliveries")
     .select("*")
     .in("driver_id", ids)
-    .in("status", ["accepted", "collecting", "in_route", "in_transit"] as any)
+    .not("status", "in", '("completed","delivered","cancelled","returned")')
     .order("created_at", { ascending: false });
+  
   if (error) {
+    // Fallback caso a sintaxe PostgREST exija lista simples
     const { data: fbData, error: fbError } = await supabase
       .from("deliveries")
       .select("*")
       .in("driver_id", ids)
-      .in("status", ["accepted", "collecting", "in_route"] as any)
       .order("created_at", { ascending: false });
     if (fbError) throw fbError;
-    return (fbData ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+    return (fbData ?? [])
+      .filter((d: any) => !["completed", "delivered", "cancelled", "returned"].includes(d.status))
+      .map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
   }
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
@@ -457,7 +460,6 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   let query = supabase
     .from("deliveries")
     .select("*")
-    .in("status", ["completed", "delivered", "cancelled"] as any)
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -466,33 +468,28 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   }
 
   const { data, error } = await query;
-  if (error) {
-    let fbQuery = supabase
-      .from("deliveries")
-      .select("*")
-      .in("status", ["completed", "cancelled"] as any)
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (ids.length > 0) fbQuery = fbQuery.in("driver_id", ids);
-    const { data: fbData, error: fbError } = await fbQuery;
-    if (fbError) throw fbError;
-    return (fbData ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
-  }
+  if (error) throw error;
 
-  if ((!data || data.length === 0) && ids.length > 0) {
+  const historyDeliveries = (data ?? []).filter((d: any) =>
+    ["completed", "delivered", "cancelled", "returned"].includes(d.status)
+  );
+
+  // Se não encontrou entregas com o ID do motorista, traz histórico recente geral
+  if (historyDeliveries.length === 0 && ids.length > 0) {
     const { data: fallbackData } = await supabase
       .from("deliveries")
       .select("*")
-      .in("status", ["completed", "cancelled"] as any)
       .order("created_at", { ascending: false })
       .limit(100);
     
     if (fallbackData && fallbackData.length > 0) {
-      return fallbackData.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+      return fallbackData
+        .filter((d: any) => ["completed", "delivered", "cancelled", "returned"].includes(d.status))
+        .map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
     }
   }
 
-  return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+  return historyDeliveries.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
 export async function acceptDelivery(deliveryId: string, driverId: string) {
