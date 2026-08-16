@@ -1,11 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
+import { declineDeliveryLocally, acceptDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
+import { acceptDelivery } from "@/services/deliveries";
+import { toast } from "sonner";
 
 export function NewDeliveryPopupModal() {
   const [activeDelivery, setActiveDelivery] = useState<any | null>(null);
+  const [accepting, setAccepting] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopPopupAudio = () => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    } catch {}
+  };
 
   useEffect(() => {
     // Escuta novas solicitações de entrega em tempo real
@@ -17,10 +31,16 @@ export function NewDeliveryPopupModal() {
         async (payload) => {
           const newDel = payload.new as any;
           if (newDel.status === "pending" || newDel.status === "broadcasted") {
-            // Tocar som de chamada de entrega
+            const declined = getDeclinedDeliveries();
+            if (declined.has(newDel.id)) return;
+
+            // Tocar som de chamada de entrega em loop enquanto o modal estiver aberto
             try {
+              stopPopupAudio();
               const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
               audio.volume = 1.0;
+              audio.loop = true;
+              audioRef.current = audio;
               audio.play().catch(() => {});
             } catch (e) {}
 
@@ -55,20 +75,36 @@ export function NewDeliveryPopupModal() {
             setActiveDelivery({
               ...newDel,
               pickup_address: pickupAddress || newDel.pickup_address,
-              storeName: (storeName || "Teste Loja").toUpperCase()
+              storeName: (storeName || "Loja Parceira").toUpperCase()
             });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "deliveries" },
+        (payload) => {
+          const updated = payload.new as any;
+          // Se outro motoboy aceitou ou foi cancelada, encerra o modal imediatamente
+          if (activeDelivery && updated.id === activeDelivery.id && updated.status !== "pending" && updated.status !== "broadcasted") {
+            stopPopupAudio();
+            setActiveDelivery(null);
           }
         }
       )
       .subscribe();
 
     return () => {
+      stopPopupAudio();
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [activeDelivery?.id]);
 
   const handleAccept = async () => {
-    if (!activeDelivery) return;
+    if (!activeDelivery || accepting) return;
+    setAccepting(true);
+    stopPopupAudio();
+
     try {
       const { data: userRes } = await supabase.auth.getUser();
       if (userRes?.user) {
@@ -79,25 +115,27 @@ export function NewDeliveryPopupModal() {
           .maybeSingle();
 
         const driverId = driver?.id || userRes.user.id;
-        await supabase
-          .from("deliveries")
-          .update({
-            driver_id: driverId,
-            status: "accepted",
-            accepted_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", activeDelivery.id);
+        await acceptDelivery(activeDelivery.id, driverId);
+        acceptDeliveryLocally(activeDelivery.id);
+        toast.success("✅ Corrida aceita com sucesso!");
+        setActiveDelivery(null);
+        window.location.href = "/driver/deliveries";
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Erro ao aceitar entrega:", e);
-    } finally {
+      toast.error("Ops! Esta entrega já foi aceita por outro entregador.");
+      declineDeliveryLocally(activeDelivery.id);
       setActiveDelivery(null);
-      window.location.href = "/driver/deliveries";
+    } finally {
+      setAccepting(false);
     }
   };
 
   const handleReject = () => {
+    if (activeDelivery) {
+      declineDeliveryLocally(activeDelivery.id);
+    }
+    stopPopupAudio();
     setActiveDelivery(null);
   };
 
