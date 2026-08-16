@@ -201,7 +201,8 @@ export function NewDeliveryPopupModal() {
             <Button
               type="button"
               onClick={handleReject}
-              className="h-13 rounded-xl font-black text-base uppercase bg-red-600 hover:bg-red-700 text-white border-none shadow-md transition-transform active:scale-95"
+              disabled={accepting}
+              className="h-13 rounded-xl font-black text-base uppercase bg-red-600 hover:bg-red-700 text-white border-none shadow-md transition-transform active:scale-95 disabled:opacity-60"
             >
               RECUSAR
             </Button>
