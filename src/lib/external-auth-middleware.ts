@@ -10,13 +10,19 @@ export const requireExternalSupabaseAuth = createMiddleware({ type: "function" }
     const request = getRequest();
     const authHeader = request?.headers.get("authorization");
 
-    if (!authHeader?.startsWith("Bearer ")) {
-      throw new Response("Unauthorized", { status: 401 });
+    if (!authHeader) {
+      console.warn("[external-auth] Cabeçalho de autorização ausente.");
+      throw new Response("Sessão expirada. Entre novamente.", { status: 401 });
+    }
+    if (!authHeader.startsWith("Bearer ")) {
+      console.warn("[external-auth] Formato de autorização inválido.");
+      throw new Response("Sessão inválida. Entre novamente.", { status: 401 });
     }
 
     const token = authHeader.slice("Bearer ".length).trim();
     if (!token) {
-      throw new Response("Unauthorized", { status: 401 });
+      console.warn("[external-auth] Bearer token vazio.");
+      throw new Response("Sessão expirada. Entre novamente.", { status: 401 });
     }
 
     const url = process.env["EXTERNAL_SUPABASE_URL"] || EXTERNAL_SUPABASE_URL;
@@ -33,7 +39,8 @@ export const requireExternalSupabaseAuth = createMiddleware({ type: "function" }
 
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) {
-      throw new Response("Unauthorized", { status: 401 });
+      console.warn(`[external-auth] Token rejeitado: ${error?.code ?? "usuário ausente"}.`);
+      throw new Response("Sessão expirada. Entre novamente.", { status: 401 });
     }
 
     return next({
