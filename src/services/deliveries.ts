@@ -436,9 +436,18 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
     .from("deliveries")
     .select("*")
     .in("driver_id", ids)
-    .in("status", ["accepted", "collecting", "in_transit"])
+    .in("status", ["accepted", "collecting", "in_route", "in_transit"] as any)
     .order("created_at", { ascending: false });
-  if (error) throw error;
+  if (error) {
+    const { data: fbData, error: fbError } = await supabase
+      .from("deliveries")
+      .select("*")
+      .in("driver_id", ids)
+      .in("status", ["accepted", "collecting", "in_route"] as any)
+      .order("created_at", { ascending: false });
+    if (fbError) throw fbError;
+    return (fbData ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+  }
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 
@@ -448,7 +457,7 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   let query = supabase
     .from("deliveries")
     .select("*")
-    .in("status", ["delivered", "cancelled", "returned"])
+    .in("status", ["completed", "delivered", "cancelled"] as any)
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -457,14 +466,24 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   }
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    let fbQuery = supabase
+      .from("deliveries")
+      .select("*")
+      .in("status", ["completed", "cancelled"] as any)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (ids.length > 0) fbQuery = fbQuery.in("driver_id", ids);
+    const { data: fbData, error: fbError } = await fbQuery;
+    if (fbError) throw fbError;
+    return (fbData ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+  }
 
-  // Se não encontrou entregas com o ID específico do motorista, traz o histórico recente de entregas finalizadas
   if ((!data || data.length === 0) && ids.length > 0) {
     const { data: fallbackData } = await supabase
       .from("deliveries")
       .select("*")
-      .in("status", ["delivered", "cancelled", "returned"])
+      .in("status", ["completed", "cancelled"] as any)
       .order("created_at", { ascending: false })
       .limit(100);
     
