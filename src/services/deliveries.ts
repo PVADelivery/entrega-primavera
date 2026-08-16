@@ -565,8 +565,8 @@ export async function acceptDelivery(deliveryId: string, driverId: string) {
 const nextStatus: Record<string, string> = {
   pending: "accepted",
   accepted: "collecting",
-  collecting: "in_route",
-  picked_up: "in_route",
+  collecting: "in_transit",
+  picked_up: "in_transit",
   in_transit: "delivered",
   in_route: "delivered",
 };
