@@ -435,42 +435,55 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
   const ids = Array.from(new Set([driverId, userId].filter(Boolean))) as string[];
   if (ids.length === 0) return [];
 
-  const { data, error } = await supabase
-    .from("deliveries")
-    .select(`
-      *,
-      companies(name, phone),
-      orders(
-        id,
-        customer_name,
-        customer_phone,
-        customer_neighborhood,
-        delivery_address,
-        delivery_street,
-        delivery_number,
-        delivery_neighborhood
-      ),
-      regions(id, name, price)
-    `)
-    .in("driver_id", ids)
-    .order("created_at", { ascending: false });
-  
-  if (error) throw error;
-  
+  // Tenta primeiro com JOIN seguro de orders e companies
+  let data: any[] | null = null;
+  let usedJoin = false;
+
+  try {
+    const res = await supabase
+      .from("deliveries")
+      .select(`
+        *,
+        companies(name, phone),
+        orders(id, customer_name, customer_phone),
+        regions(id, name, price)
+      `)
+      .in("driver_id", ids)
+      .order("created_at", { ascending: false });
+
+    if (!res.error && res.data) {
+      data = res.data;
+      usedJoin = true;
+    } else {
+      console.warn("[fetchMyActiveDeliveries] JOIN falhou, tentando SELECT * simples:", res.error?.message);
+    }
+  } catch (e) {
+    console.warn("[fetchMyActiveDeliveries] Exceção no JOIN:", e);
+  }
+
+  // Fallback: SELECT * simples (sempre funciona)
+  if (!data) {
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from("deliveries")
+      .select("*")
+      .in("driver_id", ids)
+      .order("created_at", { ascending: false });
+
+    if (fallbackError) throw fallbackError;
+    data = fallbackData ?? [];
+  }
+
   return (data ?? [])
     .filter((d: any) => !["completed", "delivered", "cancelled", "returned"].includes(d.status))
     .map((d: any) => {
-      const order = d.orders;
-      // Resolve nome do cliente: delivery.customer_name pode estar mascarado ("Cliente", "XXXXXXXX", etc.)
+      const order = usedJoin ? d.orders : null;
+      // Resolve nome do cliente se estiver mascarado
       const isMasked = !d.customer_name || d.customer_name === "Cliente" || d.customer_name === "XXXXXXXX" || /^X+$/.test(d.customer_name);
       const resolvedCustomerName = isMasked ? (order?.customer_name || d.customer_name || "Cliente") : d.customer_name;
-      // Resolve endereço de entrega
+      // Resolve endereço de entrega se estiver mascarado
       const isMaskedAddr = !d.address || d.address === "XXXXXX, XXX" || /^X+/.test(d.address);
       const resolvedAddress = isMaskedAddr
-        ? (order?.delivery_address
-            || (order?.delivery_street ? `${order.delivery_street}, ${order.delivery_number || "s/n"} - ${order.delivery_neighborhood || ""}` : null)
-            || d.dropoff_address
-            || d.address)
+        ? (d.dropoff_address || order?.delivery_address || d.address)
         : d.address;
       return {
         ...d,
@@ -478,10 +491,11 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
         customer_name: resolvedCustomerName,
         customer_phone: d.customer_phone || order?.customer_phone || null,
         address: resolvedAddress,
-        customer_neighborhood: d.customer_neighborhood || order?.customer_neighborhood || null,
+        customer_neighborhood: d.customer_neighborhood || null,
       };
     });
 }
+
 
 export async function fetchMyHistory(driverId?: string | null, userId?: string | null) {
   const ids = Array.from(new Set([driverId, userId].filter(Boolean))) as string[];
