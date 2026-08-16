@@ -440,7 +440,7 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
     .from("deliveries")
     .select("*, companies(name, phone)")
     .in("driver_id", ids)
-    .in("status", ["accepted", "collecting", "in_route", "in_transit"])
+    .in("status", ["accepted", "collecting", "in_transit"])
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
@@ -452,7 +452,7 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   let query = supabase
     .from("deliveries")
     .select("*, companies(name, phone)")
-    .in("status", ["completed", "delivered", "cancelled"])
+    .in("status", ["delivered", "cancelled", "returned"])
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -468,7 +468,7 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
     const { data: fallbackData } = await supabase
       .from("deliveries")
       .select("*, companies(name, phone)")
-      .in("status", ["completed", "delivered", "cancelled"])
+      .in("status", ["delivered", "cancelled", "returned"])
       .order("created_at", { ascending: false })
       .limit(100);
     
