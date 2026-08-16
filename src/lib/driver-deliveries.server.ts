@@ -37,6 +37,7 @@ export async function updateDriverDeliveryAdmin(
   userId: string,
   deliveryId: string,
   nextStatus: DriverDeliveryStatus,
+  requestedDriverId?: string,
 ) {
   const admin = externalAdminClient();
   const { data: driverRows, error: driverError } = await admin
@@ -47,6 +48,10 @@ export async function updateDriverDeliveryAdmin(
   if (driverError) throw new Error("Não foi possível validar o entregador.");
 
   const permittedDriverIds = new Set([userId, ...(driverRows ?? []).map((row) => row.id)]);
+  const targetDriverId = requestedDriverId ?? driverRows?.[0]?.id ?? userId;
+  if (!permittedDriverIds.has(targetDriverId)) {
+    throw new Error("O cadastro do entregador não pertence à sua conta.");
+  }
   const { data: delivery, error: deliveryError } = await admin
     .from("deliveries")
     .select("id, driver_id, status")
@@ -54,7 +59,12 @@ export async function updateDriverDeliveryAdmin(
     .maybeSingle();
 
   if (deliveryError || !delivery) throw new Error("Entrega não encontrada.");
-  if (!delivery.driver_id || !permittedDriverIds.has(delivery.driver_id)) {
+  const isAvailableClaim =
+    nextStatus === "accepted" &&
+    !delivery.driver_id &&
+    ["pending", "broadcasted"].includes(String(delivery.status));
+
+  if (!isAvailableClaim && (!delivery.driver_id || !permittedDriverIds.has(delivery.driver_id))) {
     throw new Error("Esta entrega não pertence à sua conta.");
   }
 
@@ -66,17 +76,24 @@ export async function updateDriverDeliveryAdmin(
 
   const now = new Date().toISOString();
   const updates: Record<string, string> = { status: nextStatus, updated_at: now };
+  if (isAvailableClaim) updates.driver_id = targetDriverId;
   if (nextStatus === "accepted") updates.accepted_at = now;
   if (nextStatus === "collecting") updates.collected_at = now;
   if (nextStatus === "delivered") updates.completed_at = now;
   if (nextStatus === "cancelled") updates.cancelled_at = now;
 
-  const { error: updateError } = await admin
+  let updateQuery = admin
     .from("deliveries")
     .update(updates)
-    .eq("id", deliveryId)
-    .eq("driver_id", delivery.driver_id);
+    .eq("id", deliveryId);
+
+  updateQuery = isAvailableClaim
+    ? updateQuery.is("driver_id", null).in("status", ["pending", "broadcasted"])
+    : updateQuery.eq("driver_id", delivery.driver_id);
+
+  const { data: updated, error: updateError } = await updateQuery.select("id").maybeSingle();
 
   if (updateError) throw new Error("Não foi possível atualizar a entrega.");
+  if (!updated) throw new Error("Esta entrega já foi aceita por outro entregador.");
   return { success: true, status: nextStatus };
 }

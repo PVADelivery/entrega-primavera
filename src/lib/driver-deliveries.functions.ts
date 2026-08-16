@@ -10,9 +10,10 @@ export const updateDriverDelivery = createServerFn({ method: "POST" })
       .object({
         deliveryId: z.string().uuid(),
         status: z.enum(["accepted", "collecting", "in_transit", "delivered", "cancelled"]),
+        driverId: z.string().uuid().optional(),
       })
       .parse(data),
   )
   .handler(({ data, context }) =>
-    updateDriverDeliveryAdmin(context.userId, data.deliveryId, data.status),
+    updateDriverDeliveryAdmin(context.userId, data.deliveryId, data.status, data.driverId),
   );
