@@ -523,42 +523,43 @@ export async function advanceDelivery(delivery: any) {
     }
   } catch {}
 
-  // 2. Multi-estratégia REST direta no Supabase
-  const updates1: Record<string, any> = { 
-    status: dbNextStatus, 
-    updated_at: now 
-  };
+  // Multi-estratégia com as 4 combinações de schema do Supabase
+  // Combinação 1: dbStatus + completed_at
+  const updates1: Record<string, any> = { status: dbNextStatus, updated_at: now };
+  if (next === "accepted") updates1.accepted_at = now;
   if (next === "collecting") updates1.collected_at = now;
-  if (next === "in_transit" || dbNextStatus === "in_route") updates1.picked_up_at = now;
-  if (next === "delivered" || dbNextStatus === "completed") {
-    updates1.completed_at = now;
-    updates1.delivered_at = now;
-  }
+  if (next === "delivered") updates1.completed_at = now;
 
-  const { data: res1, error: err1 } = await supabase
-    .from("deliveries")
-    .update(updates1)
-    .eq("id", delivery.id)
-    .select();
+  const res1 = await supabase.from("deliveries").update(updates1).eq("id", delivery.id).select();
+  if (!res1.error && res1.data && res1.data.length > 0) return;
 
-  if (!err1 && res1 && res1.length > 0) return;
+  // Combinação 2: dbStatus + delivered_at
+  const updates2: Record<string, any> = { status: dbNextStatus, updated_at: now };
+  if (next === "accepted") updates2.accepted_at = now;
+  if (next === "collecting") updates2.collected_at = now;
+  if (next === "delivered") updates2.delivered_at = now;
 
-  // 3. Fallback simplificado só com status e updated_at
-  const { error: err2 } = await supabase
-    .from("deliveries")
-    .update({ status: dbNextStatus as any, updated_at: now })
-    .eq("id", delivery.id);
+  const res2 = await supabase.from("deliveries").update(updates2).eq("id", delivery.id).select();
+  if (!res2.error && res2.data && res2.data.length > 0) return;
 
-  if (err2) {
-    // 4. Último fallback com status original
-    const { error: err3 } = await supabase
-      .from("deliveries")
-      .update({ status: next as any })
-      .eq("id", delivery.id);
-    if (err3) {
-      console.error("[advanceDelivery] Falha fatal ao atualizar status:", err3);
-      throw err3;
-    }
+  // Combinação 3: status direto + completed_at
+  const updates3: Record<string, any> = { status: next, updated_at: now };
+  if (next === "accepted") updates3.accepted_at = now;
+  if (next === "collecting") updates3.collected_at = now;
+  if (next === "delivered") updates3.completed_at = now;
+
+  const res3 = await supabase.from("deliveries").update(updates3).eq("id", delivery.id).select();
+  if (!res3.error && res3.data && res3.data.length > 0) return;
+
+  // Combinação 4: status simples apenas
+  const res4 = await supabase.from("deliveries").update({ status: next as any }).eq("id", delivery.id).select();
+  if (!res4.error && res4.data && res4.data.length > 0) return;
+
+  // Se tudo falhar, tenta sem select para contornar políticas RLS de retorno
+  const { error: finalErr } = await supabase.from("deliveries").update({ status: dbNextStatus as any }).eq("id", delivery.id);
+  if (finalErr) {
+    console.error("[advanceDelivery] Erro final:", finalErr);
+    throw finalErr;
   }
 }
 
@@ -575,11 +576,23 @@ export async function releaseDeliveryToPool(deliveryId: string) {
 }
 
 export async function cancelDelivery(deliveryId: string) {
+  const now = new Date().toISOString();
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
+      _delivery_id: deliveryId,
+      _status: "cancelled",
+    });
+    if (!rpcError && rpcData && (rpcData as any).success) {
+      return;
+    }
+  } catch {}
+
   const { error } = await supabase
     .from("deliveries")
     .update({ 
       status: "cancelled" as any,
-      cancelled_at: new Date().toISOString()
+      cancelled_at: now,
+      updated_at: now
     })
     .eq("id", deliveryId);
   if (error) throw error;

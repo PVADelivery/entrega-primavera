@@ -234,7 +234,7 @@ export function useDriverNotifications() {
       if (deliveryId) {
         activeAlertsRef.current.delete(deliveryId);
         if (activeAlertsRef.current.size === 0) stopAlert();
-        if (Capacitor.isNativePlatform()) {
+        if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
           LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
         }
       }
@@ -246,7 +246,7 @@ export function useDriverNotifications() {
       if (id) {
         activeAlertsRef.current.delete(id);
         if (activeAlertsRef.current.size === 0) stopAlert();
-        if (Capacitor.isNativePlatform()) {
+        if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
           LocalNotifications.cancel({ notifications: [{ id: hashId(id) }] }).catch(() => {});
         }
       }
