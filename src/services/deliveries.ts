@@ -725,7 +725,7 @@ export async function advanceDelivery(delivery: any) {
     .eq("id", delivery.id)
     .maybeSingle();
 
-  if (check && check.status === dbNextStatus) return;
+  if (check && statusCandidates(dbNextStatus).includes(String(check.status))) return;
 
   throw new Error(
     "Esta entrega não está mais vinculada à sua conta ou seu perfil não tem permissão para alterá-la. Atualize a lista e tente novamente.",
