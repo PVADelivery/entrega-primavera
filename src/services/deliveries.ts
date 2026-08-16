@@ -553,11 +553,20 @@ export async function acceptDelivery(deliveryId: string, driverId: string) {
 }
 
 const nextStatus: Record<string, string> = {
+  pending: "accepted",
   accepted: "collecting",
   collecting: "in_route",
+  picked_up: "in_route",
   in_transit: "delivered",
   in_route: "delivered",
 };
+
+function describeDbError(err: any) {
+  if (!err) return "Erro desconhecido";
+  const parts = [err.message, err.details, err.hint].filter(Boolean);
+  const code = err.code ? `[${err.code}] ` : "";
+  return `${code}${parts.join(" — ") || "Erro desconhecido"}`;
+}
 
 export async function advanceDelivery(delivery: any) {
   const next = nextStatus[delivery.status] || "collecting";
@@ -586,44 +595,42 @@ export async function advanceDelivery(delivery: any) {
     }
   } catch {}
 
-  // Multi-estratégia com as 4 combinações de schema do Supabase
-  // Combinação 1: dbStatus + completed_at
-  const updates1: Record<string, any> = { status: dbNextStatus, updated_at: now };
-  if (next === "accepted") updates1.accepted_at = now;
-  if (next === "collecting") updates1.collected_at = now;
-  if (next === "delivered") updates1.completed_at = now;
+  // Atualização direta (colunas e enum válidos no banco)
+  const updates: Record<string, any> = { status: dbNextStatus, updated_at: now };
+  if (next === "accepted") updates.accepted_at = now;
+  if (next === "collecting") updates.collected_at = now;
+  if (next === "delivered") updates.completed_at = now;
 
-  const res1 = await supabase.from("deliveries").update(updates1).eq("id", delivery.id).select();
-  if (!res1.error && res1.data && res1.data.length > 0) return;
+  let res = await supabase.from("deliveries").update(updates).eq("id", delivery.id).select("id,status");
 
-  // Combinação 2: dbStatus + delivered_at
-  const updates2: Record<string, any> = { status: dbNextStatus, updated_at: now };
-  if (next === "accepted") updates2.accepted_at = now;
-  if (next === "collecting") updates2.collected_at = now;
-  if (next === "delivered") updates2.delivered_at = now;
-
-  const res2 = await supabase.from("deliveries").update(updates2).eq("id", delivery.id).select();
-  if (!res2.error && res2.data && res2.data.length > 0) return;
-
-  // Combinação 3: status direto + completed_at
-  const updates3: Record<string, any> = { status: next, updated_at: now };
-  if (next === "accepted") updates3.accepted_at = now;
-  if (next === "collecting") updates3.collected_at = now;
-  if (next === "delivered") updates3.completed_at = now;
-
-  const res3 = await supabase.from("deliveries").update(updates3).eq("id", delivery.id).select();
-  if (!res3.error && res3.data && res3.data.length > 0) return;
-
-  // Combinação 4: status simples apenas
-  const res4 = await supabase.from("deliveries").update({ status: next as any }).eq("id", delivery.id).select();
-  if (!res4.error && res4.data && res4.data.length > 0) return;
-
-  // Se tudo falhar, tenta sem select para contornar políticas RLS de retorno
-  const { error: finalErr } = await supabase.from("deliveries").update({ status: dbNextStatus as any }).eq("id", delivery.id);
-  if (finalErr) {
-    console.error("[advanceDelivery] Erro final:", finalErr);
-    throw finalErr;
+  // Se alguma coluna de timestamp não existir neste schema, tenta só o status
+  if (res.error && res.error.code === "42703") {
+    res = await supabase
+      .from("deliveries")
+      .update({ status: dbNextStatus, updated_at: now })
+      .eq("id", delivery.id)
+      .select("id,status");
   }
+
+  if (res.error) {
+    console.error("[advanceDelivery] Erro:", res.error);
+    throw new Error(describeDbError(res.error));
+  }
+
+  if (res.data && res.data.length > 0) return;
+
+  // Sem erro, mas nenhuma linha alterada: confere se o banco realmente mudou
+  const { data: check } = await supabase
+    .from("deliveries")
+    .select("id,status,driver_id")
+    .eq("id", delivery.id)
+    .maybeSingle();
+
+  if (check && check.status === dbNextStatus) return;
+
+  throw new Error(
+    "Esta entrega não está mais vinculada à sua conta ou seu perfil não tem permissão para alterá-la. Atualize a lista e tente novamente.",
+  );
 }
 
 export async function releaseDeliveryToPool(deliveryId: string) {
