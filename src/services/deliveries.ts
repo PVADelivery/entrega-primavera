@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCompanyNames } from "@/lib/companies.functions";
 import type { DeliveryStatus } from "@/types/models";
 
 function toDbStatus(status: string) {
@@ -115,12 +116,25 @@ async function resolveDeliveryCompanies(rows: any[]) {
       .in("id", companyIds);
 
     if (companiesError) {
-      throw new Error(`Não foi possível carregar o nome da loja: ${companiesError.message}`);
+      console.warn("[deliveries] leitura direta de lojas bloqueada:", companiesError.message);
     }
 
     (companies ?? []).forEach((company: any) => {
       companiesById.set(company.id, { name: company.name ?? null, phone: company.phone ?? null });
     });
+
+    // Fallback: lojas bloqueadas por RLS são resolvidas no servidor
+    const missing = companyIds.filter((id) => !companiesById.get(id)?.name);
+    if (missing.length > 0) {
+      try {
+        const resolved = await getCompanyNames({ data: { ids: missing } });
+        (resolved ?? []).forEach((company: any) => {
+          companiesById.set(company.id, { name: company.name ?? null, phone: company.phone ?? null });
+        });
+      } catch (error: any) {
+        console.warn("[deliveries] fallback de lojas falhou:", error?.message ?? error);
+      }
+    }
   }
 
   return rows.map((row) => {
