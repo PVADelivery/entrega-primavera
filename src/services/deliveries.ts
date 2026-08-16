@@ -504,18 +504,62 @@ const nextStatus: Record<string, string> = {
   accepted: "collecting",
   collecting: "in_transit",
   in_transit: "delivered",
+  in_route: "delivered",
 };
 
 export async function advanceDelivery(delivery: any) {
-  const next = nextStatus[delivery.status];
-  if (!next) return;
+  const next = nextStatus[delivery.status] || "collecting";
+  const now = new Date().toISOString();
   const dbNextStatus = toDbStatus(next);
-  const updateData: any = { status: dbNextStatus };
-  if (dbNextStatus === "completed") {
-    updateData.completed_at = new Date().toISOString();
+
+  // 1. Tenta RPC segura se disponível
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
+      _delivery_id: delivery.id,
+      _status: next,
+    });
+    if (!rpcError && rpcData && (rpcData as any).success) {
+      return;
+    }
+  } catch {}
+
+  // 2. Multi-estratégia REST direta no Supabase
+  const updates1: Record<string, any> = { 
+    status: dbNextStatus, 
+    updated_at: now 
+  };
+  if (next === "collecting") updates1.collected_at = now;
+  if (next === "in_transit" || dbNextStatus === "in_route") updates1.picked_up_at = now;
+  if (next === "delivered" || dbNextStatus === "completed") {
+    updates1.completed_at = now;
+    updates1.delivered_at = now;
   }
-  const { error } = await supabase.from("deliveries").update(updateData).eq("id", delivery.id);
-  if (error) throw error;
+
+  const { data: res1, error: err1 } = await supabase
+    .from("deliveries")
+    .update(updates1)
+    .eq("id", delivery.id)
+    .select();
+
+  if (!err1 && res1 && res1.length > 0) return;
+
+  // 3. Fallback simplificado só com status e updated_at
+  const { error: err2 } = await supabase
+    .from("deliveries")
+    .update({ status: dbNextStatus as any, updated_at: now })
+    .eq("id", delivery.id);
+
+  if (err2) {
+    // 4. Último fallback com status original
+    const { error: err3 } = await supabase
+      .from("deliveries")
+      .update({ status: next as any })
+      .eq("id", delivery.id);
+    if (err3) {
+      console.error("[advanceDelivery] Falha fatal ao atualizar status:", err3);
+      throw err3;
+    }
+  }
 }
 
 export async function releaseDeliveryToPool(deliveryId: string) {

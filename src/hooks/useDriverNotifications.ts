@@ -373,35 +373,39 @@ export function useDriverNotifications() {
       channelsRef.current.push(driverChannel);
 
       // Listener de ações de notificação local (aceitar/rejeitar)
-      if (Capacitor.isNativePlatform()) {
-        actionListener = await LocalNotifications.addListener(
-          "localNotificationActionPerformed",
-          async (action) => {
-            if (action.notification.extra?.type === "delivery") {
-              const deliveryId = action.notification.extra.deliveryId;
-              if (action.actionId === "accept") {
-                stopAlert();
-                activeAlertsRef.current.delete(deliveryId);
-                const { data, error } = await supabase
-                  .from("deliveries")
-                  .update({ status: "accepted", driver_id: driverId })
-                  .eq("id", deliveryId)
-                  .in("status", ["pending", "broadcasted"])
-                  .is("driver_id", null)
-                  .select("id");
-                if (!error && data && data.length > 0) {
-                  acceptDeliveryLocally(deliveryId);
-                  toast("✅ Corrida aceita!", { description: "Aceita via notificação." });
-                } else {
-                  toast("❌ Ops! Já foi aceita.", { description: "Outro entregador aceitou antes de você." });
+      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
+        try {
+          actionListener = await LocalNotifications.addListener(
+            "localNotificationActionPerformed",
+            async (action) => {
+              if (action.notification.extra?.type === "delivery") {
+                const deliveryId = action.notification.extra.deliveryId;
+                if (action.actionId === "accept") {
+                  stopAlert();
+                  activeAlertsRef.current.delete(deliveryId);
+                  const { data, error } = await supabase
+                    .from("deliveries")
+                    .update({ status: "accepted", driver_id: driverId })
+                    .eq("id", deliveryId)
+                    .in("status", ["pending", "broadcasted"])
+                    .is("driver_id", null)
+                    .select("id");
+                  if (!error && data && data.length > 0) {
+                    acceptDeliveryLocally(deliveryId);
+                    toast("✅ Corrida aceita!", { description: "Aceita via notificação." });
+                  } else {
+                    toast("❌ Ops! Já foi aceita.", { description: "Outro entregador aceitou antes de você." });
+                    declineDeliveryLocally(deliveryId);
+                  }
+                } else if (action.actionId === "reject") {
                   declineDeliveryLocally(deliveryId);
                 }
-              } else if (action.actionId === "reject") {
-                declineDeliveryLocally(deliveryId);
               }
             }
-          }
-        );
+          );
+        } catch (err) {
+          console.warn("[LocalNotifications] addListener falhou ou não suportado:", err);
+        }
       }
 
       // Seed inicial

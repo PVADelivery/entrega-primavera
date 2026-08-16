@@ -144,10 +144,11 @@ function DeliveriesPage() {
     setPending(d.id);
     try {
       await advanceDelivery(d);
-      toast.success("Status atualizado");
+      toast.success("Status atualizado com sucesso!");
       qc.invalidateQueries({ queryKey: ["deliveries"] });
-    } catch {
-      toast.error("Falha ao atualizar");
+    } catch (err: any) {
+      console.error("[handleAdvance] Erro:", err);
+      toast.error(`Falha ao atualizar: ${err?.message || "Erro desconhecido"}`);
     } finally {
       setPending(null);
     }
@@ -158,10 +159,11 @@ function DeliveriesPage() {
     setPending(id);
     try {
       await cancelDelivery(id);
-      toast.success("Entrega devolvida para os entregadores");
+      toast.success("Entrega devolvida para a fila");
       qc.invalidateQueries({ queryKey: ["deliveries"] });
-    } catch {
-      toast.error("Falha ao devolver entrega");
+    } catch (err: any) {
+      console.error("[handleCancel] Erro:", err);
+      toast.error(`Falha ao cancelar: ${err?.message || "Erro desconhecido"}`);
     } finally {
       setPending(null);
     }
