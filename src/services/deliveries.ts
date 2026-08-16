@@ -4,9 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import type { DeliveryStatus } from "@/types/models";
 
 function toDbStatus(status: string) {
-  // O banco usa "in_route", mas o app usa "in_transit" internamente
-  if (status === "in_transit") return "in_route";
-  if (status === "delivered") return "completed";
+  // O enum do banco é: pending, broadcasted, accepted, collecting, in_transit, delivered, cancelled, returned
+  if (status === "in_route") return "in_transit";
+  if (status === "completed") return "delivered";
   return status;
 }
 
