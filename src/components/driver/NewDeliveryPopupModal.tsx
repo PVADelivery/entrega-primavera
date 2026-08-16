@@ -10,6 +10,7 @@ import { toast } from "sonner";
 export function NewDeliveryPopupModal() {
   const [activeDelivery, setActiveDelivery] = useState<any | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const acceptingRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const stopPopupAudio = () => {
@@ -101,7 +102,8 @@ export function NewDeliveryPopupModal() {
   }, [activeDelivery?.id]);
 
   const handleAccept = async () => {
-    if (!activeDelivery || accepting) return;
+    if (!activeDelivery || acceptingRef.current) return;
+    acceptingRef.current = true;
     setAccepting(true);
     stopPopupAudio();
 
@@ -128,6 +130,7 @@ export function NewDeliveryPopupModal() {
       setActiveDelivery(null);
     } finally {
       setAccepting(false);
+      acceptingRef.current = false;
     }
   };
 
@@ -204,9 +207,10 @@ export function NewDeliveryPopupModal() {
             <Button
               type="button"
               onClick={handleAccept}
-              className="h-13 rounded-xl font-black text-base uppercase bg-emerald-500 hover:bg-emerald-600 text-white border-none shadow-md transition-transform active:scale-95"
+              disabled={accepting}
+              className="h-13 rounded-xl font-black text-base uppercase bg-emerald-500 hover:bg-emerald-600 text-white border-none shadow-md transition-transform active:scale-95 disabled:opacity-60"
             >
-              ACEITAR
+              {accepting ? "ACEITANDO..." : "ACEITAR"}
             </Button>
           </div>
 
