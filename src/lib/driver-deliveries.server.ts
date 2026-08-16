@@ -27,9 +27,10 @@ const statusAliases: Record<string, string[]> = {
 };
 
 function externalAdminClient() {
+  // A chave de serviço pertence ao projeto externo; nunca misturar com a URL
+  // de outro projeto (isso causa "Invalid API key").
   const url =
     process.env["EXTERNAL_SUPABASE_URL"] ||
-    process.env["VITE_SUPABASE_URL"] ||
     "https://owlbzwsdcognrgolvnzg.supabase.co";
   const key = process.env["EXTERNAL_SUPABASE_SERVICE_ROLE_KEY"];
 
