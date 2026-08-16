@@ -598,10 +598,18 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
 }
 
 export async function acceptDelivery(deliveryId: string, driverId: string) {
-  const result = await updateDriverDelivery({
-    data: { deliveryId, status: "accepted", driverId },
-  });
-  if (!result.success) throw new Error("Não foi possível aceitar a entrega.");
+  try {
+    const result = await updateDriverDelivery({
+      data: { deliveryId, status: "accepted", driverId },
+    });
+    if (!result.success) throw new Error("Não foi possível aceitar a entrega.");
+  } catch (error: any) {
+    const message = String(error?.message ?? error ?? "");
+    if (/401|unauthorized|sessão expirada|sessão inválida/i.test(message)) {
+      throw new Error("Sua sessão expirou. Entre novamente para aceitar a entrega.");
+    }
+    throw error;
+  }
 }
 
 const nextStatus: Record<string, string> = {
