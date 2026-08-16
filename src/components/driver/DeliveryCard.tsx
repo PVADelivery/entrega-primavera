@@ -205,8 +205,11 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             {onAccept && (
               <Button
                 className="group/btn h-11 flex-1 rounded-xl font-semibold shadow-[var(--shadow-elegant)] transition-all"
-                disabled={pending}
-                onClick={onAccept}
+                disabled={Boolean(pending)}
+                onClick={() => {
+                  if (pending) return;
+                  onAccept();
+                }}
               >
                 {pending ? "Aceitando..." : (
                   <>

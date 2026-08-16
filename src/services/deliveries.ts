@@ -487,6 +487,8 @@ export async function acceptDelivery(deliveryId: string, driverId: string) {
     .from("deliveries")
     .update({ driver_id: targetId, status: "accepted", accepted_at: new Date().toISOString() } as any)
     .eq("id", deliveryId)
+    .in("status", ["pending", "broadcasted"])
+    .is("driver_id", null)
     .select()
     .maybeSingle();
   
