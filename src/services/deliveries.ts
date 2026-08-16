@@ -746,7 +746,7 @@ export async function fetchEarnings(driverId: string) {
     .from("deliveries")
     .select("value, commission, completed_at, created_at")
     .in("driver_id", ids)
-    .in("status", ["completed"]);
+    .in("status", ["delivered"]);
 
   if (deliveriesError) throw deliveriesError;
 
