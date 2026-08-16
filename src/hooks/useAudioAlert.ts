@@ -8,6 +8,10 @@ let audioCtx: AudioContext | null = null;
 
 const getAudioContext = (): AudioContext | null => {
   if (typeof window === "undefined") return null;
+  // Só instancia o AudioContext se o usuário já tiver interagido com a página
+  if (!navigator.userActivation?.hasBeenActive && typeof (window as any).isUserActive === "undefined") {
+    return null;
+  }
   if (!audioCtx) {
     const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
     if (AudioCtxClass) {
