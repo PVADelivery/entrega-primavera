@@ -74,7 +74,7 @@ export function useDriverNotifications() {
 
   // ── Permissões e registro FCM
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
       // Permissão de notificações locais
       LocalNotifications.requestPermissions().then((res) => {
         permissionRef.current = res.display === "granted" ? "granted" : "denied";
@@ -104,9 +104,9 @@ export function useDriverNotifications() {
                 vibration: true,
               }).catch(() => {});
             }
-          });
+          }).catch(() => {});
         }
-      });
+      }).catch(() => {});
 
       // ── Registro e sincronização do token FCM
       let regListener: any = null;
@@ -288,7 +288,7 @@ export function useDriverNotifications() {
       } catch {}
 
       // Notificação local no sistema operacional
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
         LocalNotifications.schedule({
           notifications: [
             {
@@ -312,7 +312,7 @@ export function useDriverNotifications() {
     const stopRingingFor = (deliveryId: string) => {
       activeAlertsRef.current.delete(deliveryId);
       if (activeAlertsRef.current.size === 0) stopAlert();
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
         LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
       }
     };
