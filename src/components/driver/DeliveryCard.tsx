@@ -157,9 +157,9 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                   onAccept();
                 }}
               >
-                {pending ? "Aceitando..." : (
+                {pending ? <span>Aceitando...</span> : (
                   <>
-                    Aceitar entrega
+                    <span>Aceitar entrega</span>
                     <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
                   </>
                 )}
@@ -171,7 +171,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 disabled={pending}
                 onClick={onAdvance}
               >
-                {next}
+                <span>{next}</span>
               </Button>
             )}
 
@@ -194,7 +194,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 className="h-11 flex-1 rounded-xl font-semibold shadow-sm"
                 onClick={() => (window.location.href = `/driver/delivery/${delivery.id}`)}
               >
-                <Eye className="mr-2 h-4 w-4" /> Detalhes
+                <Eye className="mr-2 h-4 w-4" /> <span>Detalhes</span>
               </Button>
             )}
             {onCancel && delivery.status !== "delivered" && delivery.status !== "cancelled" && (
@@ -204,7 +204,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 disabled={pending}
                 onClick={onCancel}
               >
-                Cancelar
+                <span>Cancelar</span>
               </Button>
             )}
           </div>

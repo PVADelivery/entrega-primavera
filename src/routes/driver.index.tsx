@@ -321,13 +321,13 @@ function DriverHome() {
                   <p className="text-xs text-muted-foreground"><strong className="text-foreground">Passageiro:</strong> <span>{r.customer_name}</span></p>
                   <p className="text-xs text-muted-foreground"><strong className="text-foreground">Origem:</strong> <span>{r.pickup_address}</span></p>
                   <p className="text-xs text-muted-foreground"><strong className="text-foreground">Destino:</strong> <span>{r.dropoff_address}</span></p>
-                  {!!r.notes && <p className="text-xs text-muted-foreground italic">"{r.notes}"</p>}
+                  {!!r.notes && <p className="text-xs text-muted-foreground italic"><span>"{r.notes}"</span></p>}
                 </div>
                 <button
                   onClick={() => handleAdvanceRide(r.id, r.status)}
                   className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all"
                 >
-                  {r.status === "accepted" ? "Iniciar Corrida" : "Concluir Corrida"}
+                  <span>{r.status === "accepted" ? "Iniciar Corrida" : "Concluir Corrida"}</span>
                 </button>
               </Card>
             ))}
@@ -369,7 +369,7 @@ function DriverHome() {
                       disabled={pendingRide === r.id}
                       className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all disabled:opacity-50"
                     >
-                      {pendingRide === r.id ? "Aceitando..." : "Aceitar Corrida"}
+                      <span>{pendingRide === r.id ? "Aceitando..." : "Aceitar Corrida"}</span>
                     </button>
                   </Card>
                 ))}
@@ -437,7 +437,7 @@ function Mini({ icon, label, value, money = true }: { icon: React.ReactNode; lab
         </span>
       </div>
       <p className="mt-1.5 font-display text-base font-bold tracking-tight text-foreground">
-        {money ? `R$ ${Number(value).toFixed(2)}` : value}
+        <span>{money ? `R$ ${Number(value).toFixed(2)}` : value}</span>
       </p>
     </div>
   );
