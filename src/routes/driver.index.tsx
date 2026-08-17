@@ -253,7 +253,7 @@ function DriverHome() {
                 Ganhos de hoje
               </p>
               <p className="mt-1 font-display text-4xl font-bold tracking-tight text-foreground">
-                R$ <span className="text-gold-gradient">{(earnings.data?.day ?? 0).toFixed(2)}</span>
+                <span>R$ </span><span className="text-gold-gradient">{(earnings.data?.day ?? 0).toFixed(2)}</span>
               </p>
             </div>
             <span
@@ -315,13 +315,13 @@ function DriverHome() {
                   <span className="text-[10px] font-black uppercase tracking-widest text-primary">
                     {r.vehicle_type === "taxi" ? "🚗 Táxi" : "🏍️ Moto Táxi"}
                   </span>
-                  <span className="text-xs font-bold text-emerald-500">R$ {Number(r.price).toFixed(2)}</span>
+                  <span className="text-xs font-bold text-emerald-500"><span>R$ </span><span>{Number(r.price).toFixed(2)}</span></span>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Passageiro:</strong> {r.customer_name}</p>
-                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Origem:</strong> {r.pickup_address}</p>
-                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Destino:</strong> {r.dropoff_address}</p>
-                  {r.notes && <p className="text-xs text-muted-foreground italic">"{r.notes}"</p>}
+                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Passageiro:</strong> <span>{r.customer_name}</span></p>
+                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Origem:</strong> <span>{r.pickup_address}</span></p>
+                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Destino:</strong> <span>{r.dropoff_address}</span></p>
+                  {!!r.notes && <p className="text-xs text-muted-foreground italic">"{r.notes}"</p>}
                 </div>
                 <button
                   onClick={() => handleAdvanceRide(r.id, r.status)}
@@ -357,12 +357,12 @@ function DriverHome() {
                       <span className="text-[10px] font-black uppercase tracking-widest text-primary">
                         {r.vehicle_type === "taxi" ? "🚗 Solicitação de Táxi" : "🏍️ Solicitação de Moto Táxi"}
                       </span>
-                      <span className="text-xs font-bold text-emerald-500">R$ {Number(r.price).toFixed(2)}</span>
+                      <span className="text-xs font-bold text-emerald-500"><span>R$ </span><span>{Number(r.price).toFixed(2)}</span></span>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Passageiro:</strong> {r.customer_name}</p>
-                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Origem:</strong> {r.pickup_address}</p>
-                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Destino:</strong> {r.dropoff_address}</p>
+                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Passageiro:</strong> <span>{r.customer_name}</span></p>
+                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Origem:</strong> <span>{r.pickup_address}</span></p>
+                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Destino:</strong> <span>{r.dropoff_address}</span></p>
                     </div>
                     <button
                       onClick={() => handleAcceptRide(r.id)}

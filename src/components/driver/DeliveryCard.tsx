@@ -50,7 +50,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
 
             {/* Nome do cliente e Horário */}
             <div className="flex items-center justify-between text-xs text-muted-foreground mt-0.5 font-medium">
-              <span>Cliente: <strong className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</strong></span>
+              <span><span>Cliente: </span><strong className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</strong></span>
               {delivery.created_at && (
                 <span className="text-[11px] font-mono text-muted-foreground/80 bg-muted/50 px-1.5 py-0.5 rounded">
                   {formatDateTime(delivery.created_at, "time")}
@@ -62,11 +62,11 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               <div className="space-y-1 mt-1.5">
                 <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-                  <span className="line-clamp-2"><strong className="text-foreground">Retirada (Loja):</strong> {delivery.pickup_address}</span>
+                  <span className="line-clamp-2"><strong className="text-foreground">Retirada (Loja):</strong> <span>{delivery.pickup_address}</span></span>
                 </p>
                 <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                  <span className="line-clamp-2"><strong className="text-foreground">Entrega:</strong> {delivery.address}</span>
+                  <span className="line-clamp-2"><strong className="text-foreground">Entrega:</strong> <span>{delivery.address}</span></span>
                 </p>
               </div>
             ) : (
@@ -81,12 +81,12 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {Boolean(delivery.regions?.name || delivery.region_name) && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-black text-[11px] uppercase tracking-wide border border-primary/20">
-                    <MapPin className="h-3 w-3" /> {delivery.regions?.name || delivery.region_name}
+                    <MapPin className="h-3 w-3" /> <span>{delivery.regions?.name || delivery.region_name}</span>
                   </span>
                 )}
                 {Boolean(delivery.customer_neighborhood && delivery.customer_neighborhood !== (delivery.regions?.name || delivery.region_name)) && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary text-secondary-foreground font-bold text-[11px] border border-border/50">
-                    Região: {delivery.customer_neighborhood}
+                    <span>Região: </span><span>{delivery.customer_neighborhood}</span>
                   </span>
                 )}
               </div>
@@ -95,7 +95,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             {/* Observações preenchidas pelo lojista */}
             {Boolean(delivery.notes) && (
               <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2 text-xs text-amber-300">
-                <span className="font-bold flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Obs do Lojista:</span> {delivery.notes}
+                <span className="font-bold flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Obs do Lojista:</span> <span>{delivery.notes}</span>
               </div>
             )}
           </div>
@@ -115,7 +115,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 GANHOS ENTREGADOR (75%)
               </p>
               <p className="font-display text-base font-bold tracking-tight text-emerald-400">
-                R$ {(() => {
+                <span>R$ </span>{(() => {
                   const grossFee = Number(
                     (delivery.delivery_fee && Number(delivery.delivery_fee) > 0)
                       ? delivery.delivery_fee

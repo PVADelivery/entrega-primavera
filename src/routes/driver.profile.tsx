@@ -353,8 +353,8 @@ function ProfilePage() {
                 </p>
                 <div className="space-y-2">
                   <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-                    <span>Bruto: R$ {fmtBRL(driverStats.grossEarnings)}</span>
-                    <span>Central: R$ {fmtBRL(driverStats.platformFee)}</span>
+                    <span><span>Bruto: R$ </span><span>{fmtBRL(driverStats.grossEarnings)}</span></span>
+                    <span><span>Central: R$ </span><span>{fmtBRL(driverStats.platformFee)}</span></span>
                   </div>
                   <div className="h-2.5 w-full rounded-full bg-secondary/70 overflow-hidden flex">
                     <div className="h-full rounded-l-full bg-primary" style={{ width: "75%" }} />
@@ -377,17 +377,17 @@ function ProfilePage() {
               </div>
               <div className="bg-secondary/30 rounded-2xl p-4 border border-border/40">
                 <Wallet className="h-5 w-5 text-primary mb-3" />
-                <p className="text-xl font-black text-foreground truncate">R$ {fmtBRL(driverStats.grossEarnings)}</p>
+                <p className="text-xl font-black text-foreground truncate"><span>R$ </span><span>{fmtBRL(driverStats.grossEarnings)}</span></p>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-0.5">Valor Bruto Recebido</p>
               </div>
               <div className="bg-rose-500/10 rounded-2xl p-4 border border-rose-500/20">
                 <ArrowUpRight className="h-5 w-5 text-rose-500 mb-3" />
-                <p className="text-xl font-black text-rose-500 truncate">- R$ {fmtBRL(driverStats.platformFee)}</p>
+                <p className="text-xl font-black text-rose-500 truncate"><span>- R$ </span><span>{fmtBRL(driverStats.platformFee)}</span></p>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-0.5">Devido a Central</p>
               </div>
               <div className="bg-emerald-500/10 rounded-2xl p-4 border border-emerald-500/20">
                 <Percent className="h-5 w-5 text-emerald-500 mb-3" />
-                <p className="text-xl font-black text-emerald-500">{driverStats.completionRate}%</p>
+                <p className="text-xl font-black text-emerald-500"><span>{driverStats.completionRate}</span><span>%</span></p>
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-0.5">Taxa de Conclusao</p>
               </div>
             </div>
@@ -453,8 +453,8 @@ function ProfilePage() {
                           <p className="text-[11px] text-muted-foreground truncate">{fmtDate(d.completed_at || d.updated_at || d.created_at)}</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-black text-foreground">R$ {fmtBRL(val * 0.75)}</p>
-                          <p className="text-[10px] text-muted-foreground">bruto R$ {fmtBRL(val)}</p>
+                          <p className="text-sm font-black text-foreground"><span>R$ </span><span>{fmtBRL(val * 0.75)}</span></p>
+                          <p className="text-[10px] text-muted-foreground"><span>bruto R$ </span><span>{fmtBRL(val)}</span></p>
                         </div>
                       </div>
                     );
