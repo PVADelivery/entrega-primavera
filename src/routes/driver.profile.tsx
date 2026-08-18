@@ -16,7 +16,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { ensureDriverRow } from "@/services/deliveries";
+import { ensureDriverRow, deliveryGrossFee, deliveryDoneAt } from "@/services/deliveries";
 import { useWorkMode, SERVICE_LABELS } from "@/hooks/useWorkMode";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
