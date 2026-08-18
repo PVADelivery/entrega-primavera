@@ -136,9 +136,9 @@ function ProfilePage() {
       const e = new Date(s); e.setHours(23, 59, 59, 999);
       let g = 0;
       for (const r of rows) {
-        const ts = new Date(r.completed_at || r.updated_at || r.created_at).getTime();
-        const fee = Number(r.delivery_fee ?? 0) || Number(r.value ?? 0) || Number(r.price ?? 0) || 0;
-        if (ts >= s.getTime() && ts <= e.getTime() && done.includes(r.status)) g += fee;
+        const ts = deliveryDoneAt(r);
+        const fee = deliveryGrossFee(r);
+        if (ts != null && ts >= s.getTime() && ts <= e.getTime() && done.includes(String(r.status))) g += fee;
       }
       result.push({ day: s.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""), gross: g, net: +(g * 0.75).toFixed(2) });
     }
@@ -147,12 +147,12 @@ function ProfilePage() {
 
   const fetchDriverData = async () => {
     try {
-      const { data: driver } = await supabase
+      const { data: driverRow } = await supabase
         .from("delivery_drivers")
-        .select("id, rating, is_online, commission_rate, service_types")
-        .eq("user_id", user.id)
+        .select("*")
+        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
         .maybeSingle();
-      if (!driver) return;
+      const driver: any = driverRow ?? { id: user.id };
       if (driver.service_types) setServiceTypes(driver.service_types);
 
       const DONE = ["completed", "delivered"];
@@ -172,22 +172,26 @@ function ProfilePage() {
       let gross = 0, periodCount = 0, cancelled = 0, total = 0;
 
       if (mode === "delivery") {
-        const { count } = await supabase.from("deliveries").select("id", { count: "exact", head: true }).in("driver_id", cids).in("status", DONE);
-        total = count || 0;
-        const { data: all } = await supabase.from("deliveries").select("id, value, delivery_fee, price, status, completed_at, created_at").in("driver_id", cids).order("created_at", { ascending: false }).limit(300);
-        setRecentDeliveries((all ?? []).slice(0, 15).map((r) => ({
-          ...r,
-          value: Number(r.delivery_fee ?? 0) || Number(r.value ?? 0) || Number(r.price ?? 0) || 0
-        })));
-        for (const d of all ?? []) {
-          const ts = new Date(d.completed_at || d.created_at).getTime();
-          const fee = Number(d.delivery_fee ?? 0) || Number(d.value ?? 0) || Number(d.price ?? 0) || 0;
-          if (ts >= start.getTime() && ts <= end.getTime()) {
-            if (DONE.includes(d.status)) { gross += fee; periodCount++; }
+        // select("*") evita erro 400 em bancos sem alguma dessas colunas
+        const { data: all, error: allError } = await supabase
+          .from("deliveries")
+          .select("*")
+          .in("driver_id", cids)
+          .order("created_at", { ascending: false })
+          .limit(500);
+        if (allError) throw allError;
+        const rows = all ?? [];
+        total = rows.filter((r: any) => DONE.includes(String(r.status))).length;
+        setRecentDeliveries(rows.slice(0, 15).map((r: any) => ({ ...r, value: deliveryGrossFee(r) })));
+        for (const d of rows) {
+          const ts = deliveryDoneAt(d);
+          const fee = deliveryGrossFee(d);
+          if (ts != null && ts >= start.getTime() && ts <= end.getTime()) {
+            if (DONE.includes(String(d.status))) { gross += fee; periodCount++; }
             else if (d.status === "cancelled") cancelled++;
           }
         }
-        setChartData(buildChart(all ?? [], 7, DONE));
+        setChartData(buildChart(rows, 7, DONE));
       } else {
         const { count } = await supabase.from("ride_requests").select("id", { count: "exact", head: true }).eq("driver_id", driver.id).eq("status", "completed");
         total = count || 0;
