@@ -104,7 +104,7 @@ export function useDriverNotifications() {
                   description: "Alerta de alta prioridade para novas corridas",
                   importance: 5,
                   visibility: 1,
-                  sound: "ring.mp3",
+                  sound: "ring",
                   vibration: true,
                 }).catch(() => {});
               }
@@ -267,14 +267,12 @@ export function useDriverNotifications() {
       seenIdsRef.current.add(rawDelivery.id);
       activeAlertsRef.current.add(rawDelivery.id);
 
-      // Som (só no web, no nativo o Java toca o ring.mp3)
-      if (!Capacitor.isNativePlatform()) {
-        try {
-          unlockAudio();
-          playAlert(true);
-        } catch (e) {
-          console.warn("[Notify] som falhou:", e);
-        }
+      // Dispara o ronco do motor de moto e alarme no aplicativo
+      try {
+        unlockAudio();
+        playAlert(true);
+      } catch (e) {
+        console.warn("[Notify] som do motor falhou:", e);
       }
 
       // Busca detalhes completos
@@ -323,7 +321,7 @@ export function useDriverNotifications() {
               id: hashId(delivery.id),
               actionTypeId: "DELIVERY_ACTION",
               channelId: NOTIFICATION_CHANNEL_ID,
-              sound: "ring.mp3",
+              sound: "ring",
               extra: { type: "delivery", deliveryId: delivery.id },
             },
           ],

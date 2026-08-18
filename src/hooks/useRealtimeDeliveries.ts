@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-const NOTIFICATION_SOUND = "https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"; // Motocicleta/Bip Alto
+const NOTIFICATION_SOUND = "/ring.mp3";
 
 export function useRealtimeDeliveries() {
   const qc = useQueryClient();

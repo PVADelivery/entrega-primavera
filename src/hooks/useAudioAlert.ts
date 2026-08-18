@@ -82,40 +82,68 @@ export function useAudioAlert() {
         ctx.resume().catch(() => {});
       }
 
-      const playChimePair = () => {
+      const playMotorRev = () => {
         try {
           const now = ctx.currentTime;
-          const osc1 = ctx.createOscillator();
-          const gain1 = ctx.createGain();
-          osc1.type = "sine";
-          osc1.frequency.setValueAtTime(880, now);
-          gain1.gain.setValueAtTime(0.8, now);
-          gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-          osc1.connect(gain1);
-          gain1.connect(ctx.destination);
-          osc1.start(now);
-          osc1.stop(now + 0.3);
 
-          const osc2 = ctx.createOscillator();
-          const gain2 = ctx.createGain();
-          osc2.type = "sine";
-          osc2.frequency.setValueAtTime(1320, now + 0.15);
-          gain2.gain.setValueAtTime(0.8, now + 0.15);
-          gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
-          osc2.connect(gain2);
-          gain2.connect(ctx.destination);
-          osc2.start(now + 0.15);
-          osc2.stop(now + 0.45);
+          // 1. Oscilador Sawtooth para o Ronco do Motor de Moto
+          const osc = ctx.createOscillator();
+          const filter = ctx.createBiquadFilter();
+          const gain = ctx.createGain();
+
+          osc.type = "sawtooth";
+          
+          // Curva de Frequência do Motor (Ronco VROOOOM!)
+          osc.frequency.setValueAtTime(90, now);
+          osc.frequency.exponentialRampToValueAtTime(360, now + 0.3); // 1ª acelerada
+          osc.frequency.exponentialRampToValueAtTime(160, now + 0.5); // troca de marcha
+          osc.frequency.exponentialRampToValueAtTime(520, now + 0.95); // 2ª acelerada forte!
+          osc.frequency.exponentialRampToValueAtTime(190, now + 1.25); // reduzindo
+
+          // Filtro Passa-Baixas (Escapamento Esportivo)
+          filter.type = "lowpass";
+          filter.frequency.setValueAtTime(650, now);
+          filter.frequency.exponentialRampToValueAtTime(2200, now + 0.35);
+          filter.frequency.exponentialRampToValueAtTime(1000, now + 0.5);
+          filter.frequency.exponentialRampToValueAtTime(2800, now + 0.95);
+
+          // Controle de Volume com Aceleração
+          gain.gain.setValueAtTime(0.7, now);
+          gain.gain.exponentialRampToValueAtTime(0.95, now + 0.3);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 1.3);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 1.3);
+
+          // 2. Apito / Bip Agudo de Alerta em segundo plano
+          const beepOsc = ctx.createOscillator();
+          const beepGain = ctx.createGain();
+          beepOsc.type = "sine";
+          beepOsc.frequency.setValueAtTime(1046.5, now + 0.25);
+          beepOsc.frequency.setValueAtTime(1318.5, now + 0.55);
+          
+          beepGain.gain.setValueAtTime(0, now);
+          beepGain.gain.setValueAtTime(0.6, now + 0.25);
+          beepGain.gain.exponentialRampToValueAtTime(0.01, now + 0.75);
+
+          beepOsc.connect(beepGain);
+          beepGain.connect(ctx.destination);
+          beepOsc.start(now + 0.25);
+          beepOsc.stop(now + 0.75);
         } catch (e) {
-          console.warn("[AudioAlert] Erro sintetizador WebAudio:", e);
+          console.warn("[AudioAlert] Erro no som do motor:", e);
         }
       };
 
-      playChimePair();
+      playMotorRev();
       stopSynthBeep();
-      synthIntervalRef.current = setInterval(playChimePair, 1200);
+      synthIntervalRef.current = setInterval(playMotorRev, 1400);
     } catch (e) {
-      console.warn("[AudioAlert] Falha sintetizador:", e);
+      console.warn("[AudioAlert] Falha sintetizador de motor:", e);
     }
   }, [stopSynthBeep]);
 
