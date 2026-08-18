@@ -123,18 +123,18 @@ function DeliveriesPage() {
   }
 
   async function handleCancelRide(rideId: string) {
-    if (!confirm("Cancelar esta corrida?")) return;
+    if (!confirm("Recusar esta corrida e disponibilizar para outros motoristas?")) return;
     setPending(rideId);
     try {
       const { error } = await (supabase as any)
         .from("ride_requests")
-        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .update({ driver_id: null, status: "pending", updated_at: new Date().toISOString() })
         .eq("id", rideId);
       if (error) throw error;
-      toast.success("Corrida cancelada!");
+      toast.success("Corrida devolvida para a fila de disponíveis!");
       qc.invalidateQueries({ queryKey: ["rides"] });
     } catch (err: any) {
-      toast.error(`Erro ao cancelar corrida: ${err?.message || JSON.stringify(err)}`);
+      toast.error(`Erro ao devolver corrida: ${err?.message || JSON.stringify(err)}`);
     } finally {
       setPending(null);
     }
@@ -155,15 +155,15 @@ function DeliveriesPage() {
   }
 
   async function handleCancel(id: string) {
-    if (!confirm("Recusar/Desistir desta entrega e disponibilizar para outros entregadores?")) return;
+    if (!confirm("Recusar esta entrega e disponibilizar para outros entregadores?")) return;
     setPending(id);
     try {
       await cancelDelivery(id);
-      toast.success("Entrega devolvida para a fila");
+      toast.success("Entrega devolvida para a fila de disponíveis!");
       qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
       console.error("[handleCancel] Erro:", err);
-      toast.error(`Falha ao cancelar: ${err?.message || "Erro desconhecido"}`);
+      toast.error(`Falha ao recusar entrega: ${err?.message || "Erro desconhecido"}`);
     } finally {
       setPending(null);
     }

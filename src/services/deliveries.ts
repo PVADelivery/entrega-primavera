@@ -746,34 +746,33 @@ export async function releaseDeliveryToPool(deliveryId: string) {
 
 export async function cancelDelivery(deliveryId: string) {
   const now = new Date().toISOString();
+
+  // 1. Tenta desvincular via RPC unassign_delivery_driver se existir no banco
   try {
-    const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
+    const { data: rpcData, error: rpcError } = await supabase.rpc("unassign_delivery_driver", {
       p_delivery_id: deliveryId,
-      p_status: "cancelled",
     });
-    if (!rpcError && rpcData && (rpcData as any).success) {
+    if (!rpcError && (rpcData as any)?.success) {
       return;
     }
   } catch {}
 
-  try {
-    const result = await updateDriverDelivery({
-      data: { deliveryId, status: "cancelled" },
-    });
-    if (result.success) return;
-  } catch (serverError: any) {
-    throw new Error(serverError?.message || "Não foi possível cancelar a entrega.");
-  }
-
+  // 2. Fallback REST: remove o entregador (driver_id = null) e reseta o status para 'pending'
+  // assim a entrega volta imediatamente para a fila de entregas disponíveis para os outros entregadores.
   const { error } = await supabase
     .from("deliveries")
     .update({ 
-      status: "cancelled" as any,
-      cancelled_at: now,
+      driver_id: null,
+      status: "pending",
+      accepted_at: null,
       updated_at: now
     })
     .eq("id", deliveryId);
-  if (error) throw error;
+
+  if (error) {
+    console.error("[cancelDelivery] Erro ao devolver entrega para a fila:", error);
+    throw new Error(error?.message || "Não foi possível recusar a entrega.");
+  }
 }
 
 export async function getDriverIdFromUser(userId: string): Promise<string | null> {
