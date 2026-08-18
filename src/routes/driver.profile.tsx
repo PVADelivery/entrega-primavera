@@ -129,15 +129,16 @@ function ProfilePage() {
     fetchDriverData();
   }, [user, period, customDate, mode]);
 
-  function buildChart(rows: any[], days: number, done: string[], valKey: string, d1: string, d2: string) {
+  function buildChart(rows: any[], days: number, done: string[]) {
     const result: { day: string; gross: number; net: number }[] = [];
     for (let i = days - 1; i >= 0; i--) {
       const s = new Date(); s.setDate(s.getDate() - i); s.setHours(0, 0, 0, 0);
       const e = new Date(s); e.setHours(23, 59, 59, 999);
       let g = 0;
       for (const r of rows) {
-        const ts = new Date(r[d1] || r[d2]).getTime();
-        if (ts >= s.getTime() && ts <= e.getTime() && done.includes(r.status)) g += Number(r[valKey] || 0);
+        const ts = new Date(r.completed_at || r.updated_at || r.created_at).getTime();
+        const fee = Number(r.delivery_fee ?? 0) || Number(r.value ?? 0) || Number(r.price ?? 0) || 0;
+        if (ts >= s.getTime() && ts <= e.getTime() && done.includes(r.status)) g += fee;
       }
       result.push({ day: s.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""), gross: g, net: +(g * 0.75).toFixed(2) });
     }
@@ -154,7 +155,7 @@ function ProfilePage() {
       if (!driver) return;
       if (driver.service_types) setServiceTypes(driver.service_types);
 
-      const DONE = ["completed"];
+      const DONE = ["completed", "delivered"];
       const cids = Array.from(new Set([driver.id, user.id].filter(Boolean)));
 
       let start = new Date(), end = new Date();
@@ -173,29 +174,34 @@ function ProfilePage() {
       if (mode === "delivery") {
         const { count } = await supabase.from("deliveries").select("id", { count: "exact", head: true }).in("driver_id", cids).in("status", DONE);
         total = count || 0;
-        const { data: all } = await supabase.from("deliveries").select("id, value, status, completed_at, created_at").in("driver_id", cids).order("created_at", { ascending: false }).limit(300);
-        setRecentDeliveries((all ?? []).slice(0, 15));
+        const { data: all } = await supabase.from("deliveries").select("id, value, delivery_fee, price, status, completed_at, created_at").in("driver_id", cids).order("created_at", { ascending: false }).limit(300);
+        setRecentDeliveries((all ?? []).slice(0, 15).map((r) => ({
+          ...r,
+          value: Number(r.delivery_fee ?? 0) || Number(r.value ?? 0) || Number(r.price ?? 0) || 0
+        })));
         for (const d of all ?? []) {
           const ts = new Date(d.completed_at || d.created_at).getTime();
+          const fee = Number(d.delivery_fee ?? 0) || Number(d.value ?? 0) || Number(d.price ?? 0) || 0;
           if (ts >= start.getTime() && ts <= end.getTime()) {
-            if (DONE.includes(d.status)) { gross += (Number(d.value || 0) * 0.75); periodCount++; }
+            if (DONE.includes(d.status)) { gross += fee; periodCount++; }
             else if (d.status === "cancelled") cancelled++;
           }
         }
-        setChartData(buildChart(all ?? [], 7, DONE, "value", "completed_at", "created_at"));
+        setChartData(buildChart(all ?? [], 7, DONE));
       } else {
         const { count } = await supabase.from("ride_requests").select("id", { count: "exact", head: true }).eq("driver_id", driver.id).eq("status", "completed");
         total = count || 0;
         const { data: all } = await supabase.from("ride_requests").select("id, price, status, updated_at, created_at").eq("driver_id", driver.id).order("created_at", { ascending: false }).limit(300);
-        setRecentDeliveries((all ?? []).slice(0, 15).map((r) => ({ ...r, value: r.price })));
+        setRecentDeliveries((all ?? []).slice(0, 15).map((r) => ({ ...r, value: Number(r.price || 0) })));
         for (const r of all ?? []) {
           const ts = new Date(r.updated_at || r.created_at).getTime();
+          const fee = Number(r.price || 0);
           if (ts >= start.getTime() && ts <= end.getTime()) {
-            if (r.status === "completed") { gross += Number(r.price || 0); periodCount++; }
+            if (r.status === "completed") { gross += fee; periodCount++; }
             else if (r.status === "cancelled") cancelled++;
           }
         }
-        setChartData(buildChart(all ?? [], 7, ["completed"], "price", "updated_at", "created_at"));
+        setChartData(buildChart(all ?? [], 7, ["completed"]));
       }
 
       const tot = periodCount + cancelled;
