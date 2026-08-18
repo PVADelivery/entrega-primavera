@@ -188,7 +188,7 @@ export function DriverHeader() {
           Bem-vindo de volta
         </p>
         <h1 className="mt-1 truncate font-display text-3xl font-bold tracking-tight">
-          Olá, <span className="text-gold-gradient">{name.split(" ")[0]}</span>
+          <span>Olá, </span><span className="text-gold-gradient">{name.split(" ")[0]}</span>
         </h1>
       </div>
     </header>

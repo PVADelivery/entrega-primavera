@@ -42,7 +42,7 @@ export function WorkModeSwitch({ className }: { className?: string }) {
               style={active ? { background: "var(--gradient-gold)" } : undefined}
             >
               {allowed ? <Icon className="h-4 w-4" /> : <Lock className="h-3.5 w-3.5" />}
-              {label}
+              <span>{label}</span>
             </button>
           );
         })}

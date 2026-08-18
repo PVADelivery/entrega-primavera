@@ -93,6 +93,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "google", content: "notranslate" },
       { title: "Lovable App" },
       { name: "description", content: "Entrega-Primavera is a mobile app for delivery drivers to manage their tasks and deliveries." },
       { name: "author", content: "MT 24horas express" },
@@ -129,11 +130,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pt-BR" className="notranslate" translate="no">
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="notranslate" translate="no">
         {children}
         <Scripts />
       </body>

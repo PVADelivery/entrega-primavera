@@ -113,6 +113,37 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
 export function initializeGlobalErrorHandlers(appName: string) {
   if (typeof window === "undefined") return;
 
+  // 0. Monkeypatch Node.prototype.insertBefore & removeChild for Google Translate / Browser Extension compatibility
+  try {
+    if (typeof Node !== "undefined" && !(Node.prototype as any).__patched_for_translate) {
+      const originalInsertBefore = Node.prototype.insertBefore;
+      Node.prototype.insertBefore = function <T extends Node>(newNode: T, referenceNode: Node | null): T {
+        if (referenceNode && referenceNode.parentNode !== this) {
+          if (referenceNode.parentNode && referenceNode.parentNode.parentNode === this) {
+            return originalInsertBefore.call(this, newNode, referenceNode.parentNode) as T;
+          }
+          return originalInsertBefore.call(this, newNode, null) as T;
+        }
+        return originalInsertBefore.call(this, newNode, referenceNode) as T;
+      };
+
+      const originalRemoveChild = Node.prototype.removeChild;
+      Node.prototype.removeChild = function <T extends Node>(child: T): T {
+        if (child && child.parentNode !== this) {
+          if (child.parentNode) {
+            return child.parentNode.removeChild(child) as T;
+          }
+          return child;
+        }
+        return originalRemoveChild.call(this, child) as T;
+      };
+
+      (Node.prototype as any).__patched_for_translate = true;
+    }
+  } catch (e) {
+    console.warn("Could not patch Node prototypes for translation compatibility:", e);
+  }
+
   // Intercept Sonner toast.error calls to immediately log on-screen errors
   try {
     const rawToast = toast as any;
@@ -137,6 +168,10 @@ export function initializeGlobalErrorHandlers(appName: string) {
 
   // 1. Unhandled exceptions
   window.onerror = (message, source, lineno, colno, error) => {
+    const msgStr = String(message);
+    if (msgStr.includes("insertBefore") || msgStr.includes("removeChild")) {
+      return true; // Ignore browser-translation DOM mutation errors
+    }
     reportErrorToTelegram({
       error_message: String(message),
       stack_trace: error?.stack || `At ${source}:${lineno}:${colno}`,
