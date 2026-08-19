@@ -825,6 +825,26 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
   return userId;
 }
 
+export const DELIVERY_DONE_STATUSES = ["delivered", "completed"];
+
+/** Valor bruto da entrega, tolerante a bancos com colunas diferentes. */
+export function deliveryGrossFee(row: any): number {
+  const candidates = [row?.delivery_fee, row?.value, row?.price, row?.commission];
+  for (const c of candidates) {
+    const n = Number(c);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+/** Data de conclusão da entrega, tolerante a bancos com colunas diferentes. */
+export function deliveryDoneAt(row: any): number | null {
+  const raw = row?.completed_at || row?.delivered_at || row?.updated_at || row?.created_at;
+  if (!raw) return null;
+  const t = new Date(raw).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
 export async function fetchEarnings(driverId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   const ids = Array.from(new Set([driverId, user?.id].filter(Boolean)));
@@ -837,7 +857,7 @@ export async function fetchEarnings(driverId: string) {
     .in("driver_id", ids);
   if (deliveriesError) throw deliveriesError;
   deliveries = (rows ?? []).filter((d: any) =>
-    ["delivered", "completed"].includes(String(d.status))
+    DELIVERY_DONE_STATUSES.includes(String(d.status))
   );
 
   // Tenta buscar também as corridas de passageiros
@@ -855,14 +875,11 @@ export async function fetchEarnings(driverId: string) {
 
   // Processa Entregas (deliveries)
   for (const r of deliveries ?? []) {
-    const dateStr = r.completed_at || r.delivered_at || r.updated_at || r.created_at;
-    if (!dateStr) continue;
-    const t = new Date(dateStr).getTime();
+    const t = deliveryDoneAt(r);
+    if (t == null) continue;
 
     // Taxa bruta da entrega: usa a primeira coluna preenchida
-    const fee = Number(
-      r.delivery_fee ?? 0
-    ) || Number(r.value ?? 0) || Number(r.price ?? 0) || Number(r.commission ?? 0) || 0;
+    const fee = deliveryGrossFee(r);
     // O entregador recebe 75% (25% fica com a plataforma)
     const c = fee * 0.75;
     
