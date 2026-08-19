@@ -462,6 +462,27 @@ export function useCreateDeliveryRequest() {
   });
 }
 
+export async function createBatchDeliveryRequests(deliveries: Array<{ orderId: string }>) {
+  if (deliveries.length === 0) return [];
+  const deliveriesData = deliveries.map(d => ({
+    order_id: d.orderId,
+    // Add other fields as needed (company_id, customer_name, address, value, etc.)
+  }));
+  const { data, error } = await supabase.from('deliveries').insert(deliveriesData).select();
+  if (error) throw error;
+  return data;
+}
+
+export function useCreateBatchDeliveryRequests() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createBatchDeliveryRequests,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['deliveries'] });
+    },
+  });
+}
+
 import { useEffect } from "react";
 export function useDeliveryTracking(orderId?: string | null) {
   const qc = useQueryClient();
