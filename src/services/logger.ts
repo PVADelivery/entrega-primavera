@@ -152,7 +152,16 @@ export function initializeGlobalErrorHandlers(appName: string) {
       rawToast.error = function (message: any, options?: any) {
         try {
           const msgStr = typeof message === "string" ? message : (message?.message || message?.toString?.() || JSON.stringify(message));
-          if (msgStr && typeof msgStr === "string" && !msgStr.includes("cancelada pelo usuário")) {
+          const isRaceCondition = 
+            !msgStr ||
+            msgStr.includes("cancelada pelo usuário") ||
+            msgStr.includes("aceita por outro") ||
+            msgStr.includes("DELIVERY_NOT_AVAILABLE") ||
+            msgStr.includes("Row level security") ||
+            msgStr.includes("blocked the action") ||
+            msgStr.includes("not found");
+
+          if (typeof msgStr === "string" && !isRaceCondition) {
             reportErrorToTelegram({
               error_message: `[Erro na Tela] ${msgStr}`,
               url: window.location.href,

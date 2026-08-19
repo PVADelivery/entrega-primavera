@@ -198,7 +198,12 @@ function DriverHome() {
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
-      toast.error(`Erro ao aceitar entrega: ${err?.message || JSON.stringify(err)}`);
+      const msg = err?.message || "";
+      if (msg.includes("aceita por outro") || msg.includes("RLS") || msg.includes("DELIVERY_NOT_AVAILABLE") || msg.includes("Row level security") || msg.includes("blocked")) {
+        toast.info("Esta entrega já foi aceita por outro entregador.");
+      } else {
+        toast.error(`Erro ao aceitar entrega: ${msg}`);
+      }
     } finally {
       acceptingDeliveryRef.current = false;
       setPending(null);
@@ -216,7 +221,12 @@ function DriverHome() {
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
-      toast.error(`Erro ao aceitar lote: ${err?.message || JSON.stringify(err)}`);
+      const msg = err?.message || "";
+      if (msg.includes("aceita por outro") || msg.includes("RLS") || msg.includes("DELIVERY_NOT_AVAILABLE") || msg.includes("Row level security") || msg.includes("blocked")) {
+        toast.info("Este lote de entregas já foi aceito por outro entregador.");
+      } else {
+        toast.error(`Erro ao aceitar lote: ${msg}`);
+      }
     } finally {
       acceptingDeliveryRef.current = false;
       setPending(null);
