@@ -8,6 +8,7 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { App } from "@capacitor/app";
 import { toast } from "sonner";
+import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 
 const APP_NAME = "MT 24 Horas Express";
 const NOTIFICATION_CHANNEL_ID = "delivery-incoming-v1";
@@ -163,7 +164,6 @@ export function useDriverNotifications() {
           const data = action.notification?.data;
           const deliveryId = data?.deliveryId || data?.delivery_id;
 
-          // Se a ação for de rejeitar, apenas descarta e NÃO redireciona/abre a tela da corrida
           if (actionId === "reject" || actionId === "tap_reject") {
             if (deliveryId) declineDeliveryLocally(deliveryId);
             return;
@@ -182,7 +182,10 @@ export function useDriverNotifications() {
 
           if (notification.data?.type === "cancel_delivery") {
             activeAlertsRef.current.delete(deliveryId);
-            if (activeAlertsRef.current.size === 0) stopAlert();
+            if (activeAlertsRef.current.size === 0) {
+              stopAlert();
+              DeliveryOverlay.dismissIncomingCall().catch(() => {});
+            }
             return;
           }
 
@@ -200,43 +203,35 @@ export function useDriverNotifications() {
               new Notification(`🏬 ${storeName}`, { body: details, icon: "/favicon-v3.png" });
             } catch {}
           }
-        }).catch(() => {});
-      } catch (e) {
-        console.warn("[FCM] Indisponível no dispositivo:", e);
-      }
-    } else if (!Capacitor.isNativePlatform()) {
-      // Browser web
-      if ("Notification" in window) {
-        if (Notification.permission === "granted") {
-          permissionRef.current = "granted";
-        } else if (Notification.permission !== "denied") {
-          Notification.requestPermission().then((p) => {
-            permissionRef.current = p;
-          });
-        }
+        }).then((handle) => { channelListener = handle; }).catch(() => {});
+      } catch (err) {
+        console.warn("[PushNotifications] Erro:", err);
       }
     }
 
     return () => {
-      if (regListener?.remove) regListener.remove();
-      if (errListener?.remove) errListener.remove();
-      if (actListener?.remove) actListener.remove();
+      if (regListener) regListener.remove().catch(() => {});
+      if (errListener) errListener.remove().catch(() => {});
+      if (actListener) actListener.remove().catch(() => {});
     };
   }, [user?.id]);
 
-  // ── Listener de corridas em tempo real + polling
+  // ── Listener Principal de entregas e sincronização em tempo real
   useEffect(() => {
     if (!user?.id) return;
-
+    let actionListener: PluginListenerHandle | undefined;
+    let overlayListener: PluginListenerHandle | undefined;
+    let appStateListener: PluginListenerHandle | undefined;
     let cancelled = false;
-    let actionListener: PluginListenerHandle | null = null;
-    let appStateListener: PluginListenerHandle | null = null;
 
     const handleDeclineEvent = (e: any) => {
       const { deliveryId } = e.detail || {};
       if (deliveryId) {
         activeAlertsRef.current.delete(deliveryId);
-        if (activeAlertsRef.current.size === 0) stopAlert();
+        if (activeAlertsRef.current.size === 0) {
+          stopAlert();
+          DeliveryOverlay.dismissIncomingCall().catch(() => {});
+        }
         if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
           LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
         }
@@ -248,7 +243,10 @@ export function useDriverNotifications() {
       const { id } = e.detail || {};
       if (id) {
         activeAlertsRef.current.delete(id);
-        if (activeAlertsRef.current.size === 0) stopAlert();
+        if (activeAlertsRef.current.size === 0) {
+          stopAlert();
+          DeliveryOverlay.dismissIncomingCall().catch(() => {});
+        }
         if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
           LocalNotifications.cancel({ notifications: [{ id: hashId(id) }] }).catch(() => {});
         }
@@ -267,7 +265,7 @@ export function useDriverNotifications() {
       seenIdsRef.current.add(rawDelivery.id);
       activeAlertsRef.current.add(rawDelivery.id);
 
-      // Dispara o ronco do motor de moto e alarme no aplicativo
+      // Dispara o ronco do motor de moto e som continuo
       try {
         unlockAudio();
         playAlert(true);
@@ -298,25 +296,31 @@ export function useDriverNotifications() {
       const value = orderFee > 0 ? orderFee : Math.max(
         Number(delivery.delivery_fee) || 0,
         Number(delivery.value) || 0,
-        Number(delivery.price) || 0,
-        Number(delivery.total_value) || 0
+        Number(delivery.price) || 0
       );
       const feeText = value > 0 ? `R$ ${value.toFixed(2).replace(".", ",")}` : "";
+      const description = `${storeName} • Retirada: ${pickup} → Entrega: ${dropoff}${feeText ? ` • Ganho: ${feeText}` : ""}`;
+      const title = `🏬 ${storeName}${feeText ? ` — ${feeText}` : ""}`;
 
-      const title = `🏬 ${storeName}`;
-      const description = `${storeName}\nColeta: ${pickup}\nEntrega: ${dropoff}${feeText ? `\nGanhos: ${feeText}` : ""}`;
+      toast(`🏬 ${storeName}`, {
+        description: `🏁 ${dropoff}${feeText ? ` • 💰 ${feeText}` : ""}`,
+      });
 
-      // Toast
-      try {
-        toast(title, { description: `🏁 ${dropoff}${feeText ? ` • 💰 ${feeText}` : ""}` });
-      } catch {}
+      // Dispara a chamada nativa de tela cheia (IncomingCallActivity e Overlay)
+      if (Capacitor.isNativePlatform()) {
+        DeliveryOverlay.testIncomingCall({
+          details: `${storeName}\n📍 Coleta: ${pickup}\n🏁 Entrega: ${dropoff}`,
+          deliveryId: delivery.id,
+          storeName,
+          pickup,
+          dropoff,
+          fee: feeText,
+        }).catch(console.warn);
 
-      // Notificação local no sistema operacional
-      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
         LocalNotifications.schedule({
           notifications: [
             {
-              title,
+              title: title,
               body: `🏁 Entrega: ${dropoff}`,
               id: hashId(delivery.id),
               actionTypeId: "DELIVERY_ACTION",
@@ -335,7 +339,10 @@ export function useDriverNotifications() {
 
     const stopRingingFor = (deliveryId: string) => {
       activeAlertsRef.current.delete(deliveryId);
-      if (activeAlertsRef.current.size === 0) stopAlert();
+      if (activeAlertsRef.current.size === 0) {
+        stopAlert();
+        DeliveryOverlay.dismissIncomingCall().catch(() => {});
+      }
       if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
         LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
       }
@@ -354,6 +361,21 @@ export function useDriverNotifications() {
       const driverId = driverRow?.id || user.id;
       isOnlineRef.current = typeof driverRow?.is_online === "boolean" ? driverRow.is_online : localOnline;
 
+      // Salva contexto do driver no Android Native SharedPreferences
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const userToken = session?.access_token ?? "";
+          DeliveryOverlay.saveDriverContext({ driverId, userToken }).catch(() => {});
+        } catch (e) {}
+
+        if (isOnlineRef.current) {
+          DeliveryOverlay.startOverlay().catch(() => {});
+        } else {
+          DeliveryOverlay.stopOverlay().catch(() => {});
+        }
+      }
+
       // Listener de status online/offline
       const driverChannel = supabase
         .channel(`mt24-driver-profile-${user.id}-${Date.now()}`)
@@ -367,11 +389,51 @@ export function useDriverNotifications() {
             if (!isOnlineRef.current && wasOnline) {
               activeAlertsRef.current.clear();
               stopAlert();
+              if (Capacitor.isNativePlatform()) {
+                DeliveryOverlay.stopOverlay().catch(() => {});
+              }
+            } else if (isOnlineRef.current && !wasOnline) {
+              if (Capacitor.isNativePlatform()) {
+                DeliveryOverlay.startOverlay().catch(() => {});
+              }
             }
           }
         )
         .subscribe();
       channelsRef.current.push(driverChannel);
+
+      // Listener para resposta dos botões da Tela Cheia / Popup Nativo (IncomingCallActivity)
+      if (Capacitor.isNativePlatform()) {
+        overlayListener = await DeliveryOverlay.addListener(
+          "onCallResponse",
+          async (response: any) => {
+            const deliveryId = response.deliveryId;
+            if (response.status === "accepted") {
+              stopAlert();
+              activeAlertsRef.current.delete(deliveryId);
+              const { data, error } = await supabase
+                .from("deliveries")
+                .update({ status: "accepted", driver_id: driverId })
+                .eq("id", deliveryId)
+                .in("status", ["pending", "broadcasted"])
+                .is("driver_id", null)
+                .select("id");
+
+              if (!error && data && data.length > 0) {
+                DeliveryOverlay.reportCallResult({ success: true, message: "✅ Corrida aceita!" }).catch(() => {});
+                acceptDeliveryLocally(deliveryId);
+                toast("✅ Corrida aceita!", { description: "Aceita via tela nativa." });
+              } else {
+                DeliveryOverlay.reportCallResult({ success: false, message: "Corrida já foi aceita por outro entregador" }).catch(() => {});
+                declineDeliveryLocally(deliveryId);
+                toast("❌ Ops! Já foi aceita.", { description: "Outro entregador aceitou antes de você." });
+              }
+            } else if (response.status === "rejected") {
+              declineDeliveryLocally(deliveryId);
+            }
+          }
+        );
+      }
 
       // Listener de ações de notificação local (aceitar/rejeitar)
       if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
@@ -448,7 +510,6 @@ export function useDriverNotifications() {
 
       const intervalId = setInterval(pollDeliveries, 10000);
 
-      // Quando app volta ao foreground, faz fetch imediato
       if (Capacitor.isNativePlatform()) {
         appStateListener = await App.addListener("appStateChange", ({ isActive }) => {
           if (isActive && isOnlineRef.current) pollDeliveries();
@@ -475,7 +536,6 @@ export function useDriverNotifications() {
             const d = payload.new as any;
             const o = payload.old as any;
 
-            // Corrida saiu do pool
             if (
               (o?.status === "pending" || o?.status === "broadcasted") &&
               d?.status !== "pending" && d?.status !== "broadcasted"
@@ -483,7 +543,6 @@ export function useDriverNotifications() {
               stopRingingFor(d.id);
             }
 
-            // Corrida entrou no pool
             if (
               o?.status && o.status !== "pending" && o.status !== "broadcasted" &&
               (d?.status === "pending" || d?.status === "broadcasted") && !d?.driver_id
@@ -494,11 +553,13 @@ export function useDriverNotifications() {
               }
             }
 
-            // Confirmação da própria corrida
             if (d?.driver_id === driverId && o?.status !== d?.status && d?.status === "accepted") {
               toast("✅ Corrida confirmada!", { description: "Vá até o ponto de retirada." });
               activeAlertsRef.current.delete(d.id);
-              if (activeAlertsRef.current.size === 0) stopAlert();
+              if (activeAlertsRef.current.size === 0) {
+                stopAlert();
+                DeliveryOverlay.dismissIncomingCall().catch(() => {});
+              }
             }
           }
         )
@@ -519,6 +580,7 @@ export function useDriverNotifications() {
       channelsRef.current.forEach((ch) => supabase.removeChannel(ch));
       channelsRef.current = [];
       if (actionListener) actionListener.remove().catch(() => {});
+      if (overlayListener) overlayListener.remove().catch(() => {});
       if (appStateListener) appStateListener.remove().catch(() => {});
       if (cleanupInner) cleanupInner();
     };

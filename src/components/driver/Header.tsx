@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ThemeToggle } from "./ThemeToggle";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
+import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 
 export function DriverHeader() {
   const { user } = useAuth();
@@ -112,8 +113,14 @@ export function DriverHeader() {
 
   async function toggle(value: boolean) {
     if (!user) return;
-    if (value) startLocationTracking();
-    else stopLocationTracking();
+    if (value) {
+      startLocationTracking();
+      DeliveryOverlay.requestOverlayPermission().catch(() => {});
+      DeliveryOverlay.startOverlay().catch(() => {});
+    } else {
+      stopLocationTracking();
+      DeliveryOverlay.stopOverlay().catch(() => {});
+    }
     setOnline(value);
     localStorage.setItem(`driver_is_online_${user.id}`, String(value));
 
@@ -123,7 +130,10 @@ export function DriverHeader() {
       .eq("user_id", user.id);
 
     if (error) {
-      if (value) stopLocationTracking();
+      if (value) {
+        stopLocationTracking();
+        DeliveryOverlay.stopOverlay().catch(() => {});
+      }
       console.error("Status update error:", error);
       toast.error("Erro: " + error.message);
       setOnline(!value);
