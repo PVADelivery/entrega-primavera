@@ -38,7 +38,7 @@ export function NewDeliveryPopupModal() {
             // Tocar som de chamada de entrega em loop enquanto o modal estiver aberto
             try {
               stopPopupAudio();
-              const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+              const audio = new Audio("/ring.mp3");
               audio.volume = 1.0;
               audio.loop = true;
               audioRef.current = audio;

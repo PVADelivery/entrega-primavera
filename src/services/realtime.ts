@@ -73,7 +73,7 @@ export function useDriverRealtime() {
           const newDel = payload.new as any;
           if (newDel.status === "pending" || newDel.status === "broadcasted") {
             // Play sound unconditionally on new delivery offer
-            const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3");
+            const audio = new Audio("/ring.mp3");
             audio.volume = 1.0;
             audio.play().catch(e => console.warn("Erro ao tocar áudio:", e));
 
