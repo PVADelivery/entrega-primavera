@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverShell } from "@/components/driver/DriverShell";
@@ -8,11 +8,13 @@ import { DriverHeader } from "@/components/driver/Header";
 import { DeliveryDetailsSheet } from "@/components/driver/DeliveryDetailsSheet";
 import { acceptDeliveryLocally } from "@/hooks/useDriverNotifications";
 import { DeliveryCard } from "@/components/driver/DeliveryCard";
+import { BatchDeliveryCard } from "@/components/driver/BatchDeliveryCard";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import {
   acceptDelivery,
+  acceptBatchDelivery,
   ensureDriverRow,
   fetchAvailableDeliveries,
   fetchEarnings,
@@ -55,14 +57,6 @@ function DriverHome() {
 
   const safeServices = Array.isArray(driverServiceTypes) ? driverServiceTypes : [];
 
-  const isDeliveryDriver = 
-    safeServices.length === 0 ||
-    safeServices.includes("delivery_moto") || 
-    safeServices.includes("delivery_car") ||
-    safeServices.includes("delivery_carro_aberto") ||
-    safeServices.includes("moto") ||
-    safeServices.includes("carro");
-
   const available = useQuery({
     queryKey: ["deliveries", "available"],
     queryFn: async () => {
@@ -73,6 +67,39 @@ function DriverHome() {
     refetchInterval: 5000,
     staleTime: 3000,
   });
+
+  // Agrupamento de entregas pendentes por batch_id
+  const groupedAvailable = useMemo(() => {
+    if (!available.data || available.data.length === 0) return [];
+
+    const batchMap = new Map<string, any[]>();
+    const singles: any[] = [];
+
+    available.data.forEach((d: any) => {
+      if (d.batch_id) {
+        if (!batchMap.has(d.batch_id)) {
+          batchMap.set(d.batch_id, []);
+        }
+        batchMap.get(d.batch_id)!.push(d);
+      } else {
+        singles.push(d);
+      }
+    });
+
+    const result: Array<{ type: "batch"; batchId: string; deliveries: any[] } | { type: "single"; delivery: any }> = [];
+
+    batchMap.forEach((deliveries, batchId) => {
+      if (deliveries.length > 1) {
+        result.push({ type: "batch", batchId, deliveries });
+      } else {
+        deliveries.forEach((d) => result.push({ type: "single", delivery: d }));
+      }
+    });
+
+    singles.forEach((d) => result.push({ type: "single", delivery: d }));
+
+    return result;
+  }, [available.data]);
 
   const active = useQuery({
     queryKey: ["deliveries", "active", driverId],
@@ -172,6 +199,24 @@ function DriverHome() {
     } catch (err: any) {
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
       toast.error(`Erro ao aceitar entrega: ${err?.message || JSON.stringify(err)}`);
+    } finally {
+      acceptingDeliveryRef.current = false;
+      setPending(null);
+    }
+  }
+
+  async function handleAcceptBatch(batchId: string) {
+    if (acceptingDeliveryRef.current) return;
+    acceptingDeliveryRef.current = true;
+    setPending(batchId);
+    try {
+      const targetDriverId = await getEffectiveDriverId();
+      await acceptBatchDelivery(batchId, targetDriverId);
+      toast.success("Lote de entregas aceito com sucesso!");
+      await qc.invalidateQueries({ queryKey: ["deliveries"] });
+    } catch (err: any) {
+      await qc.invalidateQueries({ queryKey: ["deliveries"] });
+      toast.error(`Erro ao aceitar lote: ${err?.message || JSON.stringify(err)}`);
     } finally {
       acceptingDeliveryRef.current = false;
       setPending(null);
@@ -302,8 +347,6 @@ function DriverHome() {
         </div>
       </section>
 
-
-
       {/* Corridas de Táxi/Moto Táxi em Andamento */}
       {mode === "ride" && activeRides.data && activeRides.data.length > 0 && (
         <section className="mt-8 px-4">
@@ -383,7 +426,7 @@ function DriverHome() {
         <section className="mt-8 px-4">
           <SectionTitle
             title="Entregas disponíveis"
-            badge={available.data?.length ? `${available.data.length} nova${available.data.length > 1 ? "s" : ""}` : undefined}
+            badge={groupedAvailable.length ? `${groupedAvailable.length} disponível${groupedAvailable.length > 1 ? "s" : ""}` : undefined}
           />
           <div className="mt-3">
             {available.isLoading ? (
@@ -391,7 +434,7 @@ function DriverHome() {
                 <Skeleton className="h-32 rounded-2xl" />
                 <Skeleton className="h-32 rounded-2xl" />
               </div>
-            ) : !available.data?.length ? (
+            ) : !groupedAvailable.length ? (
               <Card className="rounded-2xl border-dashed border-border/60 bg-card/40 p-8 text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
                   <Package2 className="h-5 w-5 text-muted-foreground" />
@@ -404,15 +447,28 @@ function DriverHome() {
                 </p>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {available.data.map((d) => (
-                  <DeliveryCard
-                    key={d.id}
-                    delivery={d}
-                    onAccept={() => handleAccept(d.id)}
-                    pending={pending === d.id}
-                  />
-                ))}
+              <div className="space-y-4">
+                {groupedAvailable.map((item) => {
+                  if (item.type === "batch") {
+                    return (
+                      <BatchDeliveryCard
+                        key={item.batchId}
+                        batchId={item.batchId}
+                        deliveries={item.deliveries}
+                        onAcceptBatch={handleAcceptBatch}
+                        pending={pending === item.batchId}
+                      />
+                    );
+                  }
+                  return (
+                    <DeliveryCard
+                      key={item.delivery.id}
+                      delivery={item.delivery}
+                      onAccept={() => handleAccept(item.delivery.id)}
+                      pending={pending === item.delivery.id}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>

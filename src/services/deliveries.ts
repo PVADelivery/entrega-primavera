@@ -648,19 +648,49 @@ export async function acceptDelivery(deliveryId: string, _driverId?: string) {
       throw new Error(
         messages[result?.error] ||
           result?.message ||
-          "Não foi possível aceitar a entrega.",
+          "Não foi possível aceitar a entrega."
       );
     }
-
-    return result;
   })();
 
   inFlightAccepts.set(deliveryId, run);
   try {
-    return await run;
+    await run;
   } finally {
     inFlightAccepts.delete(deliveryId);
   }
+}
+
+export async function acceptBatchDelivery(batchId: string, driverId?: string) {
+  if (!batchId) return;
+
+  const { data, error } = await supabase.rpc("accept_delivery_batch" as any, {
+    p_batch_id: batchId,
+    p_driver_id: driverId || null,
+  });
+
+  if (error) {
+    console.warn("[acceptBatchDelivery] RPC fallback via update:", error.message);
+    const { error: updateErr } = await supabase
+      .from("deliveries")
+      .update({
+        status: "accepted",
+        driver_id: driverId || null,
+        accepted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("batch_id", batchId)
+      .in("status", ["pending", "broadcasted"]);
+
+    if (updateErr) throw new Error(updateErr.message || "Erro ao aceitar lote de entregas.");
+    return { success: true };
+  }
+
+  const result = data as any;
+  if (result && result.success === false) {
+    throw new Error(result.message || "Este lote não está mais disponível para aceite.");
+  }
+  return result;
 }
 
 const nextStatus: Record<string, string> = {
