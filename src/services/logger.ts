@@ -43,7 +43,8 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
     msg.includes("categoria não habilitada") ||
     msg.includes("não habilitada pelo administrador") ||
     msg.includes("categoria nao habilitada") ||
-    msg.includes("nao habilitada pelo administrador");
+    msg.includes("nao habilitada pelo administrador") ||
+    msg.includes("minified react error");
 
   if (isIgnored) return;
 
