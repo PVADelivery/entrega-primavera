@@ -140,7 +140,19 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
             </p>
             <p className="text-sm font-bold text-amber-400">
               {Number((delivery as any).order_value || 0) > 0
-                ? `R$ ${Number((delivery as any).order_value).toFixed(2)}`
+                ? `R$ ${Number((delivery as any).order_value).toFixed(2)} (${
+                    delivery.payment_method === "convenio"
+                      ? "Convênio"
+                      : delivery.payment_method === "cartao" || delivery.payment_method === "maquininha"
+                      ? "Cartão"
+                      : delivery.payment_method === "pix"
+                      ? "PIX"
+                      : delivery.payment_method === "dinheiro"
+                      ? "Dinheiro"
+                      : delivery.payment_method || "Dinheiro"
+                  })`
+                : delivery.payment_method === "convenio"
+                ? "Convênio / R$ 0,00"
                 : "Já pago / R$ 0,00"}
             </p>
           </div>
