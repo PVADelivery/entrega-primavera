@@ -275,13 +275,41 @@ export function useDriverNotifications() {
       const dVehicle = String(rawDelivery?.vehicle_type || "moto").toLowerCase();
       const isCarDelivery = ["carro", "car", "carro_aberto"].includes(dVehicle);
       if (isCarDelivery) {
-        const info = driverVehicleInfoRef.current;
-        const vType = String(info?.vehicle_type || info?.vehicle || "moto").toLowerCase();
-        const services = Array.isArray(info?.service_types) ? info.service_types : [];
-        const canDoCar =
-          ["carro", "car", "carro_aberto", "van", "truck"].includes(vType) ||
+        let info = driverVehicleInfoRef.current;
+        let vType = String(info?.vehicle_type || info?.vehicle || "moto").toLowerCase();
+        let services = Array.isArray(info?.service_types) ? info.service_types : [];
+        let canDoCar =
+          vType.includes("car") ||
+          vType.includes("carro") ||
+          ["van", "truck"].includes(vType) ||
           services.includes("delivery_car") ||
           services.includes("delivery_carro_aberto");
+
+        if (!canDoCar && user?.id) {
+          try {
+            const { data: drvRow } = await supabase
+              .from("delivery_drivers")
+              .select("vehicle, vehicle_type, service_types")
+              .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+              .maybeSingle();
+
+            if (drvRow) {
+              driverVehicleInfoRef.current = {
+                vehicle_type: (drvRow as any).vehicle_type,
+                vehicle: (drvRow as any).vehicle,
+                service_types: (drvRow as any).service_types,
+              };
+              vType = String((drvRow as any).vehicle_type || (drvRow as any).vehicle || "moto").toLowerCase();
+              services = Array.isArray((drvRow as any).service_types) ? (drvRow as any).service_types : [];
+              canDoCar =
+                vType.includes("car") ||
+                vType.includes("carro") ||
+                ["van", "truck"].includes(vType) ||
+                services.includes("delivery_car") ||
+                services.includes("delivery_carro_aberto");
+            }
+          } catch (e) {}
+        }
 
         if (!canDoCar) return;
       }
@@ -575,7 +603,7 @@ export function useDriverNotifications() {
         }
       };
 
-      const intervalId = setInterval(pollDeliveries, 10000);
+      const intervalId = setInterval(pollDeliveries, 3000);
 
       if (Capacitor.isNativePlatform()) {
         appStateListener = await App.addListener("appStateChange", ({ isActive }) => {
