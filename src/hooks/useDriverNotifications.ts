@@ -70,7 +70,9 @@ export function useDriverNotifications() {
   const { user } = useAuth();
   const { playAlert, stopAlert, unlockAudio } = useAudioAlert();
 
-  const permissionRef = useRef<NotificationPermission>("default");
+  const permissionRef = useRef<NotificationPermission>(
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "default"
+  );
   const channelsRef = useRef<any[]>([]);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const isOnlineRef = useRef<boolean>(false);
@@ -79,6 +81,17 @@ export function useDriverNotifications() {
 
   // ── Permissões e registro FCM
   useEffect(() => {
+    // 0. Permissão para Web Browsers (Chrome, Edge, Firefox, Safari)
+    if (!Capacitor.isNativePlatform() && typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((perm) => {
+          permissionRef.current = perm;
+        }).catch(() => {});
+      } else {
+        permissionRef.current = Notification.permission;
+      }
+    }
+
     // 1. Notificações locais do dispositivo (se suportado nativamente)
     if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
       try {
@@ -345,10 +358,42 @@ export function useDriverNotifications() {
             },
           ],
         }).catch((e) => console.warn("[LocalNotifications] erro:", e));
-      } else if (permissionRef.current === "granted") {
-        try {
-          new Notification(title, { body: description, icon: "/favicon-v3.png", tag: `delivery-${delivery.id}` });
-        } catch {}
+      } else if (!Capacitor.isNativePlatform() && typeof window !== "undefined" && "Notification" in window) {
+        const currentPerm = Notification.permission || permissionRef.current;
+        if (currentPerm === "granted") {
+          try {
+            const notif = new Notification(title, {
+              body: description,
+              icon: "/favicon-v3.png",
+              tag: `delivery-${delivery.id}`,
+              requireInteraction: true,
+            });
+            notif.onclick = () => {
+              window.focus();
+              window.location.href = `/driver?deliveryId=${delivery.id}`;
+            };
+          } catch (e) {
+            console.warn("[WebNotification] Erro ao criar notificação:", e);
+          }
+        } else if (currentPerm === "default") {
+          Notification.requestPermission().then((perm) => {
+            permissionRef.current = perm;
+            if (perm === "granted") {
+              try {
+                const notif = new Notification(title, {
+                  body: description,
+                  icon: "/favicon-v3.png",
+                  tag: `delivery-${delivery.id}`,
+                  requireInteraction: true,
+                });
+                notif.onclick = () => {
+                  window.focus();
+                  window.location.href = `/driver?deliveryId=${delivery.id}`;
+                };
+              } catch (e) {}
+            }
+          }).catch(() => {});
+        }
       }
     };
 

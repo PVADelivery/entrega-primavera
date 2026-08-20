@@ -114,6 +114,9 @@ export function DriverHeader() {
   async function toggle(value: boolean) {
     if (!user) return;
     if (value) {
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
       startLocationTracking();
       DeliveryOverlay.requestOverlayPermission().catch(() => {});
       DeliveryOverlay.startOverlay().catch(() => {});
