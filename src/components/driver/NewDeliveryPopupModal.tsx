@@ -177,9 +177,16 @@ export function NewDeliveryPopupModal() {
           </div>
 
           {/* Título Principal */}
-          <h2 className="text-2xl font-black tracking-tight text-white">
-            Nova Corrida Disponível!
-          </h2>
+          <div className="space-y-1">
+            {activeDelivery.delivery_type === "BUSCA_CONDICIONAL" && (
+              <span className="inline-block px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 font-black text-xs uppercase tracking-wider border border-purple-500/40 mb-1">
+                👗 BUSCA DE CONDICIONAL
+              </span>
+            )}
+            <h2 className="text-2xl font-black tracking-tight text-white">
+              {activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? "Nova Busca de Condicional!" : "Nova Corrida Disponível!"}
+            </h2>
+          </div>
 
           {/* Nome da Loja */}
           <p className="text-lg font-black text-slate-300 uppercase tracking-wide">
@@ -188,14 +195,14 @@ export function NewDeliveryPopupModal() {
 
           {/* Coleta */}
           <div className="text-sm text-slate-300 font-medium leading-tight max-w-[280px]">
-            <span className="font-semibold text-slate-400">Coleta: </span>
-            {activeDelivery.pickup_address || "Endereço da Loja"}
+            <span className="font-bold text-amber-400">📍 1º Coleta ({activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? "Cliente" : "Loja"}): </span>
+            {activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? (activeDelivery.address || "Endereço do Cliente") : (activeDelivery.pickup_address || "Endereço da Loja")}
           </div>
 
           {/* Entrega */}
           <div className="text-sm text-slate-300 font-medium leading-tight max-w-[280px]">
-            <span className="font-semibold text-slate-400">Entrega: </span>
-            {activeDelivery.address || "Endereço do Cliente"}
+            <span className="font-bold text-emerald-400">📍 2º Entrega ({activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? "Loja" : "Cliente"}): </span>
+            {activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? (activeDelivery.pickup_address || activeDelivery.storeName || "Endereço da Loja") : (activeDelivery.address || "Endereço do Cliente")}
           </div>
 
           {/* Ganhos */}

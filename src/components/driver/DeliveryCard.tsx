@@ -13,15 +13,23 @@ interface Props {
   pending?: boolean;
 }
 
-const nextLabels: Record<string, string> = {
+const normalNextLabels: Record<string, string> = {
   accepted: "Cheguei na loja",
   collecting: "Coletado, indo entregar",
   in_route: "Concluir entrega",
   in_transit: "Concluir entrega",
 };
 
+const condicionalNextLabels: Record<string, string> = {
+  accepted: "Cheguei no cliente",
+  collecting: "Confirmar Coleta no cliente",
+  in_route: "Confirmar Entrega na loja",
+  in_transit: "Confirmar Entrega na loja",
+};
+
 export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending }: Props) {
-  const next = nextLabels[delivery.status];
+  const isBuscaCondicional = (delivery as any).delivery_type === "BUSCA_CONDICIONAL";
+  const next = isBuscaCondicional ? condicionalNextLabels[delivery.status] : normalNextLabels[delivery.status];
   const displayStoreName = delivery.company_name?.trim() || delivery.companies?.name?.trim() || "Loja não vinculada";
 
   // Formatação do link do WhatsApp do cliente
@@ -32,15 +40,20 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
 
   return (
     <Card className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-0 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-elegant)]">
-      {/* gold accent line */}
+      {/* gold/purple accent line */}
       <span
         className="absolute inset-y-0 left-0 w-[3px]"
-        style={{ background: "var(--gradient-gold)" }}
+        style={{ background: isBuscaCondicional ? "#a855f7" : "var(--gradient-gold)" }}
         aria-hidden
       />
       <div className="p-4 pl-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
+            {isBuscaCondicional && (
+              <div className="mb-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-black text-[10px] uppercase tracking-wider border border-purple-500/40">
+                👗 BUSCA DE CONDICIONAL (Cliente → Loja)
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <p className="truncate font-display text-base font-bold tracking-tight text-amber-400">
                 {displayStoreName}
@@ -58,7 +71,18 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               )}
             </div>
 
-            {delivery.pickup_address ? (
+            {isBuscaCondicional ? (
+              <div className="space-y-1 mt-1.5 bg-purple-500/5 p-2 rounded-xl border border-purple-500/20">
+                <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  <span className="line-clamp-2"><strong className="text-amber-300 font-bold">1º Buscar em (Cliente):</strong> <span>{delivery.address}</span></span>
+                </p>
+                <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <span className="line-clamp-2"><strong className="text-emerald-300 font-bold">2º Levar para (Loja):</strong> <span>{delivery.pickup_address || displayStoreName}</span></span>
+                </p>
+              </div>
+            ) : delivery.pickup_address ? (
               <div className="space-y-1 mt-1.5">
                 <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
@@ -66,7 +90,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 </p>
                 <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                  <span className="line-clamp-2"><strong className="text-foreground">Entrega:</strong> <span>{delivery.address}</span></span>
+                  <span className="line-clamp-2"><strong className="text-foreground">Entrega (Cliente):</strong> <span>{delivery.address}</span></span>
                 </p>
               </div>
             ) : (
