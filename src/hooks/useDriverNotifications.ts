@@ -269,8 +269,8 @@ export function useDriverNotifications() {
     window.addEventListener("delivery-accepted", handleAcceptEvent);
 
     const notifyNewDelivery = async (rawDelivery: any) => {
-      if (!rawDelivery?.id) return;
-      if (!isOnlineRef.current) return;
+      const isOnlineNow = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
+      if (!isOnlineNow) return;
 
       const dVehicle = String(rawDelivery?.vehicle_type || "moto").toLowerCase();
       const isCarDelivery = ["carro", "car", "carro_aberto"].includes(dVehicle);
@@ -567,7 +567,8 @@ export function useDriverNotifications() {
       }
 
       // Seed inicial
-      if (isOnlineRef.current) {
+      const isOnlineNow = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
+      if (isOnlineNow) {
         try {
           const { data: initial } = await supabase
             .from("deliveries")
@@ -582,9 +583,10 @@ export function useDriverNotifications() {
         }
       }
 
-      // Polling a cada 10s
+      // Polling a cada 3s
       const pollDeliveries = async () => {
-        if (cancelled || !isOnlineRef.current) return;
+        const isNowOnline = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
+        if (cancelled || !isNowOnline) return;
         try {
           const { data } = await supabase
             .from("deliveries")
