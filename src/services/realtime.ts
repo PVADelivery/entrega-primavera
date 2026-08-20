@@ -64,41 +64,46 @@ export function useDriverRealtime() {
   const qc = useQueryClient();
 
   useEffect(() => {
+    const notifyAvailableDelivery = (newDel: any) => {
+      if ((newDel.status === "pending" || newDel.status === "broadcasted") && !newDel.driver_id) {
+        // Play sound unconditionally on new or returned delivery offer
+        const audio = new Audio("/ring.mp3");
+        audio.volume = 1.0;
+        audio.play().catch(e => console.warn("Erro ao tocar áudio:", e));
+
+        // Trigger System/Browser Push Notification for Lock Screen & Background
+        if ("Notification" in window && Notification.permission === "granted") {
+          const val = newDel.value ? `R$ ${Number(newDel.value).toFixed(2)}` : "";
+          const storeName = newDel.company_name || newDel.companies?.name || "Loja Parceira";
+          const notification = new Notification("🛵 Nova Entrega Disponível!", {
+            body: `Loja: ${storeName}\nLocal de Retirada: ${newDel.pickup_address || "Loja"}\nValor do Pedido: ${val}`,
+            icon: "/favicon-v3.png",
+            tag: `delivery-${newDel.id}`,
+            requireInteraction: true
+          });
+          notification.onclick = () => {
+            window.focus();
+          };
+        }
+      }
+      qc.invalidateQueries({ queryKey: ["deliveries"] });
+    };
+
     const channel = supabase
       .channel(`driver-deliveries-${Math.random()}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "deliveries" },
         (payload) => {
-          const newDel = payload.new as any;
-          if (newDel.status === "pending" || newDel.status === "broadcasted") {
-            // Play sound unconditionally on new delivery offer
-            const audio = new Audio("/ring.mp3");
-            audio.volume = 1.0;
-            audio.play().catch(e => console.warn("Erro ao tocar áudio:", e));
-
-            // Trigger System/Browser Push Notification for Lock Screen & Background
-            if ("Notification" in window && Notification.permission === "granted") {
-              const val = newDel.value ? `R$ ${Number(newDel.value).toFixed(2)}` : "";
-              const storeName = newDel.company_name || newDel.companies?.name || "Loja Parceira";
-              const notification = new Notification("🛵 Nova Entrega Disponível!", {
-                body: `Loja: ${storeName}\nLocal de Retirada: ${newDel.pickup_address || "Loja"}\nValor do Pedido: ${val}`,
-                icon: "/favicon-v3.png",
-                tag: `delivery-${newDel.id}`,
-                requireInteraction: true
-              });
-              notification.onclick = () => {
-                window.focus();
-              };
-            }
-          }
-          qc.invalidateQueries({ queryKey: ["deliveries"] });
+          notifyAvailableDelivery(payload.new);
         }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "deliveries" },
-        () => qc.invalidateQueries({ queryKey: ["deliveries"] })
+        (payload) => {
+          notifyAvailableDelivery(payload.new);
+        }
       )
       .subscribe();
 

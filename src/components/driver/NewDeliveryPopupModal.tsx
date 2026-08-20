@@ -22,63 +22,66 @@ export function NewDeliveryPopupModal() {
     } catch {}
   };
 
+  const triggerOffer = async (newDel: any) => {
+    if ((newDel.status === "pending" || newDel.status === "broadcasted") && !newDel.driver_id) {
+      const declined = getDeclinedDeliveries();
+      if (declined.has(newDel.id)) return;
+
+      // Tocar som de chamada de entrega em loop enquanto o modal estiver aberto
+      try {
+        stopPopupAudio();
+        const audio = new Audio("/ring.mp3");
+        audio.volume = 1.0;
+        audio.loop = true;
+        audioRef.current = audio;
+        audio.play().catch(() => {});
+      } catch (e) {}
+
+      // Buscar nome real da loja e endereço de coleta incondicionalmente na tabela companies
+      let storeName = newDel.company_name;
+      let pickupAddress = newDel.pickup_address;
+
+      if (newDel.company_id) {
+        const { data: comp } = await supabase
+          .from("companies")
+          .select("name, address")
+          .eq("id", newDel.company_id)
+          .maybeSingle();
+        if (comp?.name) storeName = comp.name;
+        if (comp?.address) pickupAddress = comp.address;
+      }
+
+      if (!storeName || storeName === "Empresa Parceira" || storeName === "EMPRESA PARCEIRA" || storeName === "Loja Parceira") {
+        const { data: lastComp } = await supabase
+          .from("companies")
+          .select("name, address")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastComp?.name) {
+          storeName = lastComp.name;
+          if (!pickupAddress) pickupAddress = lastComp.address;
+        }
+      }
+
+      setActiveDelivery({
+        ...newDel,
+        pickup_address: pickupAddress || newDel.pickup_address,
+        storeName: (storeName || "Loja Parceira").toUpperCase()
+      });
+    }
+  };
+
   useEffect(() => {
-    // Escuta novas solicitações de entrega em tempo real
+    // Escuta novas solicitações e entregas devolvidas em tempo real
     const channel = supabase
       .channel(`popup-delivery-epraja-${Math.random().toString(36).substring(2, 9)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "deliveries" },
-        async (payload) => {
-          const newDel = payload.new as any;
-          if (newDel.status === "pending" || newDel.status === "broadcasted") {
-            const declined = getDeclinedDeliveries();
-            if (declined.has(newDel.id)) return;
-
-            // Tocar som de chamada de entrega em loop enquanto o modal estiver aberto
-            try {
-              stopPopupAudio();
-              const audio = new Audio("/ring.mp3");
-              audio.volume = 1.0;
-              audio.loop = true;
-              audioRef.current = audio;
-              audio.play().catch(() => {});
-            } catch (e) {}
-
-            // Buscar nome real da loja e endereço de coleta incondicionalmente na tabela companies
-            let storeName = newDel.company_name;
-            let pickupAddress = newDel.pickup_address;
-
-            if (newDel.company_id) {
-              const { data: comp } = await supabase
-                .from("companies")
-                .select("name, address")
-                .eq("id", newDel.company_id)
-                .maybeSingle();
-              if (comp?.name) storeName = comp.name;
-              if (comp?.address) pickupAddress = comp.address;
-            }
-
-            if (!storeName || storeName === "Empresa Parceira" || storeName === "EMPRESA PARCEIRA" || storeName === "Loja Parceira") {
-              const { data: lastComp } = await supabase
-                .from("companies")
-                .select("name, address")
-                .eq("is_active", true)
-                .order("created_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              if (lastComp?.name) {
-                storeName = lastComp.name;
-                if (!pickupAddress) pickupAddress = lastComp.address;
-              }
-            }
-
-            setActiveDelivery({
-              ...newDel,
-              pickup_address: pickupAddress || newDel.pickup_address,
-              storeName: (storeName || "Loja Parceira").toUpperCase()
-            });
-          }
+        (payload) => {
+          triggerOffer(payload.new);
         }
       )
       .on(
@@ -86,8 +89,12 @@ export function NewDeliveryPopupModal() {
         { event: "UPDATE", schema: "public", table: "deliveries" },
         (payload) => {
           const updated = payload.new as any;
-          // Se outro motoboy aceitou ou foi cancelada, encerra o modal imediatamente
-          if (activeDelivery && updated.id === activeDelivery.id && updated.status !== "pending" && updated.status !== "broadcasted") {
+
+          // Se a entrega foi devolvida ou reaberta (status voltou para pending/broadcasted e sem motorista)
+          if ((updated.status === "pending" || updated.status === "broadcasted") && !updated.driver_id) {
+            triggerOffer(updated);
+          } else if (activeDelivery && updated.id === activeDelivery.id && updated.status !== "pending" && updated.status !== "broadcasted") {
+            // Se outro motoboy aceitou ou foi cancelada, encerra o modal imediatamente
             stopPopupAudio();
             setActiveDelivery(null);
           }

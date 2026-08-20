@@ -536,15 +536,11 @@ export function useDriverNotifications() {
             const d = payload.new as any;
             const o = payload.old as any;
 
-            if (
-              (o?.status === "pending" || o?.status === "broadcasted") &&
-              d?.status !== "pending" && d?.status !== "broadcasted"
-            ) {
+            if (d?.status !== "pending" && d?.status !== "broadcasted") {
               stopRingingFor(d.id);
             }
 
             if (
-              o?.status && o.status !== "pending" && o.status !== "broadcasted" &&
               (d?.status === "pending" || d?.status === "broadcasted") && !d?.driver_id
             ) {
               if (isOnlineRef.current) {
