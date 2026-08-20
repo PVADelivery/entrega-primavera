@@ -54,6 +54,11 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
                 👗 BUSCA DE CONDICIONAL (Cliente → Loja)
               </div>
             )}
+            {["carro", "car", "carro_aberto"].includes(String((delivery as any).vehicle_type || "").toLowerCase()) && (
+              <div className="mb-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-black text-[10px] uppercase tracking-wider border border-blue-500/40">
+                🚗 ENTREGA DE CARRO
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <p className="truncate font-display text-base font-bold tracking-tight text-amber-400">
                 {displayStoreName}

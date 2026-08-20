@@ -75,6 +75,7 @@ export function useDriverNotifications() {
   const seenIdsRef = useRef<Set<string>>(new Set());
   const isOnlineRef = useRef<boolean>(false);
   const activeAlertsRef = useRef<Set<string>>(new Set());
+  const driverVehicleInfoRef = useRef<{ vehicle_type?: string; vehicle?: string; service_types?: string[] } | null>(null);
 
   // ── Permissões e registro FCM
   useEffect(() => {
@@ -258,6 +259,20 @@ export function useDriverNotifications() {
       if (!rawDelivery?.id) return;
       if (!isOnlineRef.current) return;
 
+      const dVehicle = String(rawDelivery?.vehicle_type || "moto").toLowerCase();
+      const isCarDelivery = ["carro", "car", "carro_aberto"].includes(dVehicle);
+      if (isCarDelivery) {
+        const info = driverVehicleInfoRef.current;
+        const vType = String(info?.vehicle_type || info?.vehicle || "moto").toLowerCase();
+        const services = Array.isArray(info?.service_types) ? info.service_types : [];
+        const canDoCar =
+          ["carro", "car", "carro_aberto", "van", "truck"].includes(vType) ||
+          services.includes("delivery_car") ||
+          services.includes("delivery_carro_aberto");
+
+        if (!canDoCar) return;
+      }
+
       const declined = getDeclinedDeliveries();
       if (declined.has(rawDelivery.id)) return;
       if (seenIdsRef.current.has(rawDelivery.id)) return;
@@ -353,13 +368,20 @@ export function useDriverNotifications() {
 
       const { data: driverRow } = await supabase
         .from("delivery_drivers")
-        .select("id, is_online")
+        .select("id, is_online, vehicle_type, vehicle, service_types")
         .or(`user_id.eq.${user.id},id.eq.${user.id}`)
         .maybeSingle();
 
       if (cancelled) return;
       const driverId = driverRow?.id || user.id;
       isOnlineRef.current = typeof driverRow?.is_online === "boolean" ? driverRow.is_online : localOnline;
+      if (driverRow) {
+        driverVehicleInfoRef.current = {
+          vehicle_type: (driverRow as any).vehicle_type,
+          vehicle: (driverRow as any).vehicle,
+          service_types: (driverRow as any).service_types,
+        };
+      }
 
       // Salva contexto do driver no Android Native SharedPreferences
       if (Capacitor.isNativePlatform()) {

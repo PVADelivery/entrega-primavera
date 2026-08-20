@@ -519,7 +519,7 @@ export function useDeliveryTracking(orderId?: string | null) {
   return { order, delivery: (order as any)?.deliveries };
 }
 
-export async function fetchAvailableDeliveries() {
+export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: string; vehicle?: string; service_types?: string[] } | null) {
   let { data, error } = await supabase
     .from("deliveries")
     .select("*, companies(name, phone), regions(id, name, price)")
@@ -537,7 +537,28 @@ export async function fetchAvailableDeliveries() {
     if (fb.error) throw fb.error;
     data = fb.data;
   }
-  const resolved = await resolveDeliveryCompanies(data ?? []);
+
+  let list = data ?? [];
+
+  if (driverInfo) {
+    const vType = String(driverInfo.vehicle_type || driverInfo.vehicle || "moto").toLowerCase();
+    const services = Array.isArray(driverInfo.service_types) ? driverInfo.service_types : [];
+    const canDoCar =
+      ["carro", "car", "carro_aberto", "van", "truck"].includes(vType) ||
+      services.includes("delivery_car") ||
+      services.includes("delivery_carro_aberto");
+
+    list = list.filter((d: any) => {
+      const dVehicle = String(d.vehicle_type || "moto").toLowerCase();
+      const isCarDelivery = ["carro", "car", "carro_aberto"].includes(dVehicle);
+      if (isCarDelivery) {
+        return canDoCar;
+      }
+      return true;
+    });
+  }
+
+  const resolved = await resolveDeliveryCompanies(list);
   return resolved.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
 

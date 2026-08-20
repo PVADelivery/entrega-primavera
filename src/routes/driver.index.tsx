@@ -39,6 +39,7 @@ function DriverHome() {
   useDriverNotifications();
   const [driverId, setDriverId] = useState<string | null>(null);
   const [driverServiceTypes, setDriverServiceTypes] = useState<string[]>([]);
+  const [driverInfo, setDriverInfo] = useState<{ vehicle_type?: string; vehicle?: string; service_types?: string[] } | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [pendingRide, setPendingRide] = useState<string | null>(null);
   const acceptingDeliveryRef = useRef(false);
@@ -48,8 +49,11 @@ function DriverHome() {
     // Tenta obter o ID do motorista ou assume o user.id da sessão
     ensureDriverRow(user.id).then(async (id) => {
       setDriverId(id);
-      const { data } = await supabase.from("delivery_drivers").select("service_types").eq("user_id", user.id).maybeSingle();
-      if ((data as any)?.service_types) setDriverServiceTypes((data as any).service_types);
+      const { data } = await supabase.from("delivery_drivers").select("vehicle_type, vehicle, service_types").or(`user_id.eq.${user.id},id.eq.${id}`).maybeSingle();
+      if (data) {
+        if ((data as any).service_types) setDriverServiceTypes((data as any).service_types);
+        setDriverInfo(data as any);
+      }
     }).catch(() => {
       setDriverId(user.id);
     });
@@ -58,9 +62,9 @@ function DriverHome() {
   const safeServices = Array.isArray(driverServiceTypes) ? driverServiceTypes : [];
 
   const available = useQuery({
-    queryKey: ["deliveries", "available"],
+    queryKey: ["deliveries", "available", driverInfo],
     queryFn: async () => {
-      const raw = await fetchAvailableDeliveries();
+      const raw = await fetchAvailableDeliveries(driverInfo);
       return raw ?? [];
     },
     enabled: mode === "delivery",
