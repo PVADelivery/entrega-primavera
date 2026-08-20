@@ -269,8 +269,19 @@ function ProfilePage() {
 
   async function handleDeleteAccount() {
     if (!user) return;
-    toast.success("Solicitacao enviada. A conta sera removida pelo administrador.");
-    await signOut(); navigate({ to: "/login" });
+    try {
+      const { error } = await supabase.rpc("delete_driver_account", { p_user_id: user.id });
+      if (error) {
+        console.warn("[handleDeleteAccount] RPC warning, limpando tabelas locais:", error.message);
+        await supabase.from("delivery_drivers").delete().eq("user_id", user.id);
+        await supabase.from("profiles").delete().eq("user_id", user.id);
+      }
+      toast.success("Conta excluída com sucesso.");
+      await signOut();
+      navigate({ to: "/login" });
+    } catch (err: any) {
+      toast.error("Erro ao excluir conta: " + (err.message || "Tente novamente."));
+    }
   }
 
   return (
