@@ -5,13 +5,10 @@ const ALERT_SOUND_URL = "/ring.mp3";
 
 let globalAudio: HTMLAudioElement | null = null;
 let audioCtx: AudioContext | null = null;
+let isAlertActiveGlobal = false;
 
 const getAudioContext = (): AudioContext | null => {
   if (typeof window === "undefined") return null;
-  // Só instancia o AudioContext se o usuário já tiver interagido com a página
-  if (!navigator.userActivation?.hasBeenActive && typeof (window as any).isUserActive === "undefined") {
-    return null;
-  }
   if (!audioCtx) {
     const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
     if (AudioCtxClass) {
@@ -30,6 +27,7 @@ const canUseBrowserVibration = () =>
 if (typeof window !== "undefined") {
   try {
     globalAudio = new Audio(ALERT_SOUND_URL);
+    globalAudio.preload = "auto";
     globalAudio.load();
   } catch (e) {
     console.warn("[AudioAlert] Erro ao instanciar HTMLAudioElement:", e);
@@ -41,13 +39,19 @@ if (typeof window !== "undefined") {
       if (ctx && ctx.state === "suspended") {
         ctx.resume().catch(() => {});
       }
-      if (globalAudio) {
+      // NUNCA pausar se o áudio de notificação já estiver tocando!
+      if (globalAudio && globalAudio.paused && !isAlertActiveGlobal) {
         const origVol = globalAudio.volume;
-        globalAudio.volume = 0;
-        globalAudio.play().then(() => {
-          globalAudio?.pause();
-          if (globalAudio) globalAudio.volume = origVol;
-        }).catch(() => {});
+        globalAudio.volume = 0.001;
+        const p = globalAudio.play();
+        if (p !== undefined) {
+          p.then(() => {
+            if (!isAlertActiveGlobal && globalAudio) {
+              globalAudio.pause();
+              globalAudio.volume = origVol || 1.0;
+            }
+          }).catch(() => {});
+        }
       }
     } catch {}
   };
@@ -67,16 +71,6 @@ export function useAudioAlert() {
   const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const unlockAudio = useCallback(() => {
-    if (globalAudio) {
-      const originalVolume = globalAudio.volume;
-      globalAudio.volume = 0;
-      globalAudio.play()
-        .then(() => {
-          globalAudio?.pause();
-          if (globalAudio) globalAudio.volume = originalVolume;
-        })
-        .catch(() => {});
-    }
     const ctx = getAudioContext();
     if (ctx && ctx.state === "suspended") {
       ctx.resume().catch(() => {});
@@ -84,6 +78,10 @@ export function useAudioAlert() {
   }, []);
 
   const stopAlert = useCallback(() => {
+    isAlertActiveGlobal = false;
+    playingRef.current = false;
+    setIsPlaying(false);
+
     if (globalAudio) {
       try {
         globalAudio.pause();
@@ -97,8 +95,6 @@ export function useAudioAlert() {
       clearTimeout(timeoutIdRef.current);
       timeoutIdRef.current = null;
     }
-    playingRef.current = false;
-    setIsPlaying(false);
 
     if (typeof navigator !== "undefined" && "vibrate" in navigator && canUseBrowserVibration()) {
       try {
@@ -107,22 +103,33 @@ export function useAudioAlert() {
     }
   }, []);
 
-  const playAlert = useCallback((loop = false) => {
-    if (playingRef.current) {
-      stopAlert();
-    }
-
+  const playAlert = useCallback((loop = true) => {
+    isAlertActiveGlobal = true;
     playingRef.current = true;
     setIsPlaying(true);
 
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
     if (globalAudio) {
       try {
-        globalAudio.currentTime = 0;
-        globalAudio.loop = loop;
         globalAudio.volume = 1.0;
-        globalAudio.play().catch((err) => {
-          console.warn("[AudioAlert] Autoplay impedido pelo navegador:", err);
-        });
+        globalAudio.loop = loop;
+
+        // Se já estiver tocando e não estiver pausado, garante que continua tocando o áudio completo!
+        if (!globalAudio.paused && globalAudio.currentTime > 0) {
+          return;
+        }
+
+        globalAudio.currentTime = 0;
+        const p = globalAudio.play();
+        if (p !== undefined) {
+          p.catch((err) => {
+            console.warn("[AudioAlert] Autoplay impedido pelo navegador:", err);
+          });
+        }
       } catch (e) {
         console.warn("[AudioAlert] Erro ao tocar áudio MP3:", e);
       }
@@ -130,14 +137,15 @@ export function useAudioAlert() {
 
     if (typeof navigator !== "undefined" && "vibrate" in navigator && canUseBrowserVibration()) {
       try {
-        navigator.vibrate([500, 200, 500, 200, 500]);
+        navigator.vibrate([500, 200, 500, 200, 500, 200, 500]);
       } catch {}
     }
 
     if (loop) {
+      if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
       timeoutIdRef.current = setTimeout(() => {
         stopAlert();
-      }, 30_000);
+      }, 60_000); // 60 segundos de reprodução contínua até o entregador aceitar/rejeitar
     }
   }, [stopAlert]);
 
