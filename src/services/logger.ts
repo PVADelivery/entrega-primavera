@@ -37,7 +37,9 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
     msg.includes("not found") ||
     msg.includes("cancelada pelo usuário") ||
     msg.includes("insertbefore") ||
-    msg.includes("removechild");
+    msg.includes("removechild") ||
+    msg.includes("failed to fetch dynamically imported module") ||
+    msg.includes("importing a module script failed");
 
   if (isIgnored) return;
 
@@ -125,6 +127,22 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
 // Global error handlers + Toast error interceptor
 export function initializeGlobalErrorHandlers(appName: string) {
   if (typeof window === "undefined") return;
+
+  // Intercept Vite dynamic chunk import failures to auto-reload fresh code assets
+  try {
+    window.addEventListener("vite:preloadError", (event) => {
+      console.warn("Vite chunk preload error detected, reloading page...", event);
+      window.location.reload();
+    });
+
+    window.addEventListener("error", (e) => {
+      const msgStr = e.message ? e.message.toLowerCase() : "";
+      if (msgStr.includes("failed to fetch dynamically imported module") || msgStr.includes("importing a module script failed")) {
+        console.warn("Dynamic import failed, reloading page...");
+        window.location.reload();
+      }
+    });
+  } catch {}
 
   // 0. Monkeypatch Node.prototype.insertBefore & removeChild for Google Translate / Browser Extension compatibility
   try {
