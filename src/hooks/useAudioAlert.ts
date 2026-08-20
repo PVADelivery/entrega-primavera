@@ -39,8 +39,10 @@ if (typeof window !== "undefined") {
       if (ctx && ctx.state === "suspended") {
         ctx.resume().catch(() => {});
       }
-      // NUNCA pausar se o áudio de notificação já estiver tocando!
-      if (globalAudio && globalAudio.paused && !isAlertActiveGlobal) {
+      // Se o alerta de corrida estiver ativo, NUNCA executa teste de pausa no áudio!
+      if (isAlertActiveGlobal) return;
+
+      if (globalAudio && globalAudio.paused) {
         const origVol = globalAudio.volume;
         globalAudio.volume = 0.001;
         const p = globalAudio.play();
@@ -48,6 +50,7 @@ if (typeof window !== "undefined") {
           p.then(() => {
             if (!isAlertActiveGlobal && globalAudio) {
               globalAudio.pause();
+              globalAudio.currentTime = 0;
               globalAudio.volume = origVol || 1.0;
             }
           }).catch(() => {});
@@ -74,6 +77,13 @@ export function useAudioAlert() {
     const ctx = getAudioContext();
     if (ctx && ctx.state === "suspended") {
       ctx.resume().catch(() => {});
+    }
+    if (globalAudio && isAlertActiveGlobal && globalAudio.paused) {
+      try {
+        globalAudio.volume = 1.0;
+        globalAudio.loop = true;
+        globalAudio.play().catch((e) => console.warn("[AudioAlert] unlockAudio play erro:", e));
+      } catch (e) {}
     }
   }, []);
 
