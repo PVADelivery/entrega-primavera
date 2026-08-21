@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getElapsedSeconds } from "@/utils/time";
 
 /**
  * useAdminRealtime
@@ -100,9 +101,8 @@ export function useDriverRealtime() {
 
       // Regra dos 2 minutos do Admin: se for "pending", verifica se já passaram 120s
       if (isPending && !isBroadcasted && newDel.created_at) {
-        const createdAt = new Date(newDel.created_at).getTime();
-        const elapsedMs = Date.now() - createdAt;
-        if (elapsedMs < 120000) {
+        const elapsedSeconds = getElapsedSeconds(newDel.created_at);
+        if (elapsedSeconds < 120) {
           // Reservado para o Admin direcionar! Não toca áudio nem notifica entregadores gerais ainda.
           qc.invalidateQueries({ queryKey: ["deliveries"] });
           return;

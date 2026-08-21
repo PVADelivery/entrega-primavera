@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { getElapsedSeconds } from "@/utils/time";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { declineDeliveryLocally, acceptDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
 import { acceptDelivery } from "@/services/deliveries";
@@ -31,9 +32,8 @@ export function NewDeliveryPopupModal() {
 
     // Regra dos 2 minutos do Admin: se for "pending", verifica se já passaram os 120 segundos
     if (isPending && !isBroadcasted && newDel.created_at) {
-      const createdAt = new Date(newDel.created_at).getTime();
-      const elapsed = Date.now() - createdAt;
-      if (elapsed < 120000) {
+      const elapsedSeconds = getElapsedSeconds(newDel.created_at);
+      if (elapsedSeconds < 120) {
         // Reservado para o Admin direcionar! Não abre popup nem toca áudio para entregadores ainda.
         return;
       }
@@ -131,9 +131,8 @@ export function NewDeliveryPopupModal() {
           const now = Date.now();
           for (const del of pendings) {
             const isBroadcasted = del.status === "broadcasted";
-            const createdAt = del.created_at ? new Date(del.created_at).getTime() : 0;
-            const elapsed = now - createdAt;
-            if (isBroadcasted || elapsed >= 120000) {
+            const elapsedSeconds = getElapsedSeconds(del.created_at);
+            if (isBroadcasted || elapsedSeconds >= 120) {
               const declined = getDeclinedDeliveries();
               if (!declined.has(del.id)) {
                 triggerOffer(del);

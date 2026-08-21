@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getElapsedSeconds } from "@/utils/time";
 import { getCompanyNames } from "@/lib/companies.functions";
 import { updateDriverDelivery } from "@/lib/driver-deliveries.functions";
 import type { DeliveryStatus } from "@/types/models";
@@ -538,18 +539,11 @@ export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: str
     data = fb.data;
   }
 
-  let list = data ?? [];
-
-  const now = Date.now();
-  // Regra da Janela de Direcionamento do Admin (2 Minutos):
-  // Se a entrega tiver menos de 2 minutos de criação e status "pending", ela fica reservada no Admin.
-  // Após 2 minutos sem direcionamento (ou com status "broadcasted"), ela entra na transmissão geral para todos.
-  list = list.filter((d: any) => {
+  const list = (data ?? []).filter((d: any) => {
     if (d.status === "broadcasted") return true;
     if (!d.created_at) return true;
-    const createdAt = new Date(d.created_at).getTime();
-    const elapsed = now - createdAt;
-    return elapsed >= 120000; // 2 minutos (120.000 ms)
+    const elapsedSeconds = getElapsedSeconds(d.created_at);
+    return elapsedSeconds >= 120; // 2 minutos (120 segundos)
   });
 
   // Exibe todas as entregas disponíveis (moto e carro) para que nenhuma corrida de carro fique oculta no app do entregador

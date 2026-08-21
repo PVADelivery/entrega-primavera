@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getElapsedSeconds } from "@/utils/time";
 
 const NOTIFICATION_SOUND = "/ring.mp3";
 
@@ -22,11 +23,10 @@ export function useRealtimeDeliveries() {
           const d = payload.new as any;
           const isBroadcasted = d.status === "broadcasted";
           const isPending = d.status === "pending";
-          const createdAt = d.created_at ? new Date(d.created_at).getTime() : 0;
-          const elapsed = Date.now() - createdAt;
+          const elapsedSeconds = getElapsedSeconds(d.created_at);
 
           // Se for "pending" e tiver menos de 2 minutos, está reservado no Admin! Não toca som de entrega em geral.
-          if (isPending && !isBroadcasted && elapsed < 120000 && !d.driver_id) {
+          if (isPending && !isBroadcasted && elapsedSeconds < 120 && !d.driver_id) {
             qc.invalidateQueries({ queryKey: ["deliveries"] });
             qc.invalidateQueries({ queryKey: ["delivery-stats"] });
             return;
