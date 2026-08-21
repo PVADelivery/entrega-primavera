@@ -92,36 +92,51 @@ export function useDriverRealtime() {
 
   useEffect(() => {
     const notifyAvailableDelivery = (newDel: any) => {
-      if ((newDel.status === "pending" || newDel.status === "broadcasted") && !newDel.driver_id) {
-        // Play sound unconditionally on new or returned delivery offer using pre-unlocked singleton
-        if (globalAudioSingleton) {
-          try {
-            globalAudioSingleton.currentTime = 0;
-            globalAudioSingleton.volume = 1.0;
-            globalAudioSingleton.play().catch(e => console.warn("Erro ao tocar áudio:", e));
-          } catch (e) {
-            console.warn("Erro ao reproduzir áudio:", e);
-          }
-        } else {
-          const audio = new Audio("/ring.mp3");
-          audio.volume = 1.0;
-          audio.play().catch(e => console.warn("Erro ao tocar áudio:", e));
-        }
+      if (!newDel || newDel.driver_id) return;
+      const isBroadcasted = newDel.status === "broadcasted";
+      const isPending = newDel.status === "pending";
 
-        // Trigger System/Browser Push Notification for Lock Screen & Background
-        if ("Notification" in window && Notification.permission === "granted") {
-          const val = newDel.value ? `R$ ${Number(newDel.value).toFixed(2)}` : "";
-          const storeName = newDel.company_name || newDel.companies?.name || "Loja Parceira";
-          const notification = new Notification("🛵 Nova Entrega Disponível!", {
-            body: `Loja: ${storeName}\nLocal de Retirada: ${newDel.pickup_address || "Loja"}\nValor do Pedido: ${val}`,
-            icon: "/favicon-v3.png",
-            tag: `delivery-${newDel.id}`,
-            requireInteraction: true
-          });
-          notification.onclick = () => {
-            window.focus();
-          };
+      if (!isBroadcasted && !isPending) return;
+
+      // Regra dos 2 minutos do Admin: se for "pending", verifica se já passaram 120s
+      if (isPending && !isBroadcasted && newDel.created_at) {
+        const createdAt = new Date(newDel.created_at).getTime();
+        const elapsedMs = Date.now() - createdAt;
+        if (elapsedMs < 120000) {
+          // Reservado para o Admin direcionar! Não toca áudio nem notifica entregadores gerais ainda.
+          qc.invalidateQueries({ queryKey: ["deliveries"] });
+          return;
         }
+      }
+
+      // Play sound unconditionally on new or returned delivery offer using pre-unlocked singleton
+      if (globalAudioSingleton) {
+        try {
+          globalAudioSingleton.currentTime = 0;
+          globalAudioSingleton.volume = 1.0;
+          globalAudioSingleton.play().catch(e => console.warn("Erro ao tocar áudio:", e));
+        } catch (e) {
+          console.warn("Erro ao reproduzir áudio:", e);
+        }
+      } else {
+        const audio = new Audio("/ring.mp3");
+        audio.volume = 1.0;
+        audio.play().catch(e => console.warn("Erro ao tocar áudio:", e));
+      }
+
+      // Trigger System/Browser Push Notification for Lock Screen & Background
+      if ("Notification" in window && Notification.permission === "granted") {
+        const val = newDel.value ? `R$ ${Number(newDel.value).toFixed(2)}` : "";
+        const storeName = newDel.company_name || newDel.companies?.name || "Loja Parceira";
+        const notification = new Notification("🛵 Nova Entrega Disponível!", {
+          body: `Loja: ${storeName}\nLocal de Retirada: ${newDel.pickup_address || "Loja"}\nValor do Pedido: ${val}`,
+          icon: "/favicon-v3.png",
+          tag: `delivery-${newDel.id}`,
+          requireInteraction: true
+        });
+        notification.onclick = () => {
+          window.focus();
+        };
       }
       qc.invalidateQueries({ queryKey: ["deliveries"] });
     };

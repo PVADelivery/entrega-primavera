@@ -23,54 +23,68 @@ export function NewDeliveryPopupModal() {
   };
 
   const triggerOffer = async (newDel: any) => {
-    if ((newDel.status === "pending" || newDel.status === "broadcasted") && !newDel.driver_id) {
-      const declined = getDeclinedDeliveries();
-      if (declined.has(newDel.id)) return;
+    if (!newDel || newDel.driver_id) return;
+    const isBroadcasted = newDel.status === "broadcasted";
+    const isPending = newDel.status === "pending";
 
-      // Tocar som de chamada de entrega em loop enquanto o modal estiver aberto
-      try {
-        stopPopupAudio();
-        const audio = new Audio("/ring.mp3");
-        audio.volume = 1.0;
-        audio.loop = true;
-        audioRef.current = audio;
-        audio.play().catch(() => {});
-      } catch (e) {}
+    if (!isBroadcasted && !isPending) return;
 
-      // Buscar nome real da loja e endereço de coleta incondicionalmente na tabela companies
-      let storeName = newDel.company_name;
-      let pickupAddress = newDel.pickup_address;
-
-      if (newDel.company_id) {
-        const { data: comp } = await supabase
-          .from("companies")
-          .select("name, address")
-          .eq("id", newDel.company_id)
-          .maybeSingle();
-        if (comp?.name) storeName = comp.name;
-        if (comp?.address) pickupAddress = comp.address;
+    // Regra dos 2 minutos do Admin: se for "pending", verifica se já passaram os 120 segundos
+    if (isPending && !isBroadcasted && newDel.created_at) {
+      const createdAt = new Date(newDel.created_at).getTime();
+      const elapsed = Date.now() - createdAt;
+      if (elapsed < 120000) {
+        // Reservado para o Admin direcionar! Não abre popup nem toca áudio para entregadores ainda.
+        return;
       }
-
-      if (!storeName || storeName === "Empresa Parceira" || storeName === "EMPRESA PARCEIRA" || storeName === "Loja Parceira") {
-        const { data: lastComp } = await supabase
-          .from("companies")
-          .select("name, address")
-          .eq("is_active", true)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (lastComp?.name) {
-          storeName = lastComp.name;
-          if (!pickupAddress) pickupAddress = lastComp.address;
-        }
-      }
-
-      setActiveDelivery({
-        ...newDel,
-        pickup_address: pickupAddress || newDel.pickup_address,
-        storeName: (storeName || "Loja Parceira").toUpperCase()
-      });
     }
+
+    const declined = getDeclinedDeliveries();
+    if (declined.has(newDel.id)) return;
+
+    // Tocar som de chamada de entrega em loop enquanto o modal estiver aberto
+    try {
+      stopPopupAudio();
+      const audio = new Audio("/ring.mp3");
+      audio.volume = 1.0;
+      audio.loop = true;
+      audioRef.current = audio;
+      audio.play().catch(() => {});
+    } catch (e) {}
+
+    // Buscar nome real da loja e endereço de coleta incondicionalmente na tabela companies
+    let storeName = newDel.company_name;
+    let pickupAddress = newDel.pickup_address;
+
+    if (newDel.company_id) {
+      const { data: comp } = await supabase
+        .from("companies")
+        .select("name, address")
+        .eq("id", newDel.company_id)
+        .maybeSingle();
+      if (comp?.name) storeName = comp.name;
+      if (comp?.address) pickupAddress = comp.address;
+    }
+
+    if (!storeName || storeName === "Empresa Parceira" || storeName === "EMPRESA PARCEIRA" || storeName === "Loja Parceira") {
+      const { data: lastComp } = await supabase
+        .from("companies")
+        .select("name, address")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (lastComp?.name) {
+        storeName = lastComp.name;
+        if (!pickupAddress) pickupAddress = lastComp.address;
+      }
+    }
+
+    setActiveDelivery({
+      ...newDel,
+      pickup_address: pickupAddress || newDel.pickup_address,
+      storeName: (storeName || "Loja Parceira").toUpperCase()
+    });
   };
 
   useEffect(() => {
@@ -90,7 +104,7 @@ export function NewDeliveryPopupModal() {
         (payload) => {
           const updated = payload.new as any;
 
-          // Se a entrega foi devolvida ou reaberta (status voltou para pending/broadcasted e sem motorista)
+          // Se a entrega foi devolvida ou reaberta
           if ((updated.status === "pending" || updated.status === "broadcasted") && !updated.driver_id) {
             triggerOffer(updated);
           } else if (activeDelivery && updated.id === activeDelivery.id && updated.status !== "pending" && updated.status !== "broadcasted") {
@@ -102,8 +116,38 @@ export function NewDeliveryPopupModal() {
       )
       .subscribe();
 
+    // Verificador periódico: checa a cada 5s entregas que atingiram o limite de 2 minutos do Admin
+    const checkTimer = setInterval(async () => {
+      if (activeDelivery) return;
+      try {
+        const { data: pendings } = await supabase
+          .from("deliveries")
+          .select("*")
+          .in("status", ["pending", "broadcasted"])
+          .is("driver_id", null)
+          .order("created_at", { ascending: false });
+
+        if (pendings && pendings.length > 0) {
+          const now = Date.now();
+          for (const del of pendings) {
+            const isBroadcasted = del.status === "broadcasted";
+            const createdAt = del.created_at ? new Date(del.created_at).getTime() : 0;
+            const elapsed = now - createdAt;
+            if (isBroadcasted || elapsed >= 120000) {
+              const declined = getDeclinedDeliveries();
+              if (!declined.has(del.id)) {
+                triggerOffer(del);
+                break;
+              }
+            }
+          }
+        }
+      } catch {}
+    }, 5000);
+
     return () => {
       stopPopupAudio();
+      clearInterval(checkTimer);
       supabase.removeChannel(channel);
     };
   }, [activeDelivery?.id]);

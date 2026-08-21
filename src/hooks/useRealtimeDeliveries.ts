@@ -20,8 +20,20 @@ export function useRealtimeDeliveries() {
         { event: "INSERT", schema: "public", table: "deliveries" },
         (payload) => {
           const d = payload.new as any;
+          const isBroadcasted = d.status === "broadcasted";
+          const isPending = d.status === "pending";
+          const createdAt = d.created_at ? new Date(d.created_at).getTime() : 0;
+          const elapsed = Date.now() - createdAt;
+
+          // Se for "pending" e tiver menos de 2 minutos, está reservado no Admin! Não toca som de entrega em geral.
+          if (isPending && !isBroadcasted && elapsed < 120000 && !d.driver_id) {
+            qc.invalidateQueries({ queryKey: ["deliveries"] });
+            qc.invalidateQueries({ queryKey: ["delivery-stats"] });
+            return;
+          }
+
           audioRef.current?.play().catch(() => {});
-          toast.info("🚀 Nova entrega criada!", {
+          toast.info("🚀 Nova entrega disponível!", {
             description: `${d.customer_name || "Cliente"} — R$ ${Number(d.value ?? 0).toFixed(2)}`,
             duration: 6000,
           });
