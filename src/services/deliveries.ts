@@ -981,6 +981,5 @@ export async function fetchEarnings(driverId: string) {
   }
 
   const result = { day, week, month, total, count };
-  console.log("EARNINGS RESULTADO FINAL:", result);
   return result;
 }
