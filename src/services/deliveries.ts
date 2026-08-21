@@ -928,14 +928,33 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
 
 export const DELIVERY_DONE_STATUSES = ["delivered", "completed"];
 
-/** Valor bruto da entrega, tolerante a bancos com colunas diferentes. */
 export function deliveryGrossFee(row: any): number {
+  if (!row) return 0;
+
+  // 1. Se possuir região vinculada (regions.price) e o valor estiver distorcido (> R$ 80), usa o valor da região!
+  if (row.regions && row.regions.price !== null && row.regions.price !== undefined && Number(row.regions.price) > 0) {
+    const val = Number(row.delivery_fee ?? row.value ?? 0);
+    if (val <= 0 || val > 80) {
+      return Number(row.regions.price);
+    }
+  }
+
+  // 2. Se delivery_fee for uma taxa de frete válida (<= R$ 80.00), usa ela
+  if (row.delivery_fee !== null && row.delivery_fee !== undefined && Number(row.delivery_fee) > 0 && Number(row.delivery_fee) <= 80) {
+    return Number(row.delivery_fee);
+  }
+
   const candidates = [row?.delivery_fee, row?.value, row?.price, row?.commission];
   for (const c of candidates) {
     const n = Number(c);
-    if (Number.isFinite(n) && n > 0) return n;
+    if (Number.isFinite(n) && n > 0 && n <= 80) return n;
   }
-  return 0;
+
+  if (row.regions && Number(row.regions.price) > 0) {
+    return Number(row.regions.price);
+  }
+
+  return Number(row?.delivery_fee || row?.value || row?.price || 0);
 }
 
 /** Data de conclusão da entrega, tolerante a bancos com colunas diferentes. */
