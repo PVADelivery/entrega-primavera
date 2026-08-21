@@ -540,23 +540,52 @@ export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: str
 
   let list = data ?? [];
 
-  if (driverInfo) {
-    const vType = String(driverInfo.vehicle_type || driverInfo.vehicle || "moto").toLowerCase();
-    const services = Array.isArray(driverInfo.service_types) ? driverInfo.service_types : [];
-    const canDoCar =
-      ["carro", "car", "carro_aberto", "van", "truck"].includes(vType) ||
-      services.includes("delivery_car") ||
-      services.includes("delivery_carro_aberto");
+  let vType = String(driverInfo?.vehicle_type || driverInfo?.vehicle || "moto").toLowerCase();
+  let services = Array.isArray(driverInfo?.service_types) ? driverInfo.service_types : [];
+  
+  let canDoCar =
+    vType.includes("car") ||
+    vType.includes("carro") ||
+    ["van", "truck"].includes(vType) ||
+    services.includes("delivery_car") ||
+    services.includes("delivery_carro_aberto");
 
-    list = list.filter((d: any) => {
-      const dVehicle = String(d.vehicle_type || "moto").toLowerCase();
-      const isCarDelivery = ["carro", "car", "carro_aberto"].includes(dVehicle);
-      if (isCarDelivery) {
-        return canDoCar;
+  if (!canDoCar) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (uid) {
+        const [drvRes, profRes] = await Promise.all([
+          supabase.from("delivery_drivers").select("vehicle, vehicle_type, service_types").or(`user_id.eq.${uid},id.eq.${uid}`).maybeSingle(),
+          supabase.from("profiles").select("vehicle, vehicle_type, service_types").or(`user_id.eq.${uid},id.eq.${uid}`).maybeSingle(),
+        ]);
+        const drv = drvRes.data as any;
+        const prof = profRes.data as any;
+        
+        const dbVType = String(drv?.vehicle_type || drv?.vehicle || prof?.vehicle || prof?.vehicle_type || "").toLowerCase();
+        const dbServices = (drv?.service_types || prof?.service_types) as string[] | undefined;
+        const safeDbServices = Array.isArray(dbServices) ? dbServices : [];
+
+        if (
+          dbVType.includes("car") ||
+          dbVType.includes("carro") ||
+          safeDbServices.includes("delivery_car") ||
+          safeDbServices.includes("delivery_carro_aberto")
+        ) {
+          canDoCar = true;
+        }
       }
-      return true;
-    });
+    } catch (e) {}
   }
+
+  list = list.filter((d: any) => {
+    const dVehicle = String(d.vehicle_type || "moto").toLowerCase();
+    const isCarDelivery = ["carro", "car", "carro_aberto"].includes(dVehicle);
+    if (isCarDelivery) {
+      return canDoCar;
+    }
+    return true;
+  });
 
   const resolved = await resolveDeliveryCompanies(list);
   return resolved.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));

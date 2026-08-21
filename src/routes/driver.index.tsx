@@ -170,6 +170,9 @@ function DriverHome() {
         qc.invalidateQueries({ queryKey: ["deliveries", "active"] });
         qc.invalidateQueries({ queryKey: ["earnings"] });
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers" }, () => {
+        qc.invalidateQueries({ queryKey: ["deliveries"] });
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => {
         qc.invalidateQueries({ queryKey: ["rides"] });
       })
