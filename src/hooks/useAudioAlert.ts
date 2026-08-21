@@ -9,20 +9,36 @@ let isAlertActiveGlobal = false;
 
 const getAudioContext = (): AudioContext | null => {
   if (typeof window === "undefined") return null;
+
+  // Só cria ou despausa o AudioContext se o usuário já tiver interagido com a página
+  const hasUserGesture = typeof navigator !== "undefined" && (navigator as any).userActivation
+    ? (navigator as any).userActivation.hasBeenActive
+    : false;
+
+  if (!hasUserGesture && !audioCtx) {
+    return null; // Evita o aviso do Chrome "The AudioContext was not allowed to start" no carregamento inicial
+  }
+
   if (!audioCtx) {
     const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
     if (AudioCtxClass) {
-      audioCtx = new AudioCtxClass();
+      try {
+        audioCtx = new AudioCtxClass();
+      } catch (e) {
+        console.warn("[AudioAlert] Erro ao instanciar AudioContext:", e);
+      }
     }
   }
-  if (audioCtx && audioCtx.state === "suspended") {
+
+  if (audioCtx && audioCtx.state === "suspended" && hasUserGesture) {
     audioCtx.resume().catch(() => {});
   }
+
   return audioCtx;
 };
 
 const canUseBrowserVibration = () =>
-  Capacitor.isNativePlatform() || navigator.userActivation?.hasBeenActive === true;
+  Capacitor.isNativePlatform() || (typeof navigator !== "undefined" && (navigator as any).userActivation?.hasBeenActive === true);
 
 if (typeof window !== "undefined") {
   try {
@@ -42,7 +58,7 @@ if (typeof window !== "undefined") {
       // Se o alerta de corrida estiver ativo, NUNCA executa teste de pausa no áudio!
       if (isAlertActiveGlobal) return;
 
-      if (globalAudio && globalAudio.paused) {
+      if (globalAudio && globalAudio.paused && (navigator as any).userActivation?.hasBeenActive) {
         const origVol = globalAudio.volume;
         globalAudio.volume = 0.001;
         const p = globalAudio.play();
@@ -137,7 +153,9 @@ export function useAudioAlert() {
         const p = globalAudio.play();
         if (p !== undefined) {
           p.catch((err) => {
-            console.warn("[AudioAlert] Autoplay impedido pelo navegador:", err);
+            if (err?.name !== "NotAllowedError") {
+              console.warn("[AudioAlert] Autoplay impedido pelo navegador:", err);
+            }
           });
         }
       } catch (e) {
