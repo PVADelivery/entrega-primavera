@@ -27,23 +27,45 @@ export interface DeliveryOverlayPlugin {
 
 const DeliveryOverlayPluginRaw = registerPlugin<DeliveryOverlayPlugin>('DeliveryOverlay');
 
-// Wrapper seguro para evitar o erro "UNIMPLEMENTED" no iOS e Web
-export const DeliveryOverlay: DeliveryOverlayPlugin = Capacitor.getPlatform() === 'android'
-  ? DeliveryOverlayPluginRaw
-  : {
-      requestOverlayPermission: async () => {},
-      requestBatteryOptimizationExemption: async () => ({ ignoring: true }),
-      startOverlay: async () => ({ success: false, reason: 'not_android' }),
-      stopOverlay: async () => {},
-      dismissIncomingCall: async () => {},
-      testIncomingCall: async () => {},
-      updateIncomingCall: async () => {},
-      reportCallResult: async () => {},
-      saveDriverContext: async () => {},
-      addListener: (eventName: any, listenerFunc: any) => {
-        return Promise.resolve({ remove: async () => {} }) as any;
+const hasPlugin = Capacitor.isPluginAvailable('DeliveryOverlay');
+
+const safeCall = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+  if (!hasPlugin) return fallback;
+  try {
+    return await fn();
+  } catch (err: any) {
+    if (err?.code === 'UNIMPLEMENTED' || String(err?.message || '').includes('not implemented')) {
+      return fallback;
+    }
+    throw err;
+  }
+};
+
+export const DeliveryOverlay: DeliveryOverlayPlugin = {
+  requestOverlayPermission: () => safeCall(() => DeliveryOverlayPluginRaw.requestOverlayPermission(), undefined),
+  requestBatteryOptimizationExemption: () => safeCall(() => DeliveryOverlayPluginRaw.requestBatteryOptimizationExemption(), { ignoring: true }),
+  startOverlay: () => safeCall(() => DeliveryOverlayPluginRaw.startOverlay(), { success: false, reason: 'unimplemented' }),
+  stopOverlay: () => safeCall(() => DeliveryOverlayPluginRaw.stopOverlay(), undefined),
+  dismissIncomingCall: () => safeCall(() => DeliveryOverlayPluginRaw.dismissIncomingCall(), undefined),
+  testIncomingCall: (options) => safeCall(() => DeliveryOverlayPluginRaw.testIncomingCall(options), undefined),
+  updateIncomingCall: (options) => safeCall(() => DeliveryOverlayPluginRaw.updateIncomingCall(options), undefined),
+  reportCallResult: (options) => safeCall(() => DeliveryOverlayPluginRaw.reportCallResult(options), undefined),
+  saveDriverContext: (options) => safeCall(() => DeliveryOverlayPluginRaw.saveDriverContext(options), undefined),
+  addListener: (eventName: any, listenerFunc: any) => {
+    if (!hasPlugin) {
+      return Promise.resolve({ remove: async () => {} }) as any;
+    }
+    try {
+      const res = DeliveryOverlayPluginRaw.addListener(eventName, listenerFunc);
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
       }
-    };
+      return res;
+    } catch {
+      return Promise.resolve({ remove: async () => {} }) as any;
+    }
+  }
+};
 
 if (typeof window !== 'undefined') {
   (window as any).DeliveryOverlay = DeliveryOverlay;
