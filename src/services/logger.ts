@@ -188,6 +188,22 @@ export function initializeGlobalErrorHandlers(appName: string) {
       rawToast.error = function (message: any, options?: any) {
         try {
           const msgStr = typeof message === "string" ? message : (message?.message || message?.toString?.() || JSON.stringify(message));
+          const lower = (msgStr || "").toLowerCase();
+
+          // Trata automaticamente sessão expirada (JWT Expired) sem poluir logs do Telegram
+          if (lower.includes("jwt expired") || lower.includes("token expired") || lower.includes("session expired")) {
+            try {
+              supabase.auth.signOut();
+            } catch {}
+            if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+              setTimeout(() => {
+                window.location.href = "/login";
+              }, 1000);
+            }
+            message = "Sua sessão expirou. Por favor, faça login novamente.";
+            return originalToastError.apply(rawToast, [message, options]);
+          }
+
           const isRaceCondition = 
             !msgStr ||
             msgStr.includes("cancelada pelo usuário") ||
@@ -234,6 +250,21 @@ export function initializeGlobalErrorHandlers(appName: string) {
   window.onunhandledrejection = (event) => {
     const reason = event.reason;
     const msg = reason?.message || (typeof reason === "object" ? JSON.stringify(reason) : String(reason));
+    const lower = (msg || "").toLowerCase();
+
+    // Silencia rejeições de JWT Expirado e redireciona para login
+    if (lower.includes("jwt expired") || lower.includes("token expired") || lower.includes("session expired")) {
+      try {
+        supabase.auth.signOut();
+      } catch {}
+      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1000);
+      }
+      return;
+    }
+
     reportErrorToTelegram({
       error_message: `Unhandled Rejection: ${msg}`,
       stack_trace: reason?.stack || "No stack trace available",
