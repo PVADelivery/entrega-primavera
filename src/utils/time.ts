@@ -11,16 +11,26 @@ export function getElapsedSeconds(created_at: string | Date | number | null | un
   } else if (created_at instanceof Date) {
     timestamp = created_at.getTime();
   } else {
-    let str = String(created_at).trim();
-    if (!str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str)) {
-      str = str.replace(" ", "T") + "Z";
-    }
-    timestamp = new Date(str).getTime();
-  }
+    const str = String(created_at).trim();
+    let parsed = new Date(str).getTime();
 
-  if (isNaN(timestamp)) return 999999;
+    if (isNaN(parsed)) {
+      const isoStr = str.replace(" ", "T");
+      parsed = new Date(isoStr).getTime();
+    }
+
+    if (isNaN(parsed)) {
+      return 999999;
+    }
+    timestamp = parsed;
+  }
 
   const now = Date.now();
   const elapsedMs = now - timestamp;
+
+  if (elapsedMs < 0) {
+    return 0;
+  }
+
   return Math.floor(elapsedMs / 1000);
 }
