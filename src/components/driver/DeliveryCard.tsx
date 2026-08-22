@@ -14,6 +14,8 @@ interface Props {
 }
 
 const normalNextLabels: Record<string, string> = {
+  pending: "Iniciar entrega",
+  broadcasted: "Iniciar entrega",
   accepted: "Cheguei na loja",
   collecting: "Coletado, indo entregar",
   in_route: "Concluir entrega",
@@ -21,6 +23,8 @@ const normalNextLabels: Record<string, string> = {
 };
 
 const condicionalNextLabels: Record<string, string> = {
+  pending: "Iniciar coleta",
+  broadcasted: "Iniciar coleta",
   accepted: "Cheguei no cliente",
   collecting: "Confirmar Coleta no cliente",
   in_route: "Confirmar Entrega na loja",
