@@ -23,6 +23,8 @@ const normalNextLabels: Record<string, string> = {
 };
 
 const condicionalNextLabels: Record<string, string> = {
+  pending: "Iniciar coleta",
+  broadcasted: "Iniciar coleta",
   accepted: "Cheguei no cliente",
   collecting: "Confirmar Coleta no cliente",
   in_route: "Confirmar Entrega na loja",
