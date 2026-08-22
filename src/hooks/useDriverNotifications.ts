@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
+import { getElapsedSeconds } from "@/utils/time";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
@@ -275,6 +276,23 @@ export function useDriverNotifications() {
       const declined = getDeclinedDeliveries();
       if (declined.has(rawDelivery.id)) return;
       if (seenIdsRef.current.has(rawDelivery.id)) return;
+
+      // ── Regra dos 2 Minutos do Admin e direcionamento direto ──
+      const currentDriverId = user?.id;
+      if (rawDelivery.driver_id) {
+        if (rawDelivery.driver_id !== currentDriverId) return; // Atribuído para outro entregador
+      } else {
+        const isBroadcasted = rawDelivery.status === "broadcasted";
+        const isPending = rawDelivery.status === "pending";
+        if (isPending && !isBroadcasted && rawDelivery.created_at) {
+          const elapsedSeconds = getElapsedSeconds(rawDelivery.created_at);
+          if (elapsedSeconds < 120) {
+            // Reservado para o Admin direcionar durante os 2 primeiros minutos!
+            // NÃO notifica a frota geral ainda.
+            return;
+          }
+        }
+      }
 
       seenIdsRef.current.add(rawDelivery.id);
       activeAlertsRef.current.add(rawDelivery.id);

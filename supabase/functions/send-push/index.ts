@@ -99,6 +99,17 @@ serve(async (req) => {
        return new Response("Not a pending delivery", { status: 200 })
     }
 
+    // Regra dos 2 Minutos do Admin: se status for 'pending' e NÃO tiver driver_id atribuído,
+    // NÃO envia push notification FCM geral durante os primeiros 120s (2 minutos).
+    if (record.status === 'pending' && !record.driver_id && record.created_at) {
+      const createdAtMs = new Date(record.created_at).getTime();
+      const elapsedSeconds = (Date.now() - createdAtMs) / 1000;
+      if (elapsedSeconds < 120) {
+        console.log(`Entrega ${record.id} está no período de 2 minutos do Admin. Ignorando disparo de push geral.`);
+        return new Response("Delivery is within 2-minute admin delay period", { status: 200 });
+      }
+    }
+
     // Busca detalhes completos da corrida incluindo empresa, endereços de coleta/entrega e taxa do entregador
     let companyName = record.company_name || record.store_name || record.company_title || "";
     let pickupAddr = record.pickup_address || record.origin_address || record.store_address || record.pickup_location || "";

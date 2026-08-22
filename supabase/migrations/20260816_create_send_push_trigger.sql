@@ -19,14 +19,21 @@ DECLARE
   v_details TEXT;
   v_payload JSONB;
 BEGIN
-  -- Só executa se o status for 'pending' (nova entrega disponível para entregadores)
+  -- Só executa se o status for 'pending' ou 'broadcasted'
   IF NEW.status <> 'pending' AND NEW.status <> 'broadcasted' THEN
     RETURN NEW;
   END IF;
 
-  -- Se for UPDATE, só executa se o status MUDOU para 'pending' ou 'broadcasted'
+  -- Se for UPDATE, só executa se:
+  -- 1) Atribuição direta de entregador (OLD.driver_id IS NULL AND NEW.driver_id IS NOT NULL)
+  -- 2) Transmissão manual do Admin (OLD.status <> 'broadcasted' AND NEW.status = 'broadcasted')
+  -- 3) Mudança de status para 'pending' (OLD.status <> 'pending' AND NEW.status = 'pending')
   IF TG_OP = 'UPDATE' THEN
-    IF OLD.status IS NOT NULL AND (OLD.status = 'pending' OR OLD.status = 'broadcasted') THEN
+    IF NOT (
+      (OLD.driver_id IS NULL AND NEW.driver_id IS NOT NULL) OR
+      (COALESCE(OLD.status, '') <> 'broadcasted' AND NEW.status = 'broadcasted') OR
+      (COALESCE(OLD.status, '') <> 'pending' AND NEW.status = 'pending')
+    ) THEN
       RETURN NEW;
     END IF;
   END IF;
