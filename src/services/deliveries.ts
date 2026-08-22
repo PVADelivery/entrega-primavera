@@ -716,6 +716,7 @@ export async function acceptBatchDelivery(batchId: string, driverId?: string) {
 
 const nextStatus: Record<string, string> = {
   pending: "accepted",
+  broadcasted: "accepted",
   accepted: "collecting",
   collecting: "in_transit",
   picked_up: "in_transit",
