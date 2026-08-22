@@ -524,29 +524,35 @@ export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: str
   let { data, error } = await supabase
     .from("deliveries")
     .select("*, companies(name, phone), regions(id, name, price)")
-    .in("status", ["pending", "broadcasted"])
-    .is("driver_id", null)
     .order("created_at", { ascending: false });
 
-  if (error) {
+  if (error || !data || data.length === 0) {
     const fb = await supabase
       .from("deliveries")
       .select("*")
-      .in("status", ["pending", "broadcasted"])
-      .is("driver_id", null)
       .order("created_at", { ascending: false });
-    if (fb.error) throw fb.error;
-    data = fb.data;
+    if (!fb.error && fb.data) {
+      data = fb.data;
+    }
   }
 
-  const list = (data ?? []).filter((d: any) => {
+  // Filtragem flexível de status e entregador não atribuído (null, vazio ou 'none')
+  const validStatuses = ["pending", "broadcasted", "pending_assignment", "created", "open", "em_aberto", "Pendente"];
+
+  let list = (data ?? []).filter((d: any) => {
+    const st = String(d.status || "").toLowerCase();
+    const isValidStatus = validStatuses.includes(st) || validStatuses.includes(d.status);
+    if (!isValidStatus) return false;
+
+    const isUnassigned = !d.driver_id || String(d.driver_id).trim() === "" || d.driver_id === "none" || d.driver_id === "00000000-0000-0000-0000-000000000000";
+    if (!isUnassigned) return false;
+
     if (d.status === "broadcasted") return true;
     if (!d.created_at) return true;
     const elapsedSeconds = getElapsedSeconds(d.created_at);
     return elapsedSeconds >= 120; // 2 minutos (120 segundos)
   });
 
-  // Exibe todas as entregas disponíveis (moto e carro) para que nenhuma corrida de carro fique oculta no app do entregador
   const canDoCar = true;
 
   list = list.filter((d: any) => {
