@@ -14,6 +14,8 @@ interface Props {
 }
 
 const normalNextLabels: Record<string, string> = {
+  pending: "Iniciar entrega",
+  broadcasted: "Iniciar entrega",
   accepted: "Cheguei na loja",
   collecting: "Coletado, indo entregar",
   in_route: "Concluir entrega",
