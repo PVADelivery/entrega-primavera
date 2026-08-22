@@ -305,17 +305,19 @@ export function useDriverNotifications() {
         console.warn("[Notify] som do motor falhou:", e);
       }
 
-      // Busca detalhes completos
+      // Busca detalhes completos apenas se não vierem no payload da entrega
       let delivery: any = rawDelivery;
-      try {
-        const { data: fullDelivery } = await supabase
-          .from("deliveries")
-          .select("*, companies(name, address)")
-          .eq("id", rawDelivery.id)
-          .single();
-        if (fullDelivery) delivery = fullDelivery;
-      } catch (e) {
-        console.warn("[Notify] detalhe da corrida falhou:", e);
+      if (!delivery.companies && delivery.company_id) {
+        try {
+          const { data: fullDelivery } = await supabase
+            .from("deliveries")
+            .select("*, companies(name, address)")
+            .eq("id", rawDelivery.id)
+            .maybeSingle();
+          if (fullDelivery) delivery = fullDelivery;
+        } catch (e) {
+          console.warn("[Notify] detalhe da corrida falhou:", e);
+        }
       }
 
       const storeName = delivery.companies?.name ||
@@ -581,7 +583,7 @@ export function useDriverNotifications() {
         }
       };
 
-      const intervalId = setInterval(pollDeliveries, 3000);
+      const intervalId = setInterval(pollDeliveries, 10000);
 
       if (Capacitor.isNativePlatform()) {
         appStateListener = await App.addListener("appStateChange", ({ isActive }) => {

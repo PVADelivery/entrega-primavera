@@ -52,18 +52,18 @@ export function NewDeliveryPopupModal() {
       audio.play().catch(() => {});
     } catch (e) {}
 
-    // Buscar nome real da loja e endereço de coleta incondicionalmente na tabela companies
-    let storeName = newDel.company_name;
-    let pickupAddress = newDel.pickup_address;
+    // Buscar nome real da loja e endereço de coleta apenas se não estiverem presentes
+    let storeName = newDel.company_name || newDel.storeName || newDel.companies?.name;
+    let pickupAddress = newDel.pickup_address || newDel.companies?.address;
 
-    if (newDel.company_id) {
+    if ((!storeName || !pickupAddress) && newDel.company_id) {
       const { data: comp } = await supabase
         .from("companies")
         .select("name, address")
         .eq("id", newDel.company_id)
         .maybeSingle();
-      if (comp?.name) storeName = comp.name;
-      if (comp?.address) pickupAddress = comp.address;
+      if (comp?.name && !storeName) storeName = comp.name;
+      if (comp?.address && !pickupAddress) pickupAddress = comp.address;
     }
 
     if (!storeName || storeName === "Empresa Parceira" || storeName === "EMPRESA PARCEIRA" || storeName === "Loja Parceira") {
@@ -142,7 +142,7 @@ export function NewDeliveryPopupModal() {
           }
         }
       } catch {}
-    }, 5000);
+    }, 10000);
 
     return () => {
       stopPopupAudio();
