@@ -48,11 +48,23 @@ export function WorkModeProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     (async () => {
       try {
-        const { data } = await supabase
+        let data: any = null;
+        const { data: d1 } = await supabase
           .from("delivery_drivers")
           .select("service_types, vehicle, vehicle_type, active")
-          .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+          .eq("user_id", user.id)
           .maybeSingle();
+        
+        if (d1) {
+          data = d1;
+        } else {
+          const { data: d2 } = await supabase
+            .from("delivery_drivers")
+            .select("service_types, vehicle, vehicle_type, active")
+            .eq("id", user.id)
+            .maybeSingle();
+          data = d2;
+        }
 
         if (cancelled) return;
 

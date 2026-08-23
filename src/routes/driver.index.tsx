@@ -49,10 +49,17 @@ function DriverHome() {
     // Tenta obter o ID do motorista ou assume o user.id da sessão
     ensureDriverRow(user.id).then(async (id) => {
       setDriverId(id);
-      const { data } = await supabase.from("delivery_drivers").select("vehicle_type, vehicle, service_types").or(`user_id.eq.${user.id},id.eq.${id}`).maybeSingle();
-      if (data) {
-        if ((data as any).service_types) setDriverServiceTypes((data as any).service_types);
-        setDriverInfo(data as any);
+      let dataRes: any = null;
+      const { data: d1 } = await supabase.from("delivery_drivers").select("vehicle_type, vehicle, service_types").eq("user_id", user.id).maybeSingle();
+      if (d1) {
+        dataRes = d1;
+      } else {
+        const { data: d2 } = await supabase.from("delivery_drivers").select("vehicle_type, vehicle, service_types").eq("id", id).maybeSingle();
+        dataRes = d2;
+      }
+      if (dataRes) {
+        if ((dataRes as any).service_types) setDriverServiceTypes((dataRes as any).service_types);
+        setDriverInfo(dataRes as any);
       }
     }).catch(() => {
       setDriverId(user.id);

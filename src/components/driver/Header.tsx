@@ -34,13 +34,21 @@ export function DriverHeader() {
     }
 
       const loadDriverInfo = async () => {
-        const [drvRes, profRes] = await Promise.all([
-          supabase.from("delivery_drivers").select("is_online, full_name").or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle(),
-          supabase.from("profiles").select("full_name").or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle(),
-        ]);
+        let drvData: any = null;
+        let profData: any = null;
 
-        const drv = drvRes.data as any;
-        const prof = profRes.data as any;
+        const { data: drv1 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("user_id", user.id).maybeSingle();
+        if (drv1) drvData = drv1;
+        else {
+          const { data: drv2 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("id", user.id).maybeSingle();
+          drvData = drv2;
+        }
+
+        const { data: p1 } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+        profData = p1;
+
+        const drv = drvData;
+        const prof = profData;
 
         if (drv && typeof drv.is_online === "boolean") {
           setOnline(drv.is_online);

@@ -145,11 +145,8 @@ export function useDriverNotifications() {
           localStorage.setItem("driver_fcm_token", tokenVal);
 
           if (user?.id) {
-            const { error } = await supabase
-              .from("delivery_drivers")
-              .update({ fcm_token: tokenVal } as any)
-              .or(`user_id.eq.${user.id},id.eq.${user.id}`);
-            if (error) console.error("[FCM] Erro ao salvar token:", error.message);
+            await supabase.from("delivery_drivers").update({ fcm_token: tokenVal } as any).eq("user_id", user.id);
+            await supabase.from("delivery_drivers").update({ fcm_token: tokenVal } as any).eq("id", user.id);
           }
         };
 
@@ -417,11 +414,13 @@ export function useDriverNotifications() {
     const setup = async () => {
       const localOnline = typeof window !== "undefined" ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : false;
 
-      const { data: driverRow } = await supabase
-        .from("delivery_drivers")
-        .select("id, is_online, vehicle_type, vehicle, service_types")
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-        .maybeSingle();
+      let driverRow: any = null;
+      const { data: d1 } = await supabase.from("delivery_drivers").select("id, is_online, vehicle_type, vehicle, service_types").eq("user_id", user.id).maybeSingle();
+      if (d1) driverRow = d1;
+      else {
+        const { data: d2 } = await supabase.from("delivery_drivers").select("id, is_online, vehicle_type, vehicle, service_types").eq("id", user.id).maybeSingle();
+        driverRow = d2;
+      }
 
       if (cancelled) return;
       const driverId = driverRow?.id || user.id;
