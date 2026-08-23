@@ -47,24 +47,53 @@ export function WorkModeProvider({ children }: { children: ReactNode }) {
     }
     setLoading(true);
     (async () => {
-      const { data } = await supabase
-        .from("delivery_drivers")
-        .select("service_types, vehicle")
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-        .maybeSingle();
-      if (cancelled) return;
-      const list = Array.isArray((data as any)?.service_types) ? (data as any).service_types : [];
-      setServiceTypes(list);
-      setLoading(false);
+      try {
+        const { data } = await supabase
+          .from("delivery_drivers")
+          .select("service_types, vehicle, vehicle_type, active")
+          .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        let list: string[] = [];
+        if (data) {
+          if (Array.isArray((data as any)?.service_types)) {
+            list = (data as any).service_types;
+          } else if (typeof (data as any)?.service_types === "string") {
+            try {
+              list = JSON.parse((data as any).service_types);
+            } catch (e) {
+              list = [(data as any).service_types];
+            }
+          }
+        }
+
+        setServiceTypes(list);
+      } catch (err) {
+        console.warn("Aviso ao carregar permissões do motorista:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [user?.id]);
 
-  // Se não houver restrição explícita cadastrada, permite ambas as categorias por padrão
-  const canDelivery = serviceTypes.length === 0 || serviceTypes.some((s) => DELIVERY_SERVICES.includes(s));
-  const canRide = serviceTypes.length === 0 || serviceTypes.some((s) => RIDE_SERVICES.includes(s));
+  // Se não houver restrição explícita ou se houver categorias cadastradas, libera de forma resiliente
+  const RIDE_KEYS = ["taxi", "mototaxi", "moto_taxi", "táxi", "passageiros", "passageiro", "passenger", "ride", "corridas", "car", "motorcycle", "carro", "moto"];
+  const DELIVERY_KEYS = ["delivery", "entrega", "entregas", "moto", "carro", "frete", "carro_aberto", "loja", "lojas"];
+
+  const canDelivery = useMemo(() => {
+    if (!serviceTypes || serviceTypes.length === 0) return true;
+    return serviceTypes.some((s) => DELIVERY_KEYS.some((k) => String(s).toLowerCase().includes(k)));
+  }, [serviceTypes]);
+
+  const canRide = useMemo(() => {
+    if (!serviceTypes || serviceTypes.length === 0) return true;
+    return serviceTypes.some((s) => RIDE_KEYS.some((k) => String(s).toLowerCase().includes(k)));
+  }, [serviceTypes]);
 
   // Restaura preferência salva e corrige quando a categoria não é permitida
   useEffect(() => {
