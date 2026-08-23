@@ -112,47 +112,52 @@ function DriverHome() {
   });
 
   // Consultas de Corridas de Táxi/Moto Táxi
-  const isTaxiOrMotoTaxi = safeServices.length === 0 || safeServices.includes("taxi") || safeServices.includes("mototaxi");
-
   const availableRides = useQuery({
-    queryKey: ["rides", "available", safeServices],
+    queryKey: ["rides", "available", driverId, user?.id],
     queryFn: async () => {
-      const types: string[] = [];
-      if (safeServices.includes("taxi")) types.push("taxi");
-      if (safeServices.includes("mototaxi")) types.push("mototaxi");
-
+      const effId = await getEffectiveDriverId();
       const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
-        .eq("status", "pending")
-        .is("driver_id", null)
+        .in("status", ["pending", "accepted"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       const rides = (data ?? []) as any[];
 
-      if (types.length > 0 && rides.length > 0) {
-        const filtered = rides.filter((r: any) => types.includes(r.vehicle_type));
-        if (filtered.length > 0) return filtered;
-      }
-
-      return rides;
+      return rides.filter((r: any) => {
+        // Se é uma corrida pendente sem motorista vinculado (broadcast)
+        if (!r.driver_id && r.status === "pending") return true;
+        // Se foi atribuída especificamente a este motorista pelo admin
+        if (r.driver_id && (r.driver_id === effId || r.driver_id === user?.id) && r.status === "pending") return true;
+        return false;
+      });
     },
     enabled: mode === "ride",
+    refetchInterval: 3000,
+    staleTime: 1000,
   });
 
   const activeRides = useQuery({
-    queryKey: ["rides", "active", driverId],
+    queryKey: ["rides", "active", driverId, user?.id],
     queryFn: async () => {
+      const effId = await getEffectiveDriverId();
       const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
-        .eq("driver_id", driverId)
-        .in("status", ["accepted", "in_progress"]);
+        .in("status", ["accepted", "in_progress"])
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
-      return (data ?? []) as any[];
+      const rides = (data ?? []) as any[];
+
+      return rides.filter((r: any) => {
+        return r.driver_id === effId || r.driver_id === user?.id;
+      });
     },
-    enabled: !!driverId && mode === "ride",
+    enabled: mode === "ride",
+    refetchInterval: 3000,
+    staleTime: 1000,
   });
 
   const earnings = useQuery({
