@@ -91,13 +91,18 @@ function ProfilePage() {
   const loadProfile = async () => {
     if (!user) return;
     await ensureDriverRow(user.id);
-    const [profRes, drvRes] = await Promise.all([
-      supabase.from("profiles").select("*").or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle(),
-      supabase.from("delivery_drivers").select("*").or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle(),
-    ]);
+    let p: any = null;
+    let d: any = null;
 
-    const p = profRes.data as any;
-    const d = drvRes.data as any;
+    const { data: p1 } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+    p = p1;
+
+    const { data: d1 } = await supabase.from("delivery_drivers").select("*").eq("user_id", user.id).maybeSingle();
+    if (d1) d = d1;
+    else {
+      const { data: d2 } = await supabase.from("delivery_drivers").select("*").eq("id", user.id).maybeSingle();
+      d = d2;
+    }
 
     setProfile(p || d);
     setFullName(p?.full_name || d?.full_name || "");
@@ -147,11 +152,13 @@ function ProfilePage() {
 
   const fetchDriverData = async () => {
     try {
-      const { data: driverRow } = await supabase
-        .from("delivery_drivers")
-        .select("*")
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-        .maybeSingle();
+      let driverRow: any = null;
+      const { data: drv1 } = await supabase.from("delivery_drivers").select("*").eq("user_id", user.id).maybeSingle();
+      if (drv1) driverRow = drv1;
+      else {
+        const { data: drv2 } = await supabase.from("delivery_drivers").select("*").eq("id", user.id).maybeSingle();
+        driverRow = drv2;
+      }
       const driver: any = driverRow ?? { id: user.id };
       if (driver.service_types) setServiceTypes(driver.service_types);
 
@@ -233,14 +240,7 @@ function ProfilePage() {
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
       
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ avatar_url: publicUrl })
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`);
-      
-      if (profileError) {
-        console.warn("[uploadAvatar] Aviso ao atualizar profiles:", profileError.message);
-      }
+      await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("user_id", user.id);
 
       setProfile((prev: any) => ({ ...prev, avatar_url: publicUrl }));
       toast.success("Foto atualizada com sucesso!");
