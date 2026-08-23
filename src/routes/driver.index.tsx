@@ -118,37 +118,52 @@ function DriverHome() {
     enabled: !!driverId && mode === "delivery",
   });
 
+  async function getAllMyDriverIds(): Promise<string[]> {
+    const set = new Set<string>();
+    if (user?.id) set.add(user.id);
+    if (driverId) set.add(driverId);
+    if (user?.id) {
+      try {
+        const { data: d1 } = await supabase.from("delivery_drivers").select("id, user_id").eq("user_id", user.id);
+        if (d1) d1.forEach(d => { if (d.id) set.add(d.id); if (d.user_id) set.add(d.user_id); });
+        const { data: d2 } = await supabase.from("delivery_drivers").select("id, user_id").eq("id", user.id);
+        if (d2) d2.forEach(d => { if (d.id) set.add(d.id); if (d.user_id) set.add(d.user_id); });
+      } catch (e) {}
+    }
+    return Array.from(set);
+  }
+
   // Consultas de Corridas de Táxi/Moto Táxi
   const availableRides = useQuery({
     queryKey: ["rides", "available", driverId, user?.id],
     queryFn: async () => {
-      const effId = await getEffectiveDriverId();
+      const myIds = await getAllMyDriverIds();
       const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
-        .in("status", ["pending", "accepted"])
+        .in("status", ["pending", "accepted", "searching"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       const rides = (data ?? []) as any[];
 
       return rides.filter((r: any) => {
-        // Se é uma corrida pendente sem motorista vinculado (broadcast)
-        if (!r.driver_id && r.status === "pending") return true;
-        // Se foi atribuída especificamente a este motorista pelo admin
-        if (r.driver_id && (r.driver_id === effId || r.driver_id === user?.id) && r.status === "pending") return true;
+        // 1. Qualquer corrida pendente sem motorista (broadcast geral)
+        if (!r.driver_id && (r.status === "pending" || r.status === "searching")) return true;
+        // 2. Qualquer corrida atribuída especificamente a este motorista
+        if (r.driver_id && myIds.includes(r.driver_id) && (r.status === "pending" || r.status === "accepted")) return true;
         return false;
       });
     },
     enabled: mode === "ride",
-    refetchInterval: 3000,
-    staleTime: 1000,
+    refetchInterval: 2000,
+    staleTime: 500,
   });
 
   const activeRides = useQuery({
     queryKey: ["rides", "active", driverId, user?.id],
     queryFn: async () => {
-      const effId = await getEffectiveDriverId();
+      const myIds = await getAllMyDriverIds();
       const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
@@ -159,12 +174,12 @@ function DriverHome() {
       const rides = (data ?? []) as any[];
 
       return rides.filter((r: any) => {
-        return r.driver_id === effId || r.driver_id === user?.id;
+        return r.driver_id && myIds.includes(r.driver_id);
       });
     },
     enabled: mode === "ride",
-    refetchInterval: 3000,
-    staleTime: 1000,
+    refetchInterval: 2000,
+    staleTime: 500,
   });
 
   const earnings = useQuery({
