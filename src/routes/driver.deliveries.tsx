@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useRef, Component, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,11 +16,13 @@ import {
   fetchAvailableDeliveries,
   fetchMyActiveDeliveries,
   fetchMyHistory,
-  type Delivery,
 } from "@/services/deliveries";
 import { toast } from "sonner";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useWorkMode } from "@/hooks/useWorkMode";
+import { Navigation, Phone } from "lucide-react";
+
+const PVA_CENTER: [number, number] = [-54.3075, -15.5606];
 
 export const Route = createFileRoute("/driver/deliveries")({
   component: DeliveriesPage,
@@ -140,7 +141,7 @@ function DeliveriesPage() {
     }
   }
 
-  async function handleAdvance(d: Delivery) {
+  async function handleAdvance(d: any) {
     setPending(d.id);
     try {
       await advanceDelivery(d);
@@ -386,7 +387,7 @@ function DriverRideMap({ ride }: { ride: any }) {
     if (typeof window === "undefined" || !mapContainerRef.current || mapRef.current) return;
     let isMounted = true;
 
-    import("maplibre-gl").then((mod) => {
+    import("maplibre-gl").then((mod: any) => {
       if (!isMounted || !mapContainerRef.current || mapRef.current) return;
       try {
         const maplibregl = mod.default || mod;

@@ -53,34 +53,41 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8 text-foreground">
+      <div className="w-full max-w-md text-center space-y-4">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+          ⚠️
+        </div>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">
+          Ops! Algo deu errado ao carregar esta tela.
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Algo deu errado. Tente novamente ou volte para a tela inicial.
+        <p className="text-xs text-muted-foreground">
+          Sua conexão oscilou ou uma nova versão foi implantada.
         </p>
-        {import.meta.env.DEV && error?.stack && (
-          <pre className="mt-4 p-3 bg-muted/50 text-[10px] text-left overflow-auto max-h-40 rounded border border-border text-red-500 font-mono">
-            {error.stack}
-          </pre>
+        {error?.message && (
+          <div className="p-3 bg-muted/60 text-xs text-left font-mono rounded-xl border border-border/60 text-destructive overflow-auto max-h-36">
+            {error.message}
+          </div>
         )}
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
             onClick={() => {
-              router.invalidate();
-              reset();
+              if (typeof window !== "undefined") {
+                window.location.reload();
+              } else {
+                router.invalidate();
+                reset();
+              }
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs uppercase tracking-wider hover:opacity-90 transition-all cursor-pointer shadow-md"
           >
-            Try again
+            Recarregar Aplicativo
           </button>
           <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            href="/driver"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-border bg-card text-foreground font-bold text-xs uppercase tracking-wider hover:bg-accent transition-all text-center"
           >
-            Go home
+            Ir para Início
           </a>
         </div>
       </div>
@@ -147,7 +154,7 @@ function RootComponent() {
 
   useEffect(() => {
     initializeGlobalErrorHandlers("App Entregador");
-    if (typeof window !== "undefined" && window.location.hostname.includes("lovable.app")) {
+    if (typeof window !== "undefined" && (window.location.hostname.includes("lovable.app") || window.location.hostname.includes("lovableproject.com"))) {
       window.location.replace(`https://entregador.mt24horasexpress.com${window.location.pathname}${window.location.search}`);
     }
   }, []);
