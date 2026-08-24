@@ -481,25 +481,55 @@ function DriverHome() {
         <section className="mt-8 px-4">
           <SectionTitle title="Corridas em andamento" badge={`${activeRides.data.length}`} />
           <div className="mt-3 space-y-3">
-            {activeRides.data.map((r) => (
-              <Card key={r.id} className="p-4 rounded-2xl border border-border/40 shadow-sm space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">
-                    {r.vehicle_type === "taxi" ? "🚗 Táxi" : "🏍️ Moto Táxi"}
+            {activeRides.data.map((r: any) => (
+              <Card key={r.id} className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-b from-card/95 to-card/70 p-5 shadow-lg backdrop-blur-md">
+                <div className="flex items-center justify-between pb-3 border-b border-border/40">
+                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 font-extrabold text-[11px] uppercase tracking-wider shadow-xs">
+                    <Navigation className="w-3.5 h-3.5 text-amber-400" />
+                    {r.vehicle_type === "taxi" || r.vehicle_type === "carro" ? "Transporte Táxi" : "Transporte Moto Táxi"}
                   </span>
-                  <span className="text-xs font-bold text-emerald-500"><span>R$ </span><span>{Number(r.price).toFixed(2)}</span></span>
+                  <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/25 px-3 py-1 rounded-xl shadow-xs">
+                    <span className="text-xs font-bold text-emerald-400">R$</span>
+                    <span className="text-base font-black font-mono text-emerald-400">{Number(r.price || 0).toFixed(2)}</span>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Passageiro:</strong> <span>{r.customer_name}</span></p>
-                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Origem:</strong> <span>{r.pickup_address}</span></p>
-                  <p className="text-xs text-muted-foreground"><strong className="text-foreground">Destino:</strong> <span>{r.dropoff_address}</span></p>
-                  {!!r.notes && <p className="text-xs text-muted-foreground italic"><span>"{r.notes}"</span></p>}
+
+                <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-foreground/90">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
+                    <User className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="truncate">{r.customer_name || "Passageiro"}</span>
                 </div>
+
+                <div className="mt-3.5 space-y-2.5 rounded-xl bg-secondary/30 p-3.5 border border-border/30">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 flex flex-col items-center">
+                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                      <div className="h-6 w-0.5 bg-gradient-to-b from-emerald-400 to-amber-400 opacity-60" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Origem</p>
+                      <p className="text-xs font-semibold text-foreground truncate">{r.pickup_address || "Endereço de origem"}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="flex flex-col items-center">
+                      <MapPin className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Destino</p>
+                      <p className="text-xs font-semibold text-foreground truncate">{r.dropoff_address || "Endereço de destino"}</p>
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => handleAdvanceRide(r.id, r.status)}
-                  className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all"
+                  className="mt-4 w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs uppercase tracking-wider shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                 >
                   <span>{r.status === "accepted" ? "Iniciar Corrida" : "Concluir Corrida"}</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </Card>
             ))}
@@ -523,25 +553,65 @@ function DriverHome() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {availableRides.data.map((r) => (
-                  <Card key={r.id} className="p-4 rounded-2xl border border-border/40 shadow-sm space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">
-                        {r.vehicle_type === "taxi" ? "🚗 Solicitação de Táxi" : "🏍️ Solicitação de Moto Táxi"}
+                {availableRides.data.map((r: any) => (
+                  <Card key={r.id} className="relative overflow-hidden rounded-2xl border border-amber-500/25 bg-gradient-to-b from-card/90 to-card/60 p-5 shadow-lg backdrop-blur-md transition-all hover:border-amber-500/40">
+                    <div className="flex items-center justify-between pb-3 border-b border-border/40">
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 font-extrabold text-[11px] uppercase tracking-wider shadow-xs">
+                        <Navigation className="w-3.5 h-3.5 text-amber-400" />
+                        {r.vehicle_type === "taxi" || r.vehicle_type === "carro" ? "Solicitação de Táxi" : "Solicitação de Moto Táxi"}
                       </span>
-                      <span className="text-xs font-bold text-emerald-500"><span>R$ </span><span>{Number(r.price).toFixed(2)}</span></span>
+                      <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/25 px-3 py-1 rounded-xl shadow-xs">
+                        <span className="text-xs font-bold text-emerald-400">R$</span>
+                        <span className="text-base font-black font-mono text-emerald-400">{Number(r.price || 0).toFixed(2)}</span>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Passageiro:</strong> <span>{r.customer_name}</span></p>
-                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Origem:</strong> <span>{r.pickup_address}</span></p>
-                      <p className="text-xs text-muted-foreground"><strong className="text-foreground">Destino:</strong> <span>{r.dropoff_address}</span></p>
+
+                    <div className="mt-3.5 flex items-center gap-2 text-xs font-semibold text-foreground/90">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
+                        <User className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="truncate">{r.customer_name || "Passageiro"}</span>
                     </div>
+
+                    <div className="mt-3.5 space-y-2.5 rounded-xl bg-secondary/30 p-3.5 border border-border/30">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1 flex flex-col items-center">
+                          <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                          <div className="h-6 w-0.5 bg-gradient-to-b from-emerald-400 to-amber-400 opacity-60" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Origem</p>
+                          <p className="text-xs font-semibold text-foreground truncate">{r.pickup_address || "Endereço de origem"}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3">
+                        <div className="flex flex-col items-center">
+                          <MapPin className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Destino</p>
+                          <p className="text-xs font-semibold text-foreground truncate">{r.dropoff_address || "Endereço de destino"}</p>
+                        </div>
+                      </div>
+                    </div>
+
                     <button
                       onClick={() => handleAcceptRide(r.id)}
                       disabled={pendingRide === r.id}
-                      className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all disabled:opacity-50"
+                      className="mt-4 w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black text-xs uppercase tracking-wider shadow-md transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      <span>{pendingRide === r.id ? "Aceitando..." : "Aceitar Corrida"}</span>
+                      {pendingRide === r.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-black" />
+                          <span>Aceitando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Aceitar Corrida</span>
+                          <ArrowRight className="w-4 h-4 text-black" />
+                        </>
+                      )}
                     </button>
                   </Card>
                 ))}
