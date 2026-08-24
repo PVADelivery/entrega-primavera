@@ -451,13 +451,38 @@ function DriverRideMap({ ride }: { ride: any }) {
 
         const m = new MapClass({
           container: mapContainerRef.current,
-          style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+          style: {
+            version: 8,
+            sources: {
+              "osm-tiles": {
+                type: "raster",
+                tiles: [
+                  "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                  "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                  "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                ],
+                tileSize: 256,
+              }
+            },
+            layers: [
+              {
+                id: "osm-layer",
+                type: "raster",
+                source: "osm-tiles",
+                minzoom: 0,
+                maxzoom: 19
+              }
+            ]
+          },
           center: [pickupLng, pickupLat],
           zoom: 14,
           attributionControl: false,
         });
 
         mapRef.current = m;
+        setTimeout(() => {
+          try { m.resize(); } catch (e) {}
+        }, 150);
 
         // Pickup Marker (Origem - Verde)
         if (MarkerClass) {
@@ -517,12 +542,8 @@ function DriverRideMap({ ride }: { ride: any }) {
   }, [pickupLat, pickupLng, dropoffLat, dropoffLng]);
 
   return (
-    <div className="w-full h-44 rounded-xl overflow-hidden bg-secondary relative border border-border/60 shadow-md">
-      <div ref={mapContainerRef} className="w-full h-full" />
-      <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded-md bg-background/90 backdrop-blur-md border border-border/60 text-[10px] font-bold text-foreground flex items-center gap-1.5 shadow-sm pointer-events-none z-10">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span>GPS MapLibre Ao Vivo</span>
-      </div>
+    <div className="w-full h-48 rounded-xl overflow-hidden bg-muted relative border border-border/60 shadow-md">
+      <div ref={mapContainerRef} className="w-full h-full min-h-[192px]" />
     </div>
   );
 }
