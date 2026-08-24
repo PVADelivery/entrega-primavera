@@ -50,11 +50,11 @@ function DriverHome() {
     ensureDriverRow(user.id).then(async (id) => {
       setDriverId(id);
       let dataRes: any = null;
-      const { data: d1 } = await supabase.from("delivery_drivers").select("vehicle_type, vehicle, service_types").eq("user_id", user.id).maybeSingle();
+      const { data: d1 } = await supabase.from("delivery_drivers").select("*").eq("user_id", user.id).maybeSingle();
       if (d1) {
         dataRes = d1;
       } else {
-        const { data: d2 } = await supabase.from("delivery_drivers").select("vehicle_type, vehicle, service_types").eq("id", id).maybeSingle();
+        const { data: d2 } = await supabase.from("delivery_drivers").select("*").eq("id", id).maybeSingle();
         dataRes = d2;
       }
       if (dataRes) {
@@ -141,17 +141,20 @@ function DriverHome() {
       const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
-        .in("status", ["pending", "accepted", "searching"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       const rides = (data ?? []) as any[];
 
       return rides.filter((r: any) => {
-        // 1. Qualquer corrida pendente sem motorista (broadcast geral)
-        if (!r.driver_id && (r.status === "pending" || r.status === "searching")) return true;
-        // 2. Qualquer corrida atribuída especificamente a este motorista
-        if (r.driver_id && myIds.includes(r.driver_id) && (r.status === "pending" || r.status === "accepted")) return true;
+        const statusLower = String(r.status || "").toLowerCase();
+        const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
+        if (!isNotFinished) return false;
+
+        // 1. Qualquer corrida em aberto sem motorista (broadcast)
+        if (!r.driver_id) return true;
+        // 2. Qualquer corrida atribuída a este motorista especificamente
+        if (r.driver_id && myIds.includes(r.driver_id)) return true;
         return false;
       });
     },
@@ -167,13 +170,15 @@ function DriverHome() {
       const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
-        .in("status", ["accepted", "in_progress"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       const rides = (data ?? []) as any[];
 
       return rides.filter((r: any) => {
+        const statusLower = String(r.status || "").toLowerCase();
+        const isActive = ["accepted", "in_progress", "em_andamento", "aceita"].includes(statusLower);
+        if (!isActive) return false;
         return r.driver_id && myIds.includes(r.driver_id);
       });
     },

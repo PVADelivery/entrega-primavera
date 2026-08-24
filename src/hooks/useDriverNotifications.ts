@@ -415,10 +415,10 @@ export function useDriverNotifications() {
       const localOnline = typeof window !== "undefined" ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : false;
 
       let driverRow: any = null;
-      const { data: d1 } = await supabase.from("delivery_drivers").select("id, is_online, vehicle_type, vehicle, service_types").eq("user_id", user.id).maybeSingle();
+      const { data: d1 } = await supabase.from("delivery_drivers").select("*").eq("user_id", user.id).maybeSingle();
       if (d1) driverRow = d1;
       else {
-        const { data: d2 } = await supabase.from("delivery_drivers").select("id, is_online, vehicle_type, vehicle, service_types").eq("id", user.id).maybeSingle();
+        const { data: d2 } = await supabase.from("delivery_drivers").select("*").eq("id", user.id).maybeSingle();
         driverRow = d2;
       }
 

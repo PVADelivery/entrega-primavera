@@ -51,7 +51,7 @@ export function WorkModeProvider({ children }: { children: ReactNode }) {
         let data: any = null;
         const { data: d1 } = await supabase
           .from("delivery_drivers")
-          .select("service_types, vehicle, vehicle_type, active")
+          .select("*")
           .eq("user_id", user.id)
           .maybeSingle();
         
@@ -60,7 +60,7 @@ export function WorkModeProvider({ children }: { children: ReactNode }) {
         } else {
           const { data: d2 } = await supabase
             .from("delivery_drivers")
-            .select("service_types, vehicle, vehicle_type, active")
+            .select("*")
             .eq("id", user.id)
             .maybeSingle();
           data = d2;
