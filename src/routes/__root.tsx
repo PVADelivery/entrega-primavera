@@ -137,11 +137,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className="notranslate" translate="no">
-      <head>
+    <html lang="pt-BR" className="notranslate" translate="no" suppressHydrationWarning>
+      <head suppressHydrationWarning>
         <HeadContent />
       </head>
-      <body className="notranslate" translate="no">
+      <body className="notranslate" translate="no" suppressHydrationWarning>
         {children}
         <Scripts />
       </body>
