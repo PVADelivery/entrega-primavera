@@ -54,9 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Erro no signOut:", error);
     } finally {
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = "/login";
+      if (typeof window !== "undefined") {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "/login";
+      }
     }
   };
 

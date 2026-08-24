@@ -26,6 +26,7 @@ const hashId = (str: string | number) => {
 
 export const getDeclinedDeliveries = (): Set<string> => {
   try {
+    if (typeof window === "undefined") return new Set();
     const list = localStorage.getItem("declined_deliveries");
     return list ? new Set(JSON.parse(list)) : new Set();
   } catch {
@@ -35,6 +36,7 @@ export const getDeclinedDeliveries = (): Set<string> => {
 
 export const declineDeliveryLocally = (deliveryId: string) => {
   try {
+    if (typeof window === "undefined") return;
     const declined = getDeclinedDeliveries();
     declined.add(deliveryId);
     localStorage.setItem("declined_deliveries", JSON.stringify(Array.from(declined)));
@@ -49,6 +51,7 @@ export const declineDeliveryLocally = (deliveryId: string) => {
 
 export const getAcceptedDeliveries = (): Set<string> => {
   try {
+    if (typeof window === "undefined") return new Set();
     const list = localStorage.getItem("accepted_deliveries");
     return list ? new Set(JSON.parse(list)) : new Set();
   } catch {
@@ -58,6 +61,7 @@ export const getAcceptedDeliveries = (): Set<string> => {
 
 export const acceptDeliveryLocally = (deliveryId: string) => {
   try {
+    if (typeof window === "undefined") return;
     const accepted = getAcceptedDeliveries();
     accepted.add(deliveryId);
     localStorage.setItem("accepted_deliveries", JSON.stringify(Array.from(accepted)));

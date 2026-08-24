@@ -133,7 +133,9 @@ export function DriverHeader() {
       DeliveryOverlay.stopOverlay().catch(() => {});
     }
     setOnline(value);
-    localStorage.setItem(`driver_is_online_${user.id}`, String(value));
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`driver_is_online_${user.id}`, String(value));
+    }
 
     const { error } = await supabase
       .from("delivery_drivers")
@@ -148,7 +150,9 @@ export function DriverHeader() {
       console.error("Status update error:", error);
       toast.error("Erro: " + error.message);
       setOnline(!value);
-      localStorage.setItem(`driver_is_online_${user.id}`, String(!value));
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`driver_is_online_${user.id}`, String(!value));
+      }
     } else {
       toast.success(value ? "Você está online" : "Você está offline");
     }
