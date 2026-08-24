@@ -46,7 +46,6 @@ function DriverHome() {
 
   useEffect(() => {
     if (!user) return;
-    // Tenta obter o ID do motorista ou assume o user.id da sessão
     ensureDriverRow(user.id).then(async (id) => {
       setDriverId(id);
       let dataRes: any = null;
@@ -57,10 +56,26 @@ function DriverHome() {
         const { data: d2 } = await supabase.from("delivery_drivers").select("*").eq("id", id).maybeSingle();
         dataRes = d2;
       }
-      if (dataRes) {
-        if ((dataRes as any).service_types) setDriverServiceTypes((dataRes as any).service_types);
-        setDriverInfo(dataRes as any);
-      }
+
+      // Buscar perfil para complementar service_types e vehicle_type se necessário
+      const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+
+      const rawServices = (dataRes as any)?.service_types || prof?.service_types || [];
+      const parsedServices = Array.isArray(rawServices) ? rawServices : [];
+      
+      setDriverServiceTypes(parsedServices);
+      setDriverInfo({
+        ...prof,
+        ...dataRes,
+        service_types: parsedServices,
+      });
+
+      console.log("[DriverHome Init] Motorista Carregado:", {
+        userId: user.id,
+        driverId: id,
+        service_types: parsedServices,
+        vehicle_type: (dataRes as any)?.vehicle_type || (dataRes as any)?.vehicle || prof?.vehicle_type || prof?.vehicle,
+      });
     }).catch(() => {
       setDriverId(user.id);
     });
@@ -139,39 +154,81 @@ function DriverHome() {
     return Array.from(set);
   }
 
-  // Consultas de Corridas de Táxi/Moto Táxi
+  // Função para verificar compatibilidade de tipo de veículo entre corrida e motorista
+  function isRideVehicleCompatible(rideVehicle: string, driverServices: string[], driverVehicle?: string): boolean {
+    const rVeh = String(rideVehicle || "").toLowerCase().replace(/_/g, "");
+    
+    // Se o motorista possui lista de service_types
+    if (Array.isArray(driverServices) && driverServices.length > 0) {
+      const normServices = driverServices.map(s => String(s).toLowerCase().replace(/_/g, ""));
+      
+      if (rVeh === "mototaxi" || rVeh === "moto") {
+        return normServices.some(s => s.includes("mototaxi") || s.includes("moto"));
+      }
+      if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
+        return normServices.some(s => s.includes("taxi") || s.includes("car"));
+      }
+    }
+
+    // Fallback por tipo de veículo principal do motorista
+    const dVeh = String(driverVehicle || "moto").toLowerCase().replace(/_/g, "");
+    if (rVeh === "mototaxi" || rVeh === "moto") {
+      return dVeh === "moto" || dVeh === "mototaxi";
+    }
+    if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
+      return dVeh === "carro" || dVeh === "car" || dVeh === "taxi";
+    }
+
+    return true;
+  }
+
+  // Consultas de Corridas Disponíveis (Táxi / Moto Táxi)
   const availableRides = useQuery({
-    queryKey: ["rides", "available", driverId, user?.id],
+    queryKey: ["rides", "available", driverId, user?.id, driverServiceTypes, driverInfo],
     queryFn: async () => {
-      const myIds = await getAllMyDriverIds();
       const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("[availableRides] Erro ao buscar corridas:", error);
+        throw error;
+      }
       const rides = (data ?? []) as any[];
 
-      return rides.filter((r: any) => {
+      const filtered = rides.filter((r: any) => {
         const statusLower = String(r.status || "").toLowerCase();
+        // Não inclui corridas finalizadas ou canceladas
         const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
         if (!isNotFinished) return false;
 
-        // Se a corrida não tem motorista -> Visível para todos os motoristas
-        if (!r.driver_id) return true;
-        // Se a corrida foi atribuída a este motorista
-        if (myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase())) return true;
-        // Se a corrida está pendente ou procurando motorista -> Broadcast
-        if (statusLower === "pending" || statusLower === "searching" || statusLower === "procurando") return true;
+        // 1. Corrida não atribuída (driver_id é nulo, vazio ou 'none')
+        const isUnassigned = !r.driver_id || String(r.driver_id).trim() === "" || r.driver_id === "none" || r.driver_id === "00000000-0000-0000-0000-000000000000";
+        if (!isUnassigned) return false;
 
-        return false;
+        // 2. Verificar compatibilidade com serviços/veículo do motorista
+        const driverVeh = driverInfo?.vehicle_type || driverInfo?.vehicle || "moto";
+        const isCompatible = isRideVehicleCompatible(r.vehicle_type, driverServiceTypes, driverVeh);
+        return isCompatible;
       });
+
+      console.log("[availableRides] Corridas Disponíveis:", {
+        totalBanco: rides.length,
+        filtradas: filtered.length,
+        driverServices: driverServiceTypes,
+        driverVehicle: driverInfo?.vehicle_type || driverInfo?.vehicle,
+        corridas: filtered,
+      });
+
+      return filtered;
     },
     enabled: mode === "ride",
     refetchInterval: 2000,
     staleTime: 500,
   });
 
+  // Corridas Atribuídas pelo Administrador ao Motorista Logado
   const activeRides = useQuery({
     queryKey: ["rides", "active", driverId, user?.id],
     queryFn: async () => {
@@ -181,15 +238,29 @@ function DriverHome() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("[activeRides] Erro ao buscar corridas atribuídas:", error);
+        throw error;
+      }
       const rides = (data ?? []) as any[];
 
-      return rides.filter((r: any) => {
+      const filtered = rides.filter((r: any) => {
         const statusLower = String(r.status || "").toLowerCase();
-        const isActive = ["accepted", "in_progress", "em_andamento", "aceita"].includes(statusLower);
-        if (!isActive) return false;
-        return r.driver_id && myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
+        const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
+        if (!isNotFinished) return false;
+
+        // Atribuído especificamente a este motorista
+        if (!r.driver_id) return false;
+        return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
       });
+
+      console.log("[activeRides/Atribuídas Admin] Corridas do Motorista:", {
+        myIds,
+        totalAtribuidas: filtered.length,
+        corridas: filtered,
+      });
+
+      return filtered;
     },
     enabled: mode === "ride",
     refetchInterval: 2000,
