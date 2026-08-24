@@ -22,7 +22,7 @@ import {
   getDriverIdFromUser,
 } from "@/services/deliveries";
 import { toast } from "sonner";
-import { TrendingUp, Package2, CalendarDays, Sparkles } from "lucide-react";
+import { TrendingUp, Package2, CalendarDays, Sparkles, Navigation, User, MapPin, ArrowRight, Loader2 } from "lucide-react";
 import { useWorkMode } from "@/hooks/useWorkMode";
 import { WorkModeSwitch } from "@/components/driver/WorkModeSwitch";
 import { useDriverNotifications } from "@/hooks/useDriverNotifications";
