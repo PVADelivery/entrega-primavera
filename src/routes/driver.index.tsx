@@ -75,8 +75,8 @@ function DriverHome() {
       return raw ?? [];
     },
     enabled: mode === "delivery",
-    refetchInterval: 15000,
-    staleTime: 5000,
+    refetchInterval: 2000,
+    staleTime: 500,
   });
 
   // Agrupamento de entregas pendentes por batch_id

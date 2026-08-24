@@ -547,10 +547,8 @@ export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: str
     const isUnassigned = !d.driver_id || String(d.driver_id).trim() === "" || d.driver_id === "none" || d.driver_id === "00000000-0000-0000-0000-000000000000";
     if (!isUnassigned) return false;
 
-    if (d.status === "broadcasted") return true;
-    if (!d.created_at) return true;
-    const elapsedSeconds = getElapsedSeconds(d.created_at);
-    return elapsedSeconds >= 120; // 2 minutos (120 segundos)
+    // Qualquer entrega não atribuída a motorista deve aparecer imediatamente
+    return true;
   });
 
   const canDoCar = true;
