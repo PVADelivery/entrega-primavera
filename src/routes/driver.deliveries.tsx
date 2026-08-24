@@ -380,70 +380,20 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 }
 
 function DriverRideMap({ ride }: { ride: any }) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !mapContainerRef.current || mapRef.current) return;
-    let isMounted = true;
-
-    import("maplibre-gl").then((mod: any) => {
-      if (!isMounted || !mapContainerRef.current || mapRef.current) return;
-      try {
-        const maplibregl = mod.default || mod;
-        const MapClass = maplibregl.Map || mod.Map;
-        const MarkerClass = maplibregl.Marker || mod.Marker;
-
-        if (!MapClass) return;
-
-        const m = new MapClass({
-          container: mapContainerRef.current,
-          style: {
-            version: 8,
-            sources: {
-              "osm-tiles": {
-                type: "raster",
-                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-                tileSize: 256,
-              },
-            },
-            layers: [{ id: "osm-layer", type: "raster", source: "osm-tiles" }],
-          },
-          center: PVA_CENTER,
-          zoom: 14,
-          attributionControl: false,
-        });
-
-        mapRef.current = m;
-
-        if (MarkerClass) {
-          try {
-            new MarkerClass({ color: "#f59e0b" })
-              .setLngLat(PVA_CENTER)
-              .addTo(m);
-          } catch (e) {}
-        }
-      } catch (err) {
-        console.warn("[DriverRideMap] Erro ao inicializar mapa:", err);
-      }
-    }).catch(err => {
-      console.warn("[DriverRideMap] Erro ao importar maplibre-gl:", err);
-    });
-
-    return () => {
-      isMounted = false;
-      if (mapRef.current) {
-        try {
-          mapRef.current.remove();
-        } catch (e) {}
-        mapRef.current = null;
-      }
-    };
-  }, []);
-
   return (
-    <div className="w-full h-44 rounded-xl overflow-hidden bg-secondary relative border border-border/60">
-      <div ref={mapContainerRef} className="w-full h-full" />
+    <div className="w-full h-40 rounded-xl overflow-hidden bg-secondary relative border border-border/60 shadow-inner group">
+      <iframe
+        title="Mapa da Corrida"
+        width="100%"
+        height="100%"
+        className="w-full h-full border-0 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity"
+        loading="lazy"
+        src="https://maps.google.com/maps?q=-15.5606,-54.3075&z=14&output=embed"
+      />
+      <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-background/80 backdrop-blur-md border border-border/60 text-[10px] font-bold text-foreground flex items-center gap-1 shadow-sm pointer-events-none">
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        <span>GPS Ativo</span>
+      </div>
     </div>
   );
 }
