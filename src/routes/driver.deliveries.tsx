@@ -430,12 +430,6 @@ function DriverRideMap({ ride }: { ride: any }) {
   const dropoffMarkerRef = useRef<any>(null);
   const driverMarkerRef = useRef<any>(null);
 
-  const pickupLat = Number(ride?.pickup_latitude || ride?.pickup_lat || ride?.origin_lat || -15.5606);
-  const pickupLng = Number(ride?.pickup_longitude || ride?.pickup_lng || ride?.origin_lng || -54.3075);
-
-  const dropoffLat = Number(ride?.dropoff_latitude || ride?.dropoff_lat || ride?.destination_lat || 0);
-  const dropoffLng = Number(ride?.dropoff_longitude || ride?.dropoff_lng || ride?.destination_lng || 0);
-
   useEffect(() => {
     if (typeof window === "undefined" || !mapContainerRef.current || mapRef.current) return;
     let isMounted = true;
@@ -448,6 +442,12 @@ function DriverRideMap({ ride }: { ride: any }) {
         const MarkerClass = maplibregl.Marker || mod.Marker;
 
         if (!MapClass) return;
+
+        let pLat = Number(ride?.pickup_latitude || ride?.pickup_lat || ride?.origin_lat || 0);
+        let pLng = Number(ride?.pickup_longitude || ride?.pickup_lng || ride?.origin_lng || 0);
+
+        let dLat = Number(ride?.dropoff_latitude || ride?.dropoff_lat || ride?.destination_lat || 0);
+        let dLng = Number(ride?.dropoff_longitude || ride?.dropoff_lng || ride?.destination_lng || 0);
 
         const m = new MapClass({
           container: mapContainerRef.current,
@@ -474,7 +474,7 @@ function DriverRideMap({ ride }: { ride: any }) {
               }
             ]
           },
-          center: [pickupLng, pickupLat],
+          center: (pLat && pLng) ? [pLng, pLat] : PVA_CENTER,
           zoom: 14,
           attributionControl: false,
         });
@@ -484,22 +484,74 @@ function DriverRideMap({ ride }: { ride: any }) {
           try { m.resize(); } catch (e) {}
         }, 150);
 
-        // Pickup Marker (Origem - Verde)
-        if (MarkerClass) {
+        const fitMapBounds = (pickupLat: number, pickupLng: number, dropoffLat?: number, dropoffLng?: number, drvLat?: number, drvLng?: number) => {
           try {
-            pickupMarkerRef.current = new MarkerClass({ color: "#10b981" })
-              .setLngLat([pickupLng, pickupLat])
-              .addTo(m);
+            const bounds = new maplibregl.LngLatBounds();
+            if (pickupLat && pickupLng) bounds.extend([pickupLng, pickupLat]);
+            if (dropoffLat && dropoffLng) bounds.extend([dropoffLng, dropoffLat]);
+            if (drvLat && drvLng) bounds.extend([drvLng, drvLat]);
+            if (!bounds.isEmpty()) {
+              m.fitBounds(bounds, { padding: 45, maxZoom: 16, duration: 800 });
+            }
           } catch (e) {}
-        }
+        };
 
-        // Dropoff Marker (Destino - Vermelho)
-        if (MarkerClass && dropoffLat !== 0 && dropoffLng !== 0) {
-          try {
-            dropoffMarkerRef.current = new MarkerClass({ color: "#ef4444" })
-              .setLngLat([dropoffLng, dropoffLat])
-              .addTo(m);
-          } catch (e) {}
+        const renderRoute = (pickupLatitude: number, pickupLongitude: number, dropoffLatitude?: number, dropoffLongitude?: number) => {
+          if (MarkerClass) {
+            try {
+              if (pickupMarkerRef.current) pickupMarkerRef.current.remove();
+              pickupMarkerRef.current = new MarkerClass({ color: "#10b981" })
+                .setLngLat([pickupLongitude, pickupLatitude])
+                .addTo(m);
+            } catch (e) {}
+
+            if (dropoffLatitude && dropoffLongitude) {
+              try {
+                if (dropoffMarkerRef.current) dropoffMarkerRef.current.remove();
+                dropoffMarkerRef.current = new MarkerClass({ color: "#ef4444" })
+                  .setLngLat([dropoffLongitude, dropoffLatitude])
+                  .addTo(m);
+              } catch (e) {}
+            }
+            fitMapBounds(pickupLatitude, pickupLongitude, dropoffLatitude, dropoffLongitude);
+          }
+        };
+
+        if (pLat && pLng) {
+          renderRoute(pLat, pLng, dLat, dLng);
+        } else if (ride?.pickup_address) {
+          const cleanAddr = ride.pickup_address
+            .replace(/\s*\(.*?\)/g, "")
+            .replace(/\s*-\s*Primavera do Leste/gi, "")
+            .replace(/nº\s*\d+/gi, "")
+            .trim();
+
+          const queryStr = `${cleanAddr}, Primavera do Leste, MT, Brasil`;
+
+          fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryStr)}`)
+            .then((res) => res.json())
+            .then((data) => {
+              if (isMounted && data && data.length > 0) {
+                pLat = parseFloat(data[0].lat);
+                pLng = parseFloat(data[0].lon);
+                renderRoute(pLat, pLng, dLat, dLng);
+              } else {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent("Jardim Progresso, Primavera do Leste, MT")}`)
+                  .then(res => res.json())
+                  .then(progData => {
+                    if (isMounted && progData && progData.length > 0) {
+                      pLat = parseFloat(progData[0].lat);
+                      pLng = parseFloat(progData[0].lon);
+                      renderRoute(pLat, pLng, dLat, dLng);
+                    } else {
+                      renderRoute(-15.5606, -54.3075, dLat, dLng);
+                    }
+                  }).catch(() => renderRoute(-15.5606, -54.3075, dLat, dLng));
+              }
+            })
+            .catch(() => {
+              renderRoute(-15.5606, -54.3075, dLat, dLng);
+            });
         }
 
         // Posição GPS do Motorista em tempo real
@@ -517,6 +569,7 @@ function DriverRideMap({ ride }: { ride: any }) {
                 } else {
                   driverMarkerRef.current.setLngLat([lng, lat]);
                 }
+                fitMapBounds(pLat || -15.5606, pLng || -54.3075, dLat, dLng, lat, lng);
               } catch (e) {}
             },
             () => {},
@@ -539,7 +592,7 @@ function DriverRideMap({ ride }: { ride: any }) {
         mapRef.current = null;
       }
     };
-  }, [pickupLat, pickupLng, dropoffLat, dropoffLng]);
+  }, [ride?.id, ride?.pickup_address, ride?.pickup_latitude, ride?.pickup_longitude]);
 
   return (
     <div className="w-full h-48 rounded-xl overflow-hidden bg-muted relative border border-border/60 shadow-md">
