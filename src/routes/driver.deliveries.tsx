@@ -261,7 +261,9 @@ function DeliveriesPage() {
                     </div>
 
                     {/* Interactive Map Component for Ride Tracking */}
-                    <DriverRideMap ride={r} />
+                    <MapErrorBoundary>
+                      <DriverRideMap ride={r} />
+                    </MapErrorBoundary>
 
                     <div className="space-y-1.5 text-xs">
                       <div className="flex items-center justify-between">
@@ -351,11 +353,30 @@ function DeliveriesPage() {
         </TabsContent>
       </Tabs>
     </div>
-    </DriverShell >
+    </DriverShell>
   );
 }
+class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-const PVA_CENTER: [number, number] = [-54.3075, -15.5606];
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any) {
+    console.warn("[MapErrorBoundary] Erro de renderizacao do mapa silenciado com sucesso:", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
 
 function DriverRideMap({ ride }: { ride: any }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
