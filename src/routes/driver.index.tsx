@@ -137,7 +137,6 @@ function DriverHome() {
   const availableRides = useQuery({
     queryKey: ["rides", "available", driverId, user?.id],
     queryFn: async () => {
-      const myIds = await getAllMyDriverIds();
       const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
@@ -148,14 +147,7 @@ function DriverHome() {
 
       return rides.filter((r: any) => {
         const statusLower = String(r.status || "").toLowerCase();
-        const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
-        if (!isNotFinished) return false;
-
-        // 1. Qualquer corrida em aberto / buscando motorista -> Visível para TODOS os motoristas
-        if (!r.driver_id || statusLower === "pending" || statusLower === "searching" || statusLower === "procurando") return true;
-        // 2. Qualquer corrida atribuída a este motorista especificamente
-        if (r.driver_id && myIds.includes(r.driver_id)) return true;
-        return false;
+        return !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
       });
     },
     enabled: mode === "ride",
