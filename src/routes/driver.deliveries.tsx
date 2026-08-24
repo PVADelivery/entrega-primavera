@@ -240,15 +240,23 @@ function DeliveriesPage() {
                   const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
                   const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
 
-                  const pickup = r.pickup_address || r.pickup || r.origin || "Avenida Salgado Filho - Primavera do Leste";
-                  const dropoff = r.dropoff_address || r.dropoff || r.destination || "Itaúna - Primavera do Leste";
-                  const customer = r.customer_name || r.customer || "Cliente";
+                  const pickup = r.pickup_address || r.pickup || r.origin || "";
+                  const dropoff = r.dropoff_address || r.dropoff || r.destination || "";
+                  const rawCustomer = r.customer_name || r.customer || "Passageiro";
+                  const cleanCustomer = String(rawCustomer).replace(/\s*\(.*?\)/g, "").trim();
+
+                  const phoneRaw = r.customer_phone || r.phone || r.whatsapp || r.customer_whatsapp || "";
+                  const phoneClean = String(phoneRaw).replace(/\D/g, "");
+                  const whatsappUrl = phoneClean
+                    ? `https://wa.me/55${phoneClean}?text=${encodeURIComponent(`Olá ${cleanCustomer}, sou o seu motorista!`)}`
+                    : null;
 
                   return (
                     <Card key={r.id} className="p-4 rounded-2xl border border-primary/30 shadow-md space-y-3 overflow-hidden">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">
-                          {r.vehicle_type === "taxi" ? "🚗 Táxi em andamento" : "🏍️ Moto Táxi em andamento"}
+                        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 font-extrabold text-[11px] uppercase tracking-wider">
+                          <Navigation className="w-3.5 h-3.5 text-amber-400" />
+                          {r.vehicle_type === "taxi" || r.vehicle_type === "carro" ? "Táxi em andamento" : "Moto Táxi em andamento"}
                         </span>
                         <span className="text-xs font-bold text-emerald-500">R$ {safePrice}</span>
                       </div>
@@ -256,11 +264,25 @@ function DeliveriesPage() {
                       {/* Interactive Map Component for Ride Tracking */}
                       <DriverRideMap ride={r} />
 
-                      <div>
-                        <p className="text-xs text-muted-foreground">Passageiro: <strong className="text-foreground">{customer}</strong></p>
-                        <p className="text-xs text-muted-foreground mt-1">Origem: <strong className="text-foreground/90">{pickup}</strong></p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Destino: <strong className="text-foreground/90">{dropoff}</strong></p>
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <p className="text-muted-foreground">Passageiro: <strong className="text-foreground font-bold">{cleanCustomer}</strong></p>
+                          {phoneClean && (
+                            <a
+                              href={whatsappUrl || `tel:${phoneClean}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 transition-all"
+                            >
+                              <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>WhatsApp</span>
+                            </a>
+                          )}
+                        </div>
+                        <p className="text-muted-foreground">Origem: <strong className="text-foreground/90">{pickup}</strong></p>
+                        <p className="text-muted-foreground">Destino: <strong className="text-foreground/90">{dropoff}</strong></p>
                       </div>
+
                       <div className="flex gap-2 pt-2 border-t border-border/40">
                         <button
                           onClick={() => handleAdvanceRideStatus(r.id, r.status)}
@@ -306,17 +328,18 @@ function DeliveriesPage() {
                   const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
                   const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
                   const dropoff = r.dropoff_address || r.dropoff || r.destination || "Destino final";
-                  const customer = r.customer_name || r.customer || "Cliente";
+                  const rawCustomer = r.customer_name || r.customer || "Cliente";
+                  const cleanCustomer = String(rawCustomer).replace(/\s*\(.*?\)/g, "").trim();
 
                   return (
                     <Card key={r.id} className="p-4 rounded-2xl border border-border/50 space-y-2 opacity-80">
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                          {r.vehicle_type === "taxi" ? "🚗 Táxi" : "🏍️ Moto Táxi"} ({r.status === "completed" ? "Concluída" : "Cancelada"})
+                          {r.vehicle_type === "taxi" ? "Táxi" : "Moto Táxi"} ({r.status === "completed" ? "Concluída" : "Cancelada"})
                         </span>
                         <span className="text-xs font-bold text-foreground">R$ {safePrice}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">Passageiro: {customer}</p>
+                      <p className="text-xs text-muted-foreground">Passageiro: {cleanCustomer}</p>
                       <p className="text-[11px] text-muted-foreground truncate">Destino: {dropoff}</p>
                     </Card>
                   );
@@ -367,7 +390,7 @@ function DriverRideMap({ ride }: { ride: any }) {
 
       mapRef.current = m;
 
-      // Adicionar marcador da cidade de Primavera do Leste / local de origem
+      // Adicionar marcador no mapa
       const el = document.createElement("div");
       el.className = "w-7 h-7 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-lg font-bold text-xs border-2 border-white";
       el.innerHTML = "📍";
@@ -388,9 +411,6 @@ function DriverRideMap({ ride }: { ride: any }) {
   return (
     <div className="w-full h-44 rounded-xl overflow-hidden bg-secondary relative border border-border/60">
       <div ref={mapContainerRef} className="w-full h-full" />
-      <div className="absolute top-2 left-2 bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground border border-border shadow-sm">
-        📍 Primavera do Leste - MT
-      </div>
     </div>
   );
 }
