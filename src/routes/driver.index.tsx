@@ -128,6 +128,12 @@ function DriverHome() {
         if (d1) d1.forEach(d => { if (d.id) set.add(d.id); if (d.user_id) set.add(d.user_id); });
         const { data: d2 } = await supabase.from("delivery_drivers").select("id, user_id").eq("id", user.id);
         if (d2) d2.forEach(d => { if (d.id) set.add(d.id); if (d.user_id) set.add(d.user_id); });
+        const { data: prof } = await supabase.from("profiles").select("id, user_id, full_name").eq("user_id", user.id).maybeSingle();
+        if (prof) {
+          if (prof.id) set.add(prof.id);
+          if (prof.user_id) set.add(prof.user_id);
+          if (prof.full_name) set.add(prof.full_name);
+        }
       } catch (e) {}
     }
     return Array.from(set);
@@ -137,6 +143,7 @@ function DriverHome() {
   const availableRides = useQuery({
     queryKey: ["rides", "available", driverId, user?.id],
     queryFn: async () => {
+      const myIds = await getAllMyDriverIds();
       const { data, error } = await (supabase as any)
         .from("ride_requests")
         .select("*")
@@ -147,7 +154,17 @@ function DriverHome() {
 
       return rides.filter((r: any) => {
         const statusLower = String(r.status || "").toLowerCase();
-        return !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
+        const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
+        if (!isNotFinished) return false;
+
+        // Se a corrida não tem motorista -> Visível para todos os motoristas
+        if (!r.driver_id) return true;
+        // Se a corrida foi atribuída a este motorista
+        if (myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase())) return true;
+        // Se a corrida está pendente ou procurando motorista -> Broadcast
+        if (statusLower === "pending" || statusLower === "searching" || statusLower === "procurando") return true;
+
+        return false;
       });
     },
     enabled: mode === "ride",
@@ -171,7 +188,7 @@ function DriverHome() {
         const statusLower = String(r.status || "").toLowerCase();
         const isActive = ["accepted", "in_progress", "em_andamento", "aceita"].includes(statusLower);
         if (!isActive) return false;
-        return r.driver_id && myIds.includes(r.driver_id);
+        return r.driver_id && myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
       });
     },
     enabled: mode === "ride",
