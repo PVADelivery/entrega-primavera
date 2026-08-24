@@ -519,42 +519,78 @@ function DriverRideMap({ ride }: { ride: any }) {
           }
         };
 
-        if (pLat && pLng) {
-          renderRoute(pLat, pLng, dLat, dLng);
-        } else if (ride?.pickup_address) {
-          const cleanAddr = ride.pickup_address
+        const cleanStreetOnly = (addr: string): string => {
+          if (!addr) return "";
+          let cleaned = addr
             .replace(/\s*\(.*?\)/g, "")
-            .replace(/\s*-\s*Primavera do Leste/gi, "")
+            .replace(/\s*-\s*Primavera do Leste.*/gi, "")
             .replace(/nº\s*\d+/gi, "")
+            .replace(/,\s*\d+/gi, "")
             .trim();
 
-          const queryStr = `${cleanAddr}, Primavera do Leste, MT, Brasil`;
+          const parts = cleaned.split(",");
+          if (parts.length > 0) {
+            const first = parts[0].trim();
+            if (first.length > 3) return first;
+          }
+          return cleaned;
+        };
 
-          fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryStr)}`)
-            .then((res) => res.json())
-            .then((data) => {
-              if (isMounted && data && data.length > 0) {
-                pLat = parseFloat(data[0].lat);
-                pLng = parseFloat(data[0].lon);
-                renderRoute(pLat, pLng, dLat, dLng);
-              } else {
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent("Jardim Progresso, Primavera do Leste, MT")}`)
-                  .then(res => res.json())
-                  .then(progData => {
-                    if (isMounted && progData && progData.length > 0) {
-                      pLat = parseFloat(progData[0].lat);
-                      pLng = parseFloat(progData[0].lon);
-                      renderRoute(pLat, pLng, dLat, dLng);
-                    } else {
-                      renderRoute(-15.5606, -54.3075, dLat, dLng);
-                    }
-                  }).catch(() => renderRoute(-15.5606, -54.3075, dLat, dLng));
+        const geocodeAddress = async (addrStr: string): Promise<[number, number] | null> => {
+          if (!addrStr) return null;
+          const streetName = cleanStreetOnly(addrStr);
+          if (!streetName) return null;
+
+          try {
+            const q1 = `${streetName}, Primavera do Leste, MT`;
+            const r1 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q1)}`);
+            const d1 = await r1.json();
+            if (d1 && d1.length > 0) {
+              return [parseFloat(d1[0].lat), parseFloat(d1[0].lon)];
+            }
+
+            const q2 = `${streetName}, Primavera do Leste, MT, Brasil`;
+            const r2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q2)}`);
+            const d2 = await r2.json();
+            if (d2 && d2.length > 0) {
+              return [parseFloat(d2[0].lat), parseFloat(d2[0].lon)];
+            }
+          } catch (e) {}
+          return null;
+        };
+
+        const setupRouteAndMarkers = async () => {
+          if (!pLat || !pLng) {
+            if (ride?.pickup_address) {
+              const coords = await geocodeAddress(ride.pickup_address);
+              if (coords) {
+                pLat = coords[0];
+                pLng = coords[1];
               }
-            })
-            .catch(() => {
-              renderRoute(-15.5606, -54.3075, dLat, dLng);
-            });
-        }
+            }
+          }
+
+          if (!dLat || !dLng) {
+            if (ride?.dropoff_address) {
+              const coords = await geocodeAddress(ride.dropoff_address);
+              if (coords) {
+                dLat = coords[0];
+                dLng = coords[1];
+              }
+            }
+          }
+
+          if (!pLat || !pLng) {
+            pLat = -15.5606;
+            pLng = -54.3075;
+          }
+
+          if (isMounted) {
+            renderRoute(pLat, pLng, dLat, dLng);
+          }
+        };
+
+        setupRouteAndMarkers();
 
         // Posição GPS do Motorista em tempo real
         if (typeof window !== "undefined" && navigator.geolocation) {
