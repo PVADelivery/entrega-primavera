@@ -641,9 +641,24 @@ function DriverRideMap({ ride }: { ride: any }) {
           const el = document.createElement("div");
           el.className = "relative flex items-center justify-center pointer-events-none";
           el.innerHTML = `
-            <div class="absolute w-12 h-12 rounded-full bg-amber-500/35 animate-ping"></div>
-            <div class="relative w-10 h-10 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center shadow-[0_0_20px_rgba(251,191,36,0.8)] border-2 border-white">
-              ${isTaxi ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C1.4 11.2 1 12 1 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>' : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="5" cy="16" r="3"/><circle cx="19" cy="16" r="3"/><path d="M12 16h1a3 3 0 0 0 3-3v-2l-3-4H9l1.5 4H8"/><path d="M9 7h2.5"/></svg>'}
+            <div class="absolute w-14 h-14 rounded-full bg-amber-500/35 animate-ping"></div>
+            <div class="relative w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-black flex items-center justify-center shadow-[0_0_25px_rgba(245,158,11,0.95)] border-2 border-white">
+              ${isTaxi ? `
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C1.4 11.2 1 12 1 13v3c0 .6.4 1 1 1h2"/>
+                  <circle cx="7" cy="17" r="2.5"/>
+                  <circle cx="17" cy="17" r="2.5"/>
+                </svg>
+              ` : `
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="6" cy="17.5" r="3.2"/>
+                  <circle cx="18" cy="17.5" r="3.2"/>
+                  <path d="M6 17.5l3.8-6.5h4.2l3 6.5"/>
+                  <path d="M9.8 11L7.5 6.5H5"/>
+                  <path d="M14 11l2.2-4.5h3.8"/>
+                  <path d="M9 14h5.5"/>
+                </svg>
+              `}
             </div>
           `;
           return el;
