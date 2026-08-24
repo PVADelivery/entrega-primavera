@@ -86,8 +86,13 @@ function DriverHome() {
   const available = useQuery({
     queryKey: ["deliveries", "available", driverInfo],
     queryFn: async () => {
-      const raw = await fetchAvailableDeliveries(driverInfo);
-      return raw ?? [];
+      try {
+        const raw = await fetchAvailableDeliveries(driverInfo);
+        return raw ?? [];
+      } catch (err) {
+        console.error("[available] Erro na consulta:", err);
+        return [];
+      }
     },
     enabled: mode === "delivery",
     refetchInterval: 2000,
@@ -129,7 +134,14 @@ function DriverHome() {
 
   const active = useQuery({
     queryKey: ["deliveries", "active", driverId],
-    queryFn: () => (driverId ? fetchMyActiveDeliveries(driverId) : Promise.resolve([])),
+    queryFn: async () => {
+      try {
+        return driverId ? await fetchMyActiveDeliveries(driverId) : [];
+      } catch (err) {
+        console.error("[active] Erro na consulta:", err);
+        return [];
+      }
+    },
     enabled: !!driverId && mode === "delivery",
   });
 
@@ -186,42 +198,47 @@ function DriverHome() {
   const availableRides = useQuery({
     queryKey: ["rides", "available", driverId, user?.id, driverServiceTypes, driverInfo],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("ride_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        const { data, error } = await (supabase as any)
+          .from("ride_requests")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("[availableRides] Erro ao buscar corridas:", error);
-        throw error;
+        if (error) {
+          console.error("[availableRides] Erro ao buscar corridas:", error);
+          return [];
+        }
+        const rides = (data ?? []) as any[];
+
+        const filtered = rides.filter((r: any) => {
+          const statusLower = String(r.status || "").toLowerCase();
+          // Não inclui corridas finalizadas ou canceladas
+          const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
+          if (!isNotFinished) return false;
+
+          // 1. Corrida não atribuída (driver_id é nulo, vazio ou 'none')
+          const isUnassigned = !r.driver_id || String(r.driver_id).trim() === "" || r.driver_id === "none" || r.driver_id === "00000000-0000-0000-0000-000000000000";
+          if (!isUnassigned) return false;
+
+          // 2. Verificar compatibilidade com serviços/veículo do motorista
+          const driverVeh = driverInfo?.vehicle_type || driverInfo?.vehicle || "moto";
+          const isCompatible = isRideVehicleCompatible(r.vehicle_type, driverServiceTypes, driverVeh);
+          return isCompatible;
+        });
+
+        console.log("[availableRides] Corridas Disponíveis:", {
+          totalBanco: rides.length,
+          filtradas: filtered.length,
+          driverServices: driverServiceTypes,
+          driverVehicle: driverInfo?.vehicle_type || driverInfo?.vehicle,
+          corridas: filtered,
+        });
+
+        return filtered;
+      } catch (err) {
+        console.error("[availableRides] Erro ao processar corridas:", err);
+        return [];
       }
-      const rides = (data ?? []) as any[];
-
-      const filtered = rides.filter((r: any) => {
-        const statusLower = String(r.status || "").toLowerCase();
-        // Não inclui corridas finalizadas ou canceladas
-        const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
-        if (!isNotFinished) return false;
-
-        // 1. Corrida não atribuída (driver_id é nulo, vazio ou 'none')
-        const isUnassigned = !r.driver_id || String(r.driver_id).trim() === "" || r.driver_id === "none" || r.driver_id === "00000000-0000-0000-0000-000000000000";
-        if (!isUnassigned) return false;
-
-        // 2. Verificar compatibilidade com serviços/veículo do motorista
-        const driverVeh = driverInfo?.vehicle_type || driverInfo?.vehicle || "moto";
-        const isCompatible = isRideVehicleCompatible(r.vehicle_type, driverServiceTypes, driverVeh);
-        return isCompatible;
-      });
-
-      console.log("[availableRides] Corridas Disponíveis:", {
-        totalBanco: rides.length,
-        filtradas: filtered.length,
-        driverServices: driverServiceTypes,
-        driverVehicle: driverInfo?.vehicle_type || driverInfo?.vehicle,
-        corridas: filtered,
-      });
-
-      return filtered;
     },
     enabled: mode === "ride",
     refetchInterval: 2000,
@@ -232,35 +249,40 @@ function DriverHome() {
   const activeRides = useQuery({
     queryKey: ["rides", "active", driverId, user?.id],
     queryFn: async () => {
-      const myIds = await getAllMyDriverIds();
-      const { data, error } = await (supabase as any)
-        .from("ride_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        const myIds = await getAllMyDriverIds();
+        const { data, error } = await (supabase as any)
+          .from("ride_requests")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("[activeRides] Erro ao buscar corridas atribuídas:", error);
-        throw error;
+        if (error) {
+          console.error("[activeRides] Erro ao buscar corridas atribuídas:", error);
+          return [];
+        }
+        const rides = (data ?? []) as any[];
+
+        const filtered = rides.filter((r: any) => {
+          const statusLower = String(r.status || "").toLowerCase();
+          const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
+          if (!isNotFinished) return false;
+
+          // Atribuído especificamente a este motorista
+          if (!r.driver_id) return false;
+          return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
+        });
+
+        console.log("[activeRides/Atribuídas Admin] Corridas do Motorista:", {
+          myIds,
+          totalAtribuidas: filtered.length,
+          corridas: filtered,
+        });
+
+        return filtered;
+      } catch (err) {
+        console.error("[activeRides] Erro ao processar corridas atribuídas:", err);
+        return [];
       }
-      const rides = (data ?? []) as any[];
-
-      const filtered = rides.filter((r: any) => {
-        const statusLower = String(r.status || "").toLowerCase();
-        const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
-        if (!isNotFinished) return false;
-
-        // Atribuído especificamente a este motorista
-        if (!r.driver_id) return false;
-        return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
-      });
-
-      console.log("[activeRides/Atribuídas Admin] Corridas do Motorista:", {
-        myIds,
-        totalAtribuidas: filtered.length,
-        corridas: filtered,
-      });
-
-      return filtered;
     },
     enabled: mode === "ride",
     refetchInterval: 2000,
