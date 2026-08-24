@@ -47,19 +47,52 @@ function DeliveriesPage() {
     enabled: true,
   });
 
+  async function getAllMyDriverIds(): Promise<string[]> {
+    const set = new Set<string>();
+    if (user?.id) set.add(user.id);
+    if (driverId) set.add(driverId);
+    if (user?.id) {
+      try {
+        const { data: d1 } = await (supabase as any).from("delivery_drivers").select("id, user_id").eq("user_id", user.id);
+        if (d1) d1.forEach((d: any) => { if (d.id) set.add(d.id); if (d.user_id) set.add(d.user_id); });
+        const { data: d2 } = await (supabase as any).from("delivery_drivers").select("id, user_id").eq("id", user.id);
+        if (d2) d2.forEach((d: any) => { if (d.id) set.add(d.id); if (d.user_id) set.add(d.user_id); });
+        const { data: prof } = await (supabase as any).from("profiles").select("user_id, full_name").eq("user_id", user.id).maybeSingle();
+        if (prof) {
+          if (prof.user_id) set.add(prof.user_id);
+          if (prof.full_name) set.add(prof.full_name);
+        }
+      } catch (e) {}
+    }
+    return Array.from(set);
+  }
+
   const activeRides = useQuery({
     queryKey: ["rides", "active", driverId, user?.id],
     queryFn: async () => {
-      const ids = Array.from(new Set([driverId, user?.id, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
-      const { data, error } = await (supabase as any)
-        .from("ride_requests")
-        .select("*")
-        .in("driver_id", ids)
-        .in("status", ["accepted", "in_progress", "arrived"]);
-      if (error) throw error;
-      return (data ?? []) as any[];
+      try {
+        const myIds = await getAllMyDriverIds();
+        const { data, error } = await (supabase as any)
+          .from("ride_requests")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (error) return [];
+        const rides = (data ?? []) as any[];
+
+        return rides.filter((r: any) => {
+          const statusLower = String(r.status || "").toLowerCase();
+          const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
+          if (!isNotFinished) return false;
+          if (!r.driver_id) return false;
+          return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
+        });
+      } catch (e) {
+        return [];
+      }
     },
     enabled: true,
+    refetchInterval: 2000,
+    staleTime: 500,
   });
 
   const history = useQuery({
@@ -71,14 +104,25 @@ function DeliveriesPage() {
   const historyRides = useQuery({
     queryKey: ["rides", "history", driverId, user?.id],
     queryFn: async () => {
-      const ids = Array.from(new Set([driverId, user?.id, "c6873f0a-ed5d-4cf6-9f28-ef4dd37507f0"].filter(Boolean)));
-      const { data, error } = await (supabase as any)
-        .from("ride_requests")
-        .select("*")
-        .in("driver_id", ids)
-        .in("status", ["completed", "cancelled"]);
-      if (error) throw error;
-      return (data ?? []) as any[];
+      try {
+        const myIds = await getAllMyDriverIds();
+        const { data, error } = await (supabase as any)
+          .from("ride_requests")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (error) return [];
+        const rides = (data ?? []) as any[];
+
+        return rides.filter((r: any) => {
+          const statusLower = String(r.status || "").toLowerCase();
+          const isFinished = ["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
+          if (!isFinished) return false;
+          if (!r.driver_id) return false;
+          return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
+        });
+      } catch (e) {
+        return [];
+      }
     },
     enabled: true,
   });
