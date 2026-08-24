@@ -37,7 +37,7 @@ function DeliveriesPage() {
 
   useEffect(() => {
     if (!user) return;
-    ensureDriverRow(user.id).then(setDriverId).catch(() => {});
+    ensureDriverRow(user.id).then(setDriverId).catch(() => { });
   }, [user]);
 
   const active = useQuery({
@@ -207,13 +207,12 @@ function DeliveriesPage() {
                   }
                   setMode(t.value as any);
                 }}
-                className={`rounded-xl px-3 py-2.5 text-xs font-black uppercase tracking-wider transition-all ${
-                  activeTab
+                className={`rounded-xl px-3 py-2.5 text-xs font-black uppercase tracking-wider transition-all ${activeTab
                     ? "text-primary-foreground shadow-[var(--shadow-elegant)]"
                     : t.allowed
                       ? "text-muted-foreground hover:text-foreground"
                       : "cursor-not-allowed text-muted-foreground/40"
-                }`}
+                  }`}
                 style={activeTab ? { background: "var(--gradient-gold)" } : undefined}
               >
                 {t.label}
@@ -238,121 +237,121 @@ function DeliveriesPage() {
                 {/* Active Passenger Rides (Táxi / Moto Táxi) */}
                 {isRide && activeRides.data?.map((r) => {
                   const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
-                  const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
+                const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
 
-                  const pickup = r.pickup_address || r.pickup || r.origin || "";
-                  const dropoff = r.dropoff_address || r.dropoff || r.destination || "";
-                  const rawCustomer = r.customer_name || r.customer || "Passageiro";
-                  const cleanCustomer = String(rawCustomer).replace(/\s*\(.*?\)/g, "").trim();
+                const pickup = r.pickup_address || r.pickup || r.origin || "";
+                const dropoff = r.dropoff_address || r.dropoff || r.destination || "";
+                const rawCustomer = r.customer_name || r.customer || "Passageiro";
+                const cleanCustomer = String(rawCustomer).replace(/\s*\(.*?\)/g, "").trim();
 
-                  const phoneRaw = r.customer_phone || r.phone || r.whatsapp || r.customer_whatsapp || "";
-                  const phoneClean = String(phoneRaw).replace(/\D/g, "");
-                  const whatsappUrl = phoneClean
-                    ? `https://wa.me/55${phoneClean}?text=${encodeURIComponent(`Olá ${cleanCustomer}, sou o seu motorista!`)}`
-                    : null;
+                const phoneRaw = r.customer_phone || r.phone || r.whatsapp || r.customer_whatsapp || "";
+                const phoneClean = String(phoneRaw).replace(/\D/g, "");
+                const whatsappUrl = phoneClean
+                  ? `https://wa.me/55${phoneClean}?text=${encodeURIComponent(`Olá ${cleanCustomer}, sou o seu motorista!`)}`
+                  : null;
 
-                  return (
-                    <Card key={r.id} className="p-4 rounded-2xl border border-primary/30 shadow-md space-y-3 overflow-hidden">
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 font-extrabold text-[11px] uppercase tracking-wider">
-                          <Navigation className="w-3.5 h-3.5 text-amber-400" />
-                          {r.vehicle_type === "taxi" || r.vehicle_type === "carro" ? "Táxi em andamento" : "Moto Táxi em andamento"}
-                        </span>
-                        <span className="text-xs font-bold text-emerald-500">R$ {safePrice}</span>
+                return (
+                  <Card key={r.id} className="p-4 rounded-2xl border border-primary/30 shadow-md space-y-3 overflow-hidden">
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 font-extrabold text-[11px] uppercase tracking-wider">
+                        <Navigation className="w-3.5 h-3.5 text-amber-400" />
+                        {r.vehicle_type === "taxi" || r.vehicle_type === "carro" ? "Táxi em andamento" : "Moto Táxi em andamento"}
+                      </span>
+                      <span className="text-xs font-bold text-emerald-500">R$ {safePrice}</span>
+                    </div>
+
+                    {/* Interactive Map Component for Ride Tracking */}
+                    <DriverRideMap ride={r} />
+
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <p className="text-muted-foreground">Passageiro: <strong className="text-foreground font-bold">{cleanCustomer}</strong></p>
+                        {phoneClean && (
+                          <a
+                            href={whatsappUrl || `tel:${phoneClean}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 transition-all"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>WhatsApp</span>
+                          </a>
+                        )}
                       </div>
+                      <p className="text-muted-foreground">Origem: <strong className="text-foreground/90">{pickup}</strong></p>
+                      <p className="text-muted-foreground">Destino: <strong className="text-foreground/90">{dropoff}</strong></p>
+                    </div>
 
-                      {/* Interactive Map Component for Ride Tracking */}
-                      <DriverRideMap ride={r} />
+                    <div className="flex gap-2 pt-2 border-t border-border/40">
+                      <button
+                        onClick={() => handleAdvanceRideStatus(r.id, r.status)}
+                        disabled={pending === r.id}
+                        className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all cursor-pointer"
+                      >
+                        {pending === r.id ? "Atualizando..." : r.status === "accepted" ? "Cheguei no local" : r.status === "arrived" ? "Iniciar corrida" : "Finalizar corrida"}
+                      </button>
+                      <button
+                        onClick={() => handleCancelRide(r.id)}
+                        disabled={pending === r.id}
+                        className="px-3 py-2.5 rounded-xl border border-destructive/30 text-destructive text-xs font-bold hover:bg-destructive/10 transition-all cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </Card>
+                );
+              })}
 
-                      <div className="space-y-1.5 text-xs">
-                        <div className="flex items-center justify-between">
-                          <p className="text-muted-foreground">Passageiro: <strong className="text-foreground font-bold">{cleanCustomer}</strong></p>
-                          {phoneClean && (
-                            <a
-                              href={whatsappUrl || `tel:${phoneClean}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 transition-all"
-                            >
-                              <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>WhatsApp</span>
-                            </a>
-                          )}
-                        </div>
-                        <p className="text-muted-foreground">Origem: <strong className="text-foreground/90">{pickup}</strong></p>
-                        <p className="text-muted-foreground">Destino: <strong className="text-foreground/90">{dropoff}</strong></p>
-                      </div>
-
-                      <div className="flex gap-2 pt-2 border-t border-border/40">
-                        <button
-                          onClick={() => handleAdvanceRideStatus(r.id, r.status)}
-                          disabled={pending === r.id}
-                          className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all cursor-pointer"
-                        >
-                          {pending === r.id ? "Atualizando..." : r.status === "accepted" ? "Cheguei no local" : r.status === "arrived" ? "Iniciar corrida" : "Finalizar corrida"}
-                        </button>
-                        <button
-                          onClick={() => handleCancelRide(r.id)}
-                          disabled={pending === r.id}
-                          className="px-3 py-2.5 rounded-xl border border-destructive/30 text-destructive text-xs font-bold hover:bg-destructive/10 transition-all cursor-pointer"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </Card>
-                  );
-                })}
-
-                {/* Active Store Deliveries */}
-                {!isRide && active.data?.map((d) => (
-                  <DeliveryCard
-                    key={d.id}
-                    delivery={d}
-                    onAdvance={() => handleAdvance(d)}
-                    onCancel={() => handleCancel(d.id)}
-                    pending={pending === d.id}
-                  />
-                ))}
-              </>
+            {/* Active Store Deliveries */}
+            {!isRide && active.data?.map((d) => (
+              <DeliveryCard
+                key={d.id}
+                delivery={d}
+                onAdvance={() => handleAdvance(d)}
+                onCancel={() => handleCancel(d.id)}
+                pending={pending === d.id}
+              />
+            ))}
+          </>
             )}
-          </TabsContent>
+        </TabsContent>
 
-          <TabsContent value="history" className="mt-4 space-y-3">
-            {(isRide ? historyRides.isLoading : history.isLoading) ? (
-              <Skeleton className="h-32 rounded-2xl" />
-            ) : !hasHistoryItems ? (
-              <Empty msg="Sem histórico ainda." />
-            ) : (
-              <>
-                {isRide && historyRides.data?.map((r) => {
-                  const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
-                  const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
-                  const dropoff = r.dropoff_address || r.dropoff || r.destination || "Destino final";
-                  const rawCustomer = r.customer_name || r.customer || "Cliente";
-                  const cleanCustomer = String(rawCustomer).replace(/\s*\(.*?\)/g, "").trim();
+        <TabsContent value="history" className="mt-4 space-y-3">
+          {(isRide ? historyRides.isLoading : history.isLoading) ? (
+            <Skeleton className="h-32 rounded-2xl" />
+          ) : !hasHistoryItems ? (
+            <Empty msg="Sem histórico ainda." />
+          ) : (
+            <>
+              {isRide && historyRides.data?.map((r) => {
+                const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
+                const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
+                const dropoff = r.dropoff_address || r.dropoff || r.destination || "Destino final";
+                const rawCustomer = r.customer_name || r.customer || "Cliente";
+                const cleanCustomer = String(rawCustomer).replace(/\s*\(.*?\)/g, "").trim();
 
-                  return (
-                    <Card key={r.id} className="p-4 rounded-2xl border border-border/50 space-y-2 opacity-80">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                          {r.vehicle_type === "taxi" ? "Táxi" : "Moto Táxi"} ({r.status === "completed" ? "Concluída" : "Cancelada"})
-                        </span>
-                        <span className="text-xs font-bold text-foreground">R$ {safePrice}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Passageiro: {cleanCustomer}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">Destino: {dropoff}</p>
-                    </Card>
-                  );
-                })}
-                {!isRide && history.data?.map((d) => (
-                  <DeliveryCard key={d.id} delivery={d} />
-                ))}
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
-    </DriverShell>
+                return (
+                  <Card key={r.id} className="p-4 rounded-2xl border border-border/50 space-y-2 opacity-80">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        {r.vehicle_type === "taxi" ? "Táxi" : "Moto Táxi"} ({r.status === "completed" ? "Concluída" : "Cancelada"})
+                      </span>
+                      <span className="text-xs font-bold text-foreground">R$ {safePrice}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Passageiro: {cleanCustomer}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">Destino: {dropoff}</p>
+                  </Card>
+                );
+              })}
+              {!isRide && history.data?.map((d) => (
+                <DeliveryCard key={d.id} delivery={d} />
+              ))}
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+    </DriverShell >
   );
 }
 
@@ -368,41 +367,53 @@ function DriverRideMap({ ride }: { ride: any }) {
 
     import("maplibre-gl").then((mod) => {
       if (!isMounted || !mapContainerRef.current || mapRef.current) return;
-      const MapLibre = mod.default || mod;
+      try {
+        const maplibregl = mod.default || mod;
+        const MapClass = maplibregl.Map || mod.Map;
+        const MarkerClass = maplibregl.Marker || mod.Marker;
 
-      const m = new MapLibre.Map({
-        container: mapContainerRef.current,
-        style: {
-          version: 8,
-          sources: {
-            "osm-tiles": {
-              type: "raster",
-              tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-              tileSize: 256,
+        if (!MapClass) return;
+
+        const m = new MapClass({
+          container: mapContainerRef.current,
+          style: {
+            version: 8,
+            sources: {
+              "osm-tiles": {
+                type: "raster",
+                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                tileSize: 256,
+              },
             },
+            layers: [{ id: "osm-layer", type: "raster", source: "osm-tiles" }],
           },
-          layers: [{ id: "osm-layer", type: "raster", source: "osm-tiles" }],
-        },
-        center: PVA_CENTER,
-        zoom: 14,
-        attributionControl: false,
-      });
+          center: PVA_CENTER,
+          zoom: 14,
+          attributionControl: false,
+        });
 
-      mapRef.current = m;
+        mapRef.current = m;
 
-      // Adicionar marcador no mapa
-      const el = document.createElement("div");
-      el.className = "w-7 h-7 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-lg font-bold text-xs border-2 border-white";
-      el.innerHTML = "📍";
-      new MapLibre.Marker({ element: el })
-        .setLngLat(PVA_CENTER)
-        .addTo(m);
+        if (MarkerClass) {
+          try {
+            new MarkerClass({ color: "#f59e0b" })
+              .setLngLat(PVA_CENTER)
+              .addTo(m);
+          } catch (e) {}
+        }
+      } catch (err) {
+        console.warn("[DriverRideMap] Erro ao inicializar mapa:", err);
+      }
+    }).catch(err => {
+      console.warn("[DriverRideMap] Erro ao importar maplibre-gl:", err);
     });
 
     return () => {
       isMounted = false;
       if (mapRef.current) {
-        mapRef.current.remove();
+        try {
+          mapRef.current.remove();
+        } catch (e) {}
         mapRef.current = null;
       }
     };
