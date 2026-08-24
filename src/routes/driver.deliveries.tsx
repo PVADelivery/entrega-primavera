@@ -424,19 +424,104 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 }
 
 function DriverRideMap({ ride }: { ride: any }) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const pickupMarkerRef = useRef<any>(null);
+  const dropoffMarkerRef = useRef<any>(null);
+  const driverMarkerRef = useRef<any>(null);
+
+  const pickupLat = Number(ride?.pickup_latitude || ride?.pickup_lat || ride?.origin_lat || -15.5606);
+  const pickupLng = Number(ride?.pickup_longitude || ride?.pickup_lng || ride?.origin_lng || -54.3075);
+
+  const dropoffLat = Number(ride?.dropoff_latitude || ride?.dropoff_lat || ride?.destination_lat || 0);
+  const dropoffLng = Number(ride?.dropoff_longitude || ride?.dropoff_lng || ride?.destination_lng || 0);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !mapContainerRef.current || mapRef.current) return;
+    let isMounted = true;
+
+    import("maplibre-gl").then((mod: any) => {
+      if (!isMounted || !mapContainerRef.current || mapRef.current) return;
+      try {
+        const maplibregl = mod.default || mod;
+        const MapClass = maplibregl.Map || mod.Map;
+        const MarkerClass = maplibregl.Marker || mod.Marker;
+
+        if (!MapClass) return;
+
+        const m = new MapClass({
+          container: mapContainerRef.current,
+          style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+          center: [pickupLng, pickupLat],
+          zoom: 14,
+          attributionControl: false,
+        });
+
+        mapRef.current = m;
+
+        // Pickup Marker (Origem - Verde)
+        if (MarkerClass) {
+          try {
+            pickupMarkerRef.current = new MarkerClass({ color: "#10b981" })
+              .setLngLat([pickupLng, pickupLat])
+              .addTo(m);
+          } catch (e) {}
+        }
+
+        // Dropoff Marker (Destino - Vermelho)
+        if (MarkerClass && dropoffLat !== 0 && dropoffLng !== 0) {
+          try {
+            dropoffMarkerRef.current = new MarkerClass({ color: "#ef4444" })
+              .setLngLat([dropoffLng, dropoffLat])
+              .addTo(m);
+          } catch (e) {}
+        }
+
+        // Posição GPS do Motorista em tempo real
+        if (typeof window !== "undefined" && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              if (!isMounted || !mapRef.current || !MarkerClass) return;
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              try {
+                if (!driverMarkerRef.current) {
+                  driverMarkerRef.current = new MarkerClass({ color: "#f59e0b" })
+                    .setLngLat([lng, lat])
+                    .addTo(mapRef.current);
+                } else {
+                  driverMarkerRef.current.setLngLat([lng, lat]);
+                }
+              } catch (e) {}
+            },
+            () => {},
+            { enableHighAccuracy: true, timeout: 5000 }
+          );
+        }
+      } catch (err) {
+        console.warn("[DriverRideMap] Erro ao inicializar MapLibre:", err);
+      }
+    }).catch((err) => {
+      console.warn("[DriverRideMap] Erro ao carregar MapLibre:", err);
+    });
+
+    return () => {
+      isMounted = false;
+      if (mapRef.current) {
+        try {
+          mapRef.current.remove();
+        } catch (e) {}
+        mapRef.current = null;
+      }
+    };
+  }, [pickupLat, pickupLng, dropoffLat, dropoffLng]);
+
   return (
-    <div className="w-full h-40 rounded-xl overflow-hidden bg-secondary relative border border-border/60 shadow-inner group">
-      <iframe
-        title="Mapa da Corrida"
-        width="100%"
-        height="100%"
-        className="w-full h-full border-0 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity"
-        loading="lazy"
-        src="https://maps.google.com/maps?q=-15.5606,-54.3075&z=14&output=embed"
-      />
-      <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-background/80 backdrop-blur-md border border-border/60 text-[10px] font-bold text-foreground flex items-center gap-1 shadow-sm pointer-events-none">
+    <div className="w-full h-44 rounded-xl overflow-hidden bg-secondary relative border border-border/60 shadow-md">
+      <div ref={mapContainerRef} className="w-full h-full" />
+      <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded-md bg-background/90 backdrop-blur-md border border-border/60 text-[10px] font-bold text-foreground flex items-center gap-1.5 shadow-sm pointer-events-none z-10">
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span>GPS Ativo</span>
+        <span>GPS MapLibre Ao Vivo</span>
       </div>
     </div>
   );
