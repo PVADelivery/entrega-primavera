@@ -151,8 +151,8 @@ function DriverHome() {
         const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
         if (!isNotFinished) return false;
 
-        // 1. Qualquer corrida em aberto sem motorista (broadcast)
-        if (!r.driver_id) return true;
+        // 1. Qualquer corrida em aberto / buscando motorista -> Visível para TODOS os motoristas
+        if (!r.driver_id || statusLower === "pending" || statusLower === "searching" || statusLower === "procurando") return true;
         // 2. Qualquer corrida atribuída a este motorista especificamente
         if (r.driver_id && myIds.includes(r.driver_id)) return true;
         return false;
