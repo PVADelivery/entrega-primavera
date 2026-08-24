@@ -9,12 +9,7 @@ import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 
 export function DriverHeader() {
   const { user } = useAuth();
-  const [online, setOnline] = useState(() => {
-    if (typeof window !== "undefined" && user?.id) {
-      return localStorage.getItem(`driver_is_online_${user.id}`) === "true";
-    }
-    return false;
-  });
+  const [online, setOnline] = useState(false);
   const [name, setName] = useState("Entregador");
   const locationWatchRef = useRef<number | null>(null);
 

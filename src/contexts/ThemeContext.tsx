@@ -20,12 +20,20 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "dark";
-    const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    if (saved === "light" || saved === "dark") return saved;
-    return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
-  });
+  const [theme, setThemeState] = useState<Theme>("dark");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
+      if (saved === "light" || saved === "dark") {
+        setThemeState(saved);
+        applyTheme(saved);
+      } else {
+        applyTheme("dark");
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
