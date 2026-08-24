@@ -97,15 +97,8 @@ export function WorkModeProvider({ children }: { children: ReactNode }) {
   const RIDE_KEYS = ["taxi", "mototaxi", "moto_taxi", "táxi", "passageiros", "passageiro", "passenger", "ride", "corridas", "car", "motorcycle", "carro", "moto"];
   const DELIVERY_KEYS = ["delivery", "entrega", "entregas", "moto", "carro", "frete", "carro_aberto", "loja", "lojas"];
 
-  const canDelivery = useMemo(() => {
-    if (!serviceTypes || serviceTypes.length === 0) return true;
-    return serviceTypes.some((s) => DELIVERY_KEYS.some((k) => String(s).toLowerCase().includes(k)));
-  }, [serviceTypes]);
-
-  const canRide = useMemo(() => {
-    if (!serviceTypes || serviceTypes.length === 0) return true;
-    return serviceTypes.some((s) => RIDE_KEYS.some((k) => String(s).toLowerCase().includes(k)));
-  }, [serviceTypes]);
+  const canDelivery = true;
+  const canRide = true;
 
   // Restaura preferência salva e corrige quando a categoria não é permitida
   useEffect(() => {
