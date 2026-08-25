@@ -643,72 +643,66 @@ function DriverRideMap({ ride }: { ride: any }) {
         const createVehicleMarkerElement = (vehType: string) => {
           const isTaxi = vehType === "taxi" || vehType === "carro" || vehType === "car";
           const el = document.createElement("div");
-          el.className = "relative flex flex-col items-center justify-center pointer-events-none -translate-y-[85%]";
+          el.className = "relative flex flex-col items-center justify-center pointer-events-none -translate-y-[90%]";
           el.innerHTML = `
             <div class="absolute -bottom-1 w-6 h-2 bg-black/40 rounded-full blur-[2px]"></div>
-            <div class="relative w-11 h-14 flex items-center justify-center filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.45)]">
-              <svg width="44" height="56" viewBox="0 0 44 56" fill="none" class="absolute inset-0">
+            <div class="relative w-10 h-[50px] flex items-center justify-center filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
+              <svg width="40" height="50" viewBox="0 0 40 50" fill="none" class="absolute inset-0">
                 <defs>
-                  <linearGradient id="pinBodyGradDriver" x1="0" y1="0" x2="44" y2="56" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#ffb703"/>
-                    <stop offset="40%" stop-color="#fb8500"/>
-                    <stop offset="100%" stop-color="#d00000"/>
-                  </linearGradient>
-                  <linearGradient id="pinRingGradDriver" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#ffb703"/>
-                    <stop offset="100%" stop-color="#e85d04"/>
+                  <linearGradient id="pinGradYellow" x1="0" y1="0" x2="40" y2="50" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#ffbe0b"/>
+                    <stop offset="45%" stop-color="#fb5607"/>
+                    <stop offset="100%" stop-color="#ff006e"/>
                   </linearGradient>
                 </defs>
 
-                <!-- Sombra / contorno do pino gota -->
-                <path d="M22 0C9.849 0 0 9.849 0 22C0 35.5 17.5 51.5 22 56C26.5 51.5 44 35.5 44 22C44 9.849 34.151 0 22 0Z" fill="url(#pinBodyGradDriver)"/>
+                <!-- Pino externo em gota alaranjado 3D -->
+                <path d="M20 0C8.954 0 0 8.954 0 20C0 32 16 46 20 50C24 46 40 32 40 20C40 8.954 31.046 0 20 0Z" fill="url(#pinGradYellow)"/>
                 
-                <!-- Borda laranja destacada -->
-                <circle cx="22" cy="22" r="17.5" fill="url(#pinRingGradDriver)"/>
+                <!-- Borda fina destacada em vermelho/laranja -->
+                <path d="M20 1C9.507 1 1 9.507 1 20C1 31.2 16.2 44.5 20 48.2C23.8 44.5 39 31.2 39 20C39 9.507 30.493 1 20 1Z" stroke="#d97706" stroke-width="1.5" fill="none"/>
                 
-                <!-- Círculo interior branco fosco -->
-                <circle cx="22" cy="22" r="15" fill="#ffffff"/>
-                <circle cx="22" cy="22" r="15" stroke="#f48c06" stroke-width="1.2"/>
+                <!-- Círculo interior branco fosco perfeito -->
+                <circle cx="20" cy="20" r="14" fill="#ffffff"/>
+                <circle cx="20" cy="20" r="14" stroke="#f59e0b" stroke-width="1"/>
               </svg>
 
-              <!-- Ícone interno da Moto Harley Cruiser preta exatamente conforme imagem -->
-              <div class="relative z-10 -mt-3.5 text-slate-950 flex items-center justify-center">
+              <!-- Silhueta da Motocicleta preta exatamente como no modelo fornecido pelo usuário -->
+              <div class="relative z-10 -mt-2.5 text-slate-950 flex items-center justify-center">
                 ${isTaxi ? `
-                  <svg width="22" height="15" viewBox="0 0 24 16" fill="currentColor">
+                  <svg width="20" height="13" viewBox="0 0 24 16" fill="currentColor">
                     <path d="M19 12h2c.6 0 1-.4 1-1V8c0-.9-.7-1.7-1.5-1.9C18.7 5.6 16 5 16 5s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.1 5.7C1.4 6.2 1 7 1 8v3c0 .6.4 1 1 1h2"/>
                     <circle cx="7" cy="12" r="2.5"/>
                     <circle cx="17" cy="12" r="2.5"/>
                   </svg>
                 ` : `
-                  <svg width="24" height="17" viewBox="0 0 28 20" fill="currentColor">
-                    <!-- Roda traseira larga com aro interno -->
-                    <circle cx="6" cy="14" r="4.5"/>
-                    <circle cx="6" cy="14" r="2" fill="#ffffff"/>
-                    <circle cx="6" cy="14" r="0.8" fill="currentColor"/>
+                  <svg width="22" height="15" viewBox="0 0 28 20" fill="currentColor">
+                    <!-- Rodas pretas foscas com cubo/aro central -->
+                    <circle cx="6.5" cy="13.5" r="4.2"/>
+                    <circle cx="6.5" cy="13.5" r="1.8" fill="#ffffff"/>
+                    <circle cx="6.5" cy="13.5" r="0.8" fill="currentColor"/>
 
-                    <!-- Roda dianteira com cubo -->
-                    <circle cx="22" cy="14" r="4.2"/>
-                    <circle cx="22" cy="14" r="1.8" fill="#ffffff"/>
-                    <circle cx="22" cy="14" r="0.8" fill="currentColor"/>
+                    <circle cx="21.5" cy="13.5" r="4"/>
+                    <circle cx="21.5" cy="13.5" r="1.6" fill="#ffffff"/>
+                    <circle cx="21.5" cy="13.5" r="0.8" fill="currentColor"/>
 
-                    <!-- Escapamento duplo cromado inferior -->
-                    <path d="M7.5 13.5H16M7 15.2H15.5" stroke="#ffffff" stroke-width="0.8"/>
-                    <path d="M7.5 13.5H16.5M7 15.2H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <!-- Escapamento duplo sob o chassi -->
+                    <path d="M7.5 13H16M7 14.8H15.5" stroke="#ffffff" stroke-width="0.8"/>
+                    <path d="M7.5 13H16.5M7 14.8H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
 
                     <!-- Bloco de motor pesadamente detalhado V-Twin -->
-                    <rect x="10" y="10" width="5.5" height="5" rx="1"/>
-                    <path d="M11.5 8.5L14 11.5M14 8.5L11.5 11.5" stroke="#ffffff" stroke-width="1"/>
+                    <rect x="10.5" y="9.5" width="5" height="4.5" rx="0.8"/>
 
-                    <!-- Tanque de combustível formato gota inclinado -->
-                    <path d="M12 7C12 5 15.5 4.5 19 6.5C20 7.2 19.5 8.8 17.5 9.2C15 9.8 12.5 9 12 7Z"/>
+                    <!-- Tanque de combustível em gota inclinado -->
+                    <path d="M12 6.5C12 4.8 15 4.2 18.5 6C19.5 6.6 19 8.2 17 8.6C14.8 9.2 12.5 8.4 12 6.5Z"/>
 
-                    <!-- Assento baixo anatomicamente curvado -->
-                    <path d="M5.5 9.5C7.5 9.5 9.5 10 12 8.8C13 10 12 11.8 9.5 12.2C7.5 12.2 5.5 11.2 5.5 9.5Z"/>
+                    <!-- Banco anatômico baixo curvado -->
+                    <path d="M5.8 9C7.8 9 9.8 9.5 12 8.3C13 9.5 12 11.2 9.8 11.6C7.8 11.6 5.8 10.6 5.8 9Z"/>
 
-                    <!-- Garfo dianteiro inclinado com retrovisor e farol retangular -->
-                    <path d="M17.5 14L21.5 4.5H24.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <rect x="22" y="5" width="3.5" height="3" rx="0.8" fill="currentColor"/>
-                    <circle cx="20.5" cy="3" r="1"/>
+                    <!-- Garfo dianteiro inclinado com farol retangular e retrovisor -->
+                    <path d="M17 13.5L21 4H24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="21.5" y="4.5" width="3" height="2.5" rx="0.6" fill="currentColor"/>
+                    <circle cx="20" cy="2.5" r="0.9"/>
                   </svg>
                 `}
               </div>
