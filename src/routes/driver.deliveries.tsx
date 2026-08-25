@@ -643,31 +643,76 @@ function DriverRideMap({ ride }: { ride: any }) {
         const createVehicleMarkerElement = (vehType: string) => {
           const isTaxi = vehType === "taxi" || vehType === "carro" || vehType === "car";
           const el = document.createElement("div");
-          el.className = "relative flex items-center justify-center pointer-events-none drop-shadow-[0_3px_6px_rgba(0,0,0,0.5)]";
+          el.className = "relative flex flex-col items-center justify-center pointer-events-none -translate-y-[85%]";
           el.innerHTML = `
-            <div class="absolute -bottom-0.5 w-8 h-1.5 bg-black/40 rounded-full blur-[1px]"></div>
-            ${isTaxi ? `
-              <svg width="34" height="22" viewBox="0 0 24 16" fill="#0f172a" class="relative z-10 filter drop-shadow-[0_0_2px_rgba(255,255,255,0.95)]">
-                <path d="M19 12h2c.6 0 1-.4 1-1V8c0-.9-.7-1.7-1.5-1.9C18.7 5.6 16 5 16 5s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.1 5.7C1.4 6.2 1 7 1 8v3c0 .6.4 1 1 1h2"/>
-                <circle cx="7" cy="12" r="2.5" fill="#0f172a"/>
-                <circle cx="7" cy="12" r="1" fill="#ffffff"/>
-                <circle cx="17" cy="12" r="2.5" fill="#0f172a"/>
-                <circle cx="17" cy="12" r="1" fill="#ffffff"/>
+            <div class="absolute -bottom-1 w-6 h-2 bg-black/40 rounded-full blur-[2px]"></div>
+            <div class="relative w-11 h-14 flex items-center justify-center filter drop-shadow-[0_6px_10px_rgba(0,0,0,0.45)]">
+              <svg width="44" height="56" viewBox="0 0 44 56" fill="none" class="absolute inset-0">
+                <defs>
+                  <linearGradient id="pinBodyGradDriver" x1="0" y1="0" x2="44" y2="56" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#ffb703"/>
+                    <stop offset="40%" stop-color="#fb8500"/>
+                    <stop offset="100%" stop-color="#d00000"/>
+                  </linearGradient>
+                  <linearGradient id="pinRingGradDriver" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#ffb703"/>
+                    <stop offset="100%" stop-color="#e85d04"/>
+                  </linearGradient>
+                </defs>
+
+                <!-- Sombra / contorno do pino gota -->
+                <path d="M22 0C9.849 0 0 9.849 0 22C0 35.5 17.5 51.5 22 56C26.5 51.5 44 35.5 44 22C44 9.849 34.151 0 22 0Z" fill="url(#pinBodyGradDriver)"/>
+                
+                <!-- Borda laranja destacada -->
+                <circle cx="22" cy="22" r="17.5" fill="url(#pinRingGradDriver)"/>
+                
+                <!-- Círculo interior branco fosco -->
+                <circle cx="22" cy="22" r="15" fill="#ffffff"/>
+                <circle cx="22" cy="22" r="15" stroke="#f48c06" stroke-width="1.2"/>
               </svg>
-            ` : `
-              <svg width="36" height="24" viewBox="0 0 24 16" fill="#0f172a" class="relative z-10 filter drop-shadow-[0_0_2px_rgba(255,255,255,0.95)]">
-                <circle cx="5" cy="11.5" r="3.5"/>
-                <circle cx="5" cy="11.5" r="1.5" fill="#ffffff"/>
-                <circle cx="19" cy="11.5" r="3.5"/>
-                <circle cx="19" cy="11.5" r="1.5" fill="#ffffff"/>
-                <path d="M7 11h9M6.5 12.8h8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                <path d="M9 8.5l2.5 2M11.5 8.5l-2.5 2" stroke="currentColor" stroke-width="1.2"/>
-                <path d="M10 5.5c0-1.8 2.5-2.2 5-1c.8.4 1 1.2 0 1.8c-1.5.8-3.5.8-5-.8z"/>
-                <path d="M4 7.5c1.5 0 3 .5 5-.5c.8 1 0 2.2-1.5 2.5c-1.5 0-3-.8-3.5-2z"/>
-                <path d="M15 11.5l3.5-7.5h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <circle cx="19.5" cy="3" r="0.8"/>
-              </svg>
-            `}
+
+              <!-- Ícone interno da Moto Harley Cruiser preta exatamente conforme imagem -->
+              <div class="relative z-10 -mt-3.5 text-slate-950 flex items-center justify-center">
+                ${isTaxi ? `
+                  <svg width="22" height="15" viewBox="0 0 24 16" fill="currentColor">
+                    <path d="M19 12h2c.6 0 1-.4 1-1V8c0-.9-.7-1.7-1.5-1.9C18.7 5.6 16 5 16 5s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.1 5.7C1.4 6.2 1 7 1 8v3c0 .6.4 1 1 1h2"/>
+                    <circle cx="7" cy="12" r="2.5"/>
+                    <circle cx="17" cy="12" r="2.5"/>
+                  </svg>
+                ` : `
+                  <svg width="24" height="17" viewBox="0 0 28 20" fill="currentColor">
+                    <!-- Roda traseira larga com aro interno -->
+                    <circle cx="6" cy="14" r="4.5"/>
+                    <circle cx="6" cy="14" r="2" fill="#ffffff"/>
+                    <circle cx="6" cy="14" r="0.8" fill="currentColor"/>
+
+                    <!-- Roda dianteira com cubo -->
+                    <circle cx="22" cy="14" r="4.2"/>
+                    <circle cx="22" cy="14" r="1.8" fill="#ffffff"/>
+                    <circle cx="22" cy="14" r="0.8" fill="currentColor"/>
+
+                    <!-- Escapamento duplo cromado inferior -->
+                    <path d="M7.5 13.5H16M7 15.2H15.5" stroke="#ffffff" stroke-width="0.8"/>
+                    <path d="M7.5 13.5H16.5M7 15.2H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+
+                    <!-- Bloco de motor pesadamente detalhado V-Twin -->
+                    <rect x="10" y="10" width="5.5" height="5" rx="1"/>
+                    <path d="M11.5 8.5L14 11.5M14 8.5L11.5 11.5" stroke="#ffffff" stroke-width="1"/>
+
+                    <!-- Tanque de combustível formato gota inclinado -->
+                    <path d="M12 7C12 5 15.5 4.5 19 6.5C20 7.2 19.5 8.8 17.5 9.2C15 9.8 12.5 9 12 7Z"/>
+
+                    <!-- Assento baixo anatomicamente curvado -->
+                    <path d="M5.5 9.5C7.5 9.5 9.5 10 12 8.8C13 10 12 11.8 9.5 12.2C7.5 12.2 5.5 11.2 5.5 9.5Z"/>
+
+                    <!-- Garfo dianteiro inclinado com retrovisor e farol retangular -->
+                    <path d="M17.5 14L21.5 4.5H24.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="22" y="5" width="3.5" height="3" rx="0.8" fill="currentColor"/>
+                    <circle cx="20.5" cy="3" r="1"/>
+                  </svg>
+                `}
+              </div>
+            </div>
           `;
           return el;
         };
