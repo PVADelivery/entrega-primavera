@@ -643,26 +643,44 @@ function DriverRideMap({ ride }: { ride: any }) {
         const createVehicleMarkerElement = (vehType: string) => {
           const isTaxi = vehType === "taxi" || vehType === "carro" || vehType === "car";
           const el = document.createElement("div");
-          el.className = "relative flex items-center justify-center pointer-events-none";
+          el.className = "relative flex flex-col items-center justify-center pointer-events-none -translate-y-1/2";
           el.innerHTML = `
-            <div class="absolute w-9 h-9 rounded-full bg-amber-500/25 animate-ping"></div>
-            <div class="relative w-8 h-8 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center shadow-md border-2 border-white">
-              ${isTaxi ? `
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C1.4 11.2 1 12 1 13v3c0 .6.4 1 1 1h2"/>
-                  <circle cx="7" cy="17" r="2.5"/>
-                  <circle cx="17" cy="17" r="2.5"/>
-                </svg>
-              ` : `
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="5.5" cy="17.5" r="3"/>
-                  <circle cx="18.5" cy="17.5" r="3"/>
-                  <path d="M5.5 17.5l3.5-6h4.5l3 6"/>
-                  <path d="M9 11.5L7 7H4.5"/>
-                  <path d="M13.5 11.5l2-4.5h3.5"/>
-                  <path d="M8.5 14h5.5"/>
-                </svg>
-              `}
+            <div class="absolute -bottom-1 w-7 h-2 bg-black/30 rounded-full blur-[2px]"></div>
+            <div class="relative w-10 h-12 flex items-center justify-center filter drop-shadow-[0_4px_6px_rgba(0,0,0,0.35)]">
+              <svg width="36" height="44" viewBox="0 0 40 48" fill="none" class="absolute inset-0">
+                <defs>
+                  <linearGradient id="pinGradDriver" x1="0" y1="0" x2="40" y2="48" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#fbbf24"/>
+                    <stop offset="35%" stop-color="#f59e0b"/>
+                    <stop offset="100%" stop-color="#d97706"/>
+                  </linearGradient>
+                </defs>
+                <path d="M20 0C8.954 0 0 8.954 0 20C0 31.5 16 45 20 48C24 45 40 31.5 40 20C40 8.954 31.046 0 20 0Z" fill="url(#pinGradDriver)"/>
+                <circle cx="20" cy="19" r="14.5" fill="#ea580c"/>
+                <circle cx="20" cy="19" r="13" fill="#ffffff"/>
+              </svg>
+              <div class="relative z-10 -mt-2 text-slate-950 flex items-center justify-center">
+                ${isTaxi ? `
+                  <svg width="20" height="14" viewBox="0 0 24 16" fill="currentColor">
+                    <path d="M19 12h2c.6 0 1-.4 1-1V8c0-.9-.7-1.7-1.5-1.9C18.7 5.6 16 5 16 5s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.1 5.7C1.4 6.2 1 7 1 8v3c0 .6.4 1 1 1h2"/>
+                    <circle cx="7" cy="12" r="2.5"/>
+                    <circle cx="17" cy="12" r="2.5"/>
+                  </svg>
+                ` : `
+                  <svg width="20" height="14" viewBox="0 0 24 16" fill="currentColor">
+                    <circle cx="5" cy="11.5" r="3.5"/>
+                    <circle cx="5" cy="11.5" r="1.5" fill="#ffffff"/>
+                    <circle cx="19" cy="11.5" r="3.5"/>
+                    <circle cx="19" cy="11.5" r="1.5" fill="#ffffff"/>
+                    <path d="M7 11h9M6.5 12.8h8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                    <path d="M9 8.5l2.5 2M11.5 8.5l-2.5 2" stroke="currentColor" stroke-width="1.2"/>
+                    <path d="M10 5.5c0-1.8 2.5-2.2 5-1c.8.4 1 1.2 0 1.8c-1.5.8-3.5.8-5-.8z"/>
+                    <path d="M4 7.5c1.5 0 3 .5 5-.5c.8 1 0 2.2-1.5 2.5c-1.5 0-3-.8-3.5-2z"/>
+                    <path d="M15 11.5l3.5-7.5h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="19.5" cy="3" r="0.8"/>
+                  </svg>
+                `}
+              </div>
             </div>
           `;
           return el;
