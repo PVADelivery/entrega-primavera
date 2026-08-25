@@ -645,32 +645,22 @@ function DriverRideMap({ ride }: { ride: any }) {
           const el = document.createElement("div");
           el.className = "relative flex items-center justify-center pointer-events-none";
           el.innerHTML = `
-            <div class="absolute w-16 h-16 rounded-full bg-amber-500/35 animate-ping"></div>
-            <div class="relative w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-black flex items-center justify-center shadow-[0_0_25px_rgba(245,158,11,0.95)] border-2 border-white">
+            <div class="absolute w-9 h-9 rounded-full bg-amber-500/25 animate-ping"></div>
+            <div class="relative w-8 h-8 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center shadow-md border-2 border-white">
               ${isTaxi ? `
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C1.4 11.2 1 12 1 13v3c0 .6.4 1 1 1h2"/>
                   <circle cx="7" cy="17" r="2.5"/>
                   <circle cx="17" cy="17" r="2.5"/>
                 </svg>
               ` : `
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <circle cx="6.5" cy="18.5" r="4.5" stroke="currentColor" stroke-width="2.2"/>
-                  <circle cx="6.5" cy="18.5" r="2.2" stroke="currentColor" stroke-width="1.2"/>
-                  <circle cx="6.5" cy="18.5" r="0.8" fill="currentColor"/>
-
-                  <circle cx="21.5" cy="18.5" r="4.5" stroke="currentColor" stroke-width="2.2"/>
-                  <circle cx="21.5" cy="18.5" r="2.2" stroke="currentColor" stroke-width="1.2"/>
-                  <circle cx="21.5" cy="18.5" r="0.8" fill="currentColor"/>
-
-                  <path d="M17.5 18.5L21 9H23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <rect x="21" y="9.5" width="3" height="3" rx="0.5" fill="currentColor"/>
-
-                  <path d="M12.5 10.5C12.5 8.5 15.5 8 18.5 9.5C19.5 10 19 11.5 17.5 12C15.5 12.5 13 12 12.5 10.5Z" fill="currentColor"/>
-                  <path d="M5.5 13C7.5 13 9.5 13.5 12 12.5C13 13.5 12 15 10 15.5C8 15.5 6 14.5 5.5 13Z" fill="currentColor"/>
-
-                  <path d="M8.5 18.2H17M8 20H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                  <path d="M11 14.5L14 16.5M14 14.5L11 16.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="5.5" cy="17.5" r="3"/>
+                  <circle cx="18.5" cy="17.5" r="3"/>
+                  <path d="M5.5 17.5l3.5-6h4.5l3 6"/>
+                  <path d="M9 11.5L7 7H4.5"/>
+                  <path d="M13.5 11.5l2-4.5h3.5"/>
+                  <path d="M8.5 14h5.5"/>
                 </svg>
               `}
             </div>
