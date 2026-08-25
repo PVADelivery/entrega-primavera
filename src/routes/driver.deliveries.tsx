@@ -577,11 +577,34 @@ function DriverRideMap({ ride }: { ride: any }) {
             .catch(() => {});
         };
 
+        // Marcadores estilo Google Maps (Ponto Verde de Origem, Ponto Vermelho de Destino e Marcador do Veículo)
+        const createGoogleStylePickupElement = () => {
+          const el = document.createElement("div");
+          el.className = "relative flex items-center justify-center pointer-events-none";
+          el.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-white shadow-lg flex items-center justify-center">
+              <div class="w-2 h-2 rounded-full bg-white"></div>
+            </div>
+          `;
+          return el;
+        };
+
+        const createGoogleStyleDropoffElement = () => {
+          const el = document.createElement("div");
+          el.className = "relative flex items-center justify-center pointer-events-none";
+          el.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-red-600 border-2 border-white shadow-lg flex items-center justify-center">
+              <div class="w-2 h-2 rounded-full bg-white"></div>
+            </div>
+          `;
+          return el;
+        };
+
         const renderRoute = (pickupLatitude: number, pickupLongitude: number, dropoffLatitude?: number, dropoffLongitude?: number) => {
           if (MarkerClass) {
             try {
               if (pickupMarkerRef.current) pickupMarkerRef.current.remove();
-              pickupMarkerRef.current = new MarkerClass({ color: "#10b981" })
+              pickupMarkerRef.current = new MarkerClass({ element: createGoogleStylePickupElement() })
                 .setLngLat([pickupLongitude, pickupLatitude])
                 .addTo(m);
             } catch (e) {}
@@ -589,7 +612,7 @@ function DriverRideMap({ ride }: { ride: any }) {
             if (dropoffLatitude && dropoffLongitude) {
               try {
                 if (dropoffMarkerRef.current) dropoffMarkerRef.current.remove();
-                dropoffMarkerRef.current = new MarkerClass({ color: "#ef4444" })
+                dropoffMarkerRef.current = new MarkerClass({ element: createGoogleStyleDropoffElement() })
                   .setLngLat([dropoffLongitude, dropoffLatitude])
                   .addTo(m);
               } catch (e) {}
@@ -643,69 +666,33 @@ function DriverRideMap({ ride }: { ride: any }) {
         const createVehicleMarkerElement = (vehType: string) => {
           const isTaxi = vehType === "taxi" || vehType === "carro" || vehType === "car";
           const el = document.createElement("div");
-          el.className = "relative flex flex-col items-center justify-center pointer-events-none -translate-y-[90%]";
+          el.className = "relative flex items-center justify-center pointer-events-none -translate-y-1/2";
           el.innerHTML = `
-            <div class="absolute -bottom-1 w-6 h-2 bg-black/40 rounded-full blur-[2px]"></div>
-            <div class="relative w-10 h-[50px] flex items-center justify-center filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]">
-              <svg width="40" height="50" viewBox="0 0 40 50" fill="none" class="absolute inset-0">
-                <defs>
-                  <linearGradient id="pinGradYellow" x1="0" y1="0" x2="40" y2="50" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#ffbe0b"/>
-                    <stop offset="45%" stop-color="#fb5607"/>
-                    <stop offset="100%" stop-color="#ff006e"/>
-                  </linearGradient>
-                </defs>
-
-                <!-- Pino externo em gota alaranjado 3D -->
-                <path d="M20 0C8.954 0 0 8.954 0 20C0 32 16 46 20 50C24 46 40 32 40 20C40 8.954 31.046 0 20 0Z" fill="url(#pinGradYellow)"/>
-                
-                <!-- Borda fina destacada em vermelho/laranja -->
-                <path d="M20 1C9.507 1 1 9.507 1 20C1 31.2 16.2 44.5 20 48.2C23.8 44.5 39 31.2 39 20C39 9.507 30.493 1 20 1Z" stroke="#d97706" stroke-width="1.5" fill="none"/>
-                
-                <!-- Círculo interior branco fosco perfeito -->
-                <circle cx="20" cy="20" r="14" fill="#ffffff"/>
-                <circle cx="20" cy="20" r="14" stroke="#f59e0b" stroke-width="1"/>
-              </svg>
-
-              <!-- Silhueta da Motocicleta preta exatamente como no modelo fornecido pelo usuário -->
-              <div class="relative z-10 -mt-2.5 text-slate-950 flex items-center justify-center">
+            <!-- Pino Pill POI estilo Google Maps com rabo/ponta inferior -->
+            <div class="relative flex flex-col items-center filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+              <div class="px-2 py-1 rounded-full bg-amber-500 border border-amber-600 flex items-center justify-center gap-1 shadow-md">
                 ${isTaxi ? `
-                  <svg width="20" height="13" viewBox="0 0 24 16" fill="currentColor">
+                  <svg width="18" height="12" viewBox="0 0 24 16" fill="#ffffff">
                     <path d="M19 12h2c.6 0 1-.4 1-1V8c0-.9-.7-1.7-1.5-1.9C18.7 5.6 16 5 16 5s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.1 5.7C1.4 6.2 1 7 1 8v3c0 .6.4 1 1 1h2"/>
                     <circle cx="7" cy="12" r="2.5"/>
                     <circle cx="17" cy="12" r="2.5"/>
                   </svg>
                 ` : `
-                  <svg width="22" height="15" viewBox="0 0 28 20" fill="currentColor">
-                    <!-- Rodas pretas foscas com cubo/aro central -->
-                    <circle cx="6.5" cy="13.5" r="4.2"/>
-                    <circle cx="6.5" cy="13.5" r="1.8" fill="#ffffff"/>
-                    <circle cx="6.5" cy="13.5" r="0.8" fill="currentColor"/>
-
-                    <circle cx="21.5" cy="13.5" r="4"/>
-                    <circle cx="21.5" cy="13.5" r="1.6" fill="#ffffff"/>
-                    <circle cx="21.5" cy="13.5" r="0.8" fill="currentColor"/>
-
-                    <!-- Escapamento duplo sob o chassi -->
-                    <path d="M7.5 13H16M7 14.8H15.5" stroke="#ffffff" stroke-width="0.8"/>
-                    <path d="M7.5 13H16.5M7 14.8H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-
-                    <!-- Bloco de motor pesadamente detalhado V-Twin -->
-                    <rect x="10.5" y="9.5" width="5" height="4.5" rx="0.8"/>
-
-                    <!-- Tanque de combustível em gota inclinado -->
-                    <path d="M12 6.5C12 4.8 15 4.2 18.5 6C19.5 6.6 19 8.2 17 8.6C14.8 9.2 12.5 8.4 12 6.5Z"/>
-
-                    <!-- Banco anatômico baixo curvado -->
-                    <path d="M5.8 9C7.8 9 9.8 9.5 12 8.3C13 9.5 12 11.2 9.8 11.6C7.8 11.6 5.8 10.6 5.8 9Z"/>
-
-                    <!-- Garfo dianteiro inclinado com farol retangular e retrovisor -->
-                    <path d="M17 13.5L21 4H24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                    <rect x="21.5" y="4.5" width="3" height="2.5" rx="0.6" fill="currentColor"/>
-                    <circle cx="20" cy="2.5" r="0.9"/>
+                  <svg width="18" height="14" viewBox="0 0 24 16" fill="#ffffff">
+                    <circle cx="5" cy="11.5" r="3.5"/>
+                    <circle cx="5" cy="11.5" r="1.5" fill="#f59e0b"/>
+                    <circle cx="19" cy="11.5" r="3.5"/>
+                    <circle cx="19" cy="11.5" r="1.5" fill="#f59e0b"/>
+                    <path d="M7 11h9M6.5 12.8h8.5" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+                    <path d="M9 8.5l2.5 2M11.5 8.5l-2.5 2" stroke="#ffffff" stroke-width="1.2"/>
+                    <path d="M10 5.5c0-1.8 2.5-2.2 5-1c.8.4 1 1.2 0 1.8c-1.5.8-3.5.8-5-.8z"/>
+                    <path d="M4 7.5c1.5 0 3 .5 5-.5c.8 1 0 2.2-1.5 2.5c-1.5 0-3-.8-3.5-2z"/>
+                    <path d="M15 11.5l3.5-7.5h2" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="19.5" cy="3" r="0.8"/>
                   </svg>
                 `}
               </div>
+              <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-amber-600 -mt-[1px]"></div>
             </div>
           `;
           return el;
