@@ -193,7 +193,11 @@ function DeliveriesPage() {
       qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
       console.error("[handleAdvance] Erro:", err);
-      toast.error(`Falha ao atualizar: ${err?.message || "Erro desconhecido"}`);
+      const rawMsg = String(err?.message || "").toLowerCase();
+      const userMsg = rawMsg.includes("load failed") || rawMsg.includes("failed to fetch")
+        ? "Falha de conexão com a rede. Tente novamente."
+        : (err?.message || "Erro desconhecido");
+      toast.error(`Falha ao atualizar: ${userMsg}`);
     } finally {
       setPending(null);
     }

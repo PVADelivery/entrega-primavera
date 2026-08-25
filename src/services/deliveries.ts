@@ -754,15 +754,14 @@ export async function advanceDelivery(delivery: any) {
     }
   } catch {}
 
-  // 2. Fallback autenticado no servidor; valida o vínculo do motorista e
-  // evita a policy recursiva do banco externo.
+  // 2. Fallback autenticado no servidor; se falhar ou se o navegador (ex: Safari no iOS) der 'Load failed', continua para a atualização direta no banco
   try {
     const result = await updateDriverDelivery({
       data: { deliveryId: delivery.id, status: dbNextStatus as any },
     });
-    if (result.success) return;
+    if (result && (result as any).success) return;
   } catch (serverError: any) {
-    throw new Error(serverError?.message || "Não foi possível atualizar a entrega.");
+    console.warn("[advanceDelivery] Falha no endpoint do servidor, acionando atualização direta no banco:", serverError);
   }
 
   // Compatibilidade para ambientes antigos sem a função segura.
