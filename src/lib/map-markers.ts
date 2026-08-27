@@ -1,6 +1,7 @@
 /**
  * Utilitários unificados de Pins e Marcadores com Emojis para MapLibre GL
  * Sistema PVA Delivery / Corridas / Táxi / Entregas
+ * Padrão Oficial Google Maps Pins
  */
 
 // 1. Função padrão para converter qualquer Emoji em ImageData (Canvas) para MapLibre map.addImage()
@@ -43,127 +44,46 @@ export function registerMapEmojis(map: any) {
   });
 }
 
-// 3. Marcador de Partida / Embarque (PIN VERDE COMPACTO)
+// 3. Marcador de Partida / Embarque (PIN VERDE OFICIAL GOOGLE MAPS - PURO)
 export function createPickupPinElement(): HTMLElement {
   const el = document.createElement("div");
   el.className = "pickup-pin-container pointer-events-none";
   el.style.cssText = `
-    position: relative;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
-    width: 28px;
-    height: 36px;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+    justify-content: center;
+    width: 26px;
+    height: 34px;
     transform: translate(-50%, -100%);
     cursor: pointer;
   `;
 
   el.innerHTML = `
-    <div style="
-      position: relative;
-      width: 24px;
-      height: 32px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-    ">
-      <!-- Pin SVG Verde -->
-      <svg width="24" height="32" viewBox="0 0 38 48" fill="none" style="position: absolute; inset: 0;">
-        <path d="M19 1C9.06 1 1 8.98 1 18.83c0 13.16 15.72 27.13 16.39 27.72a2.43 2.43 0 0 0 3.22 0C21.28 45.96 37 32 37 18.83 37 8.98 28.94 1 19 1Z" fill="#16a34a"/>
-        <path d="M19 1.75c-9.52 0-17.25 7.65-17.25 17.08 0 12.61 15.28 26.24 16.14 26.99.63.55 1.59.55 2.22 0 .86-.75 16.14-14.38 16.14-26.99C36.25 9.4 28.52 1.75 19 1.75Z" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
-        <circle cx="19" cy="18.5" r="11" fill="#ffffff"/>
-      </svg>
-      <!-- Ícone interno / Ponto Verde Central -->
-      <div style="
-        position: absolute;
-        top: 6.5px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 11px;
-        height: 11px;
-        border-radius: 50%;
-        background: #16a34a;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      ">
-        <div style="width: 4px; height: 4px; border-radius: 50%; background: #ffffff;"></div>
-      </div>
-    </div>
-    <!-- Sombra no chão -->
-    <div style="
-      width: 10px;
-      height: 3px;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, 0.3);
-      filter: blur(1px);
-      margin-top: -1px;
-    "></div>
+    <svg width="26" height="34" viewBox="0 0 24 24" fill="#34A853" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+    </svg>
   `;
   return el;
 }
 
-// 4. Marcador de Destino / Desembarque (PIN VERMELHO COMPACTO)
+// 4. Marcador de Destino / Desembarque (PIN VERMELHO OFICIAL GOOGLE MAPS - PURO)
 export function createDropoffPinElement(): HTMLElement {
   const el = document.createElement("div");
   el.className = "dropoff-pin-container pointer-events-none";
   el.style.cssText = `
-    position: relative;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
-    width: 28px;
-    height: 36px;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+    justify-content: center;
+    width: 26px;
+    height: 34px;
     transform: translate(-50%, -100%);
     cursor: pointer;
   `;
 
   el.innerHTML = `
-    <div style="
-      position: relative;
-      width: 24px;
-      height: 32px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-    ">
-      <!-- Pin SVG Vermelho -->
-      <svg width="24" height="32" viewBox="0 0 38 48" fill="none" style="position: absolute; inset: 0;">
-        <path d="M19 1C9.06 1 1 8.98 1 18.83c0 13.16 15.72 27.13 16.39 27.72a2.43 2.43 0 0 0 3.22 0C21.28 45.96 37 32 37 18.83 37 8.98 28.94 1 19 1Z" fill="#dc2626"/>
-        <path d="M19 1.75c-9.52 0-17.25 7.65-17.25 17.08 0 12.61 15.28 26.24 16.14 26.99.63.55 1.59.55 2.22 0 .86-.75 16.14-14.38 16.14-26.99C36.25 9.4 28.52 1.75 19 1.75Z" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
-        <circle cx="19" cy="18.5" r="11" fill="#ffffff"/>
-      </svg>
-      <!-- Ícone interno / Bandeira Central -->
-      <div style="
-        position: absolute;
-        top: 6px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 12px;
-        height: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #dc2626;
-      ">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M5 21V4h10l-1.5 4L18 12H5v9H3v-9"/>
-        </svg>
-      </div>
-    </div>
-    <!-- Sombra no chão -->
-    <div style="
-      width: 10px;
-      height: 3px;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, 0.3);
-      filter: blur(1px);
-      margin-top: -1px;
-    "></div>
+    <svg width="26" height="34" viewBox="0 0 24 24" fill="#EA4335" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+    </svg>
   `;
   return el;
 }
