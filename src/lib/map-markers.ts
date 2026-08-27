@@ -4,7 +4,7 @@
  */
 
 // 1. Função padrão para converter qualquer Emoji em ImageData (Canvas) para MapLibre map.addImage()
-export function createEmojiImage(emoji: string, size = 64): ImageData {
+export function createEmojiImage(emoji: string, size = 48): ImageData {
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -34,7 +34,7 @@ export function registerMapEmojis(map: any) {
   emojis.forEach(({ id, emoji }) => {
     try {
       if (!map.hasImage(id)) {
-        const imgData = createEmojiImage(emoji, 64);
+        const imgData = createEmojiImage(emoji, 48);
         map.addImage(id, imgData);
       }
     } catch (e) {
@@ -43,7 +43,7 @@ export function registerMapEmojis(map: any) {
   });
 }
 
-// 3. Marcador de Partida / Embarque (PIN VERDE) - Padrão do Sistema
+// 3. Marcador de Partida / Embarque (PIN VERDE COMPACTO)
 export function createPickupPinElement(): HTMLElement {
   const el = document.createElement("div");
   el.className = "pickup-pin-container pointer-events-none";
@@ -53,9 +53,9 @@ export function createPickupPinElement(): HTMLElement {
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
-    width: 42px;
-    height: 52px;
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+    width: 28px;
+    height: 36px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
     transform: translate(-50%, -100%);
     cursor: pointer;
   `;
@@ -63,50 +63,49 @@ export function createPickupPinElement(): HTMLElement {
   el.innerHTML = `
     <div style="
       position: relative;
-      width: 36px;
-      height: 48px;
+      width: 24px;
+      height: 32px;
       display: flex;
       align-items: flex-start;
       justify-content: center;
     ">
       <!-- Pin SVG Verde -->
-      <svg width="36" height="48" viewBox="0 0 38 48" fill="none" style="position: absolute; inset: 0;">
-        <path d="M19 1C9.06 1 1 8.98 1 18.83c0 13.16 15.72 27.13 16.39 27.72a2.43 2.43 0 0 0 3.22 0C21.28 45.96 37 32 37 18.83 37 18.83 28.94 1 19 1Z" fill="#16a34a"/>
+      <svg width="24" height="32" viewBox="0 0 38 48" fill="none" style="position: absolute; inset: 0;">
+        <path d="M19 1C9.06 1 1 8.98 1 18.83c0 13.16 15.72 27.13 16.39 27.72a2.43 2.43 0 0 0 3.22 0C21.28 45.96 37 32 37 18.83 37 8.98 28.94 1 19 1Z" fill="#16a34a"/>
         <path d="M19 1.75c-9.52 0-17.25 7.65-17.25 17.08 0 12.61 15.28 26.24 16.14 26.99.63.55 1.59.55 2.22 0 .86-.75 16.14-14.38 16.14-26.99C36.25 9.4 28.52 1.75 19 1.75Z" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
         <circle cx="19" cy="18.5" r="11" fill="#ffffff"/>
       </svg>
       <!-- Ícone interno / Ponto Verde Central -->
       <div style="
         position: absolute;
-        top: 10px;
+        top: 6.5px;
         left: 50%;
         transform: translateX(-50%);
-        width: 16px;
-        height: 16px;
+        width: 11px;
+        height: 11px;
         border-radius: 50%;
         background: #16a34a;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
       ">
-        <div style="width: 6px; height: 6px; border-radius: 50%; background: #ffffff;"></div>
+        <div style="width: 4px; height: 4px; border-radius: 50%; background: #ffffff;"></div>
       </div>
     </div>
     <!-- Sombra no chão -->
     <div style="
-      width: 14px;
-      height: 4px;
+      width: 10px;
+      height: 3px;
       border-radius: 50%;
       background: rgba(0, 0, 0, 0.3);
       filter: blur(1px);
-      margin-top: -2px;
+      margin-top: -1px;
     "></div>
   `;
   return el;
 }
 
-// 4. Marcador de Destino / Desembarque (PIN VERMELHO) - Padrão do Sistema
+// 4. Marcador de Destino / Desembarque (PIN VERMELHO COMPACTO)
 export function createDropoffPinElement(): HTMLElement {
   const el = document.createElement("div");
   el.className = "dropoff-pin-container pointer-events-none";
@@ -116,9 +115,9 @@ export function createDropoffPinElement(): HTMLElement {
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
-    width: 42px;
-    height: 52px;
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+    width: 28px;
+    height: 36px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
     transform: translate(-50%, -100%);
     cursor: pointer;
   `;
@@ -126,50 +125,50 @@ export function createDropoffPinElement(): HTMLElement {
   el.innerHTML = `
     <div style="
       position: relative;
-      width: 36px;
-      height: 48px;
+      width: 24px;
+      height: 32px;
       display: flex;
       align-items: flex-start;
       justify-content: center;
     ">
       <!-- Pin SVG Vermelho -->
-      <svg width="36" height="48" viewBox="0 0 38 48" fill="none" style="position: absolute; inset: 0;">
-        <path d="M19 1C9.06 1 1 8.98 1 18.83c0 13.16 15.72 27.13 16.39 27.72a2.43 2.43 0 0 0 3.22 0C21.28 45.96 37 32 37 18.83 37 18.83 28.94 1 19 1Z" fill="#dc2626"/>
+      <svg width="24" height="32" viewBox="0 0 38 48" fill="none" style="position: absolute; inset: 0;">
+        <path d="M19 1C9.06 1 1 8.98 1 18.83c0 13.16 15.72 27.13 16.39 27.72a2.43 2.43 0 0 0 3.22 0C21.28 45.96 37 32 37 18.83 37 8.98 28.94 1 19 1Z" fill="#dc2626"/>
         <path d="M19 1.75c-9.52 0-17.25 7.65-17.25 17.08 0 12.61 15.28 26.24 16.14 26.99.63.55 1.59.55 2.22 0 .86-.75 16.14-14.38 16.14-26.99C36.25 9.4 28.52 1.75 19 1.75Z" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
         <circle cx="19" cy="18.5" r="11" fill="#ffffff"/>
       </svg>
-      <!-- Ícone interno / Bandeira ou Ponto Vermelho Central -->
+      <!-- Ícone interno / Bandeira Central -->
       <div style="
         position: absolute;
-        top: 9px;
+        top: 6px;
         left: 50%;
         transform: translateX(-50%);
-        width: 18px;
-        height: 18px;
+        width: 12px;
+        height: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
         color: #dc2626;
       ">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
           <path d="M5 21V4h10l-1.5 4L18 12H5v9H3v-9"/>
         </svg>
       </div>
     </div>
     <!-- Sombra no chão -->
     <div style="
-      width: 14px;
-      height: 4px;
+      width: 10px;
+      height: 3px;
       border-radius: 50%;
       background: rgba(0, 0, 0, 0.3);
       filter: blur(1px);
-      margin-top: -2px;
+      margin-top: -1px;
     "></div>
   `;
   return el;
 }
 
-// 5. Marcador de Veículo / Motorista DIRETAMENTE O EMOJI (🏍️ Moto Táxi / 🚖 Táxi) SEM CÍRCULO OU CONTORNO
+// 5. Marcador de Veículo / Motorista EMOJI COM TAMANHO PROPORCIONAL E COMPACTO
 export function createVehicleMarkerElement(vehicleType: string = "moto"): HTMLElement {
   const isTaxi = vehicleType.toLowerCase().includes("taxi") && !vehicleType.toLowerCase().includes("moto") ||
                  vehicleType.toLowerCase().includes("car") ||
@@ -183,10 +182,10 @@ export function createVehicleMarkerElement(vehicleType: string = "moto"): HTMLEl
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 38px;
+    font-size: 22px;
     line-height: 1;
     user-select: none;
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
     transform: translate(-50%, -50%);
     cursor: pointer;
   `;
@@ -195,7 +194,7 @@ export function createVehicleMarkerElement(vehicleType: string = "moto"): HTMLEl
   return el;
 }
 
-// 6. Marcador da Localização do Usuário (Ponto Pulsante)
+// 6. Marcador da Localização do Usuário (Ponto Pulsante Compacto)
 export function createUserLocationElement(): HTMLElement {
   const el = document.createElement("div");
   el.className = "user-location-marker pointer-events-none";
@@ -204,28 +203,28 @@ export function createUserLocationElement(): HTMLElement {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     transform: translate(-50%, -50%);
   `;
 
   el.innerHTML = `
     <div style="
       position: absolute;
-      width: 24px;
-      height: 24px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       background: rgba(16, 185, 129, 0.4);
       animation: userPulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
     "></div>
     <div style="
       position: relative;
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: #10b981;
-      border: 2.5px solid #ffffff;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       z-index: 2;
     "></div>
 
