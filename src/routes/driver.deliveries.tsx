@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useWorkMode } from "@/hooks/useWorkMode";
 import { Navigation, Phone } from "lucide-react";
+import { createPickupPinElement, createDropoffPinElement, createVehicleMarkerElement, registerMapEmojis } from "@/lib/map-markers";
 
 const PVA_CENTER: [number, number] = [-54.3075, -15.5606];
 
@@ -577,42 +578,29 @@ function DriverRideMap({ ride }: { ride: any }) {
             .catch(() => {});
         };
 
-        // Marcadores estilo Google Maps (Ponto Verde de Origem, Ponto Vermelho de Destino e Marcador do Veículo)
-        const createGoogleStylePickupElement = () => {
-          const el = document.createElement("div");
-          el.className = "relative flex items-center justify-center pointer-events-none";
-          el.innerHTML = `
-            <div class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-white shadow-lg flex items-center justify-center">
-              <div class="w-2 h-2 rounded-full bg-white"></div>
-            </div>
-          `;
-          return el;
-        };
-
-        const createGoogleStyleDropoffElement = () => {
-          const el = document.createElement("div");
-          el.className = "relative flex items-center justify-center pointer-events-none";
-          el.innerHTML = `
-            <div class="w-6 h-6 rounded-full bg-red-600 border-2 border-white shadow-lg flex items-center justify-center">
-              <div class="w-2 h-2 rounded-full bg-white"></div>
-            </div>
-          `;
-          return el;
-        };
+        registerMapEmojis(m);
 
         const renderRoute = (pickupLatitude: number, pickupLongitude: number, dropoffLatitude?: number, dropoffLongitude?: number) => {
           if (MarkerClass) {
+            // Pin Verde para o Local de Partida (Origem / Embarque)
             try {
               if (pickupMarkerRef.current) pickupMarkerRef.current.remove();
-              pickupMarkerRef.current = new MarkerClass({ element: createGoogleStylePickupElement() })
+              pickupMarkerRef.current = new MarkerClass({
+                element: createPickupPinElement(),
+                anchor: "bottom",
+              })
                 .setLngLat([pickupLongitude, pickupLatitude])
                 .addTo(m);
             } catch (e) {}
 
+            // Pin Vermelho para o Local de Destino (Desembarque)
             if (dropoffLatitude && dropoffLongitude) {
               try {
                 if (dropoffMarkerRef.current) dropoffMarkerRef.current.remove();
-                dropoffMarkerRef.current = new MarkerClass({ element: createGoogleStyleDropoffElement() })
+                dropoffMarkerRef.current = new MarkerClass({
+                  element: createDropoffPinElement(),
+                  anchor: "bottom",
+                })
                   .setLngLat([dropoffLongitude, dropoffLatitude])
                   .addTo(m);
               } catch (e) {}
@@ -663,41 +651,6 @@ function DriverRideMap({ ride }: { ride: any }) {
           return null;
         };
 
-        const createVehicleMarkerElement = (vehType: string) => {
-          const isTaxi = vehType === "taxi" || vehType === "carro" || vehType === "car";
-          const el = document.createElement("div");
-          el.className = "relative flex items-center justify-center pointer-events-none -translate-y-1/2";
-          el.innerHTML = `
-            <!-- Pino Pill POI estilo Google Maps com rabo/ponta inferior -->
-            <div class="relative flex flex-col items-center filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
-              <div class="px-2 py-1 rounded-full bg-amber-500 border border-amber-600 flex items-center justify-center gap-1 shadow-md">
-                ${isTaxi ? `
-                  <svg width="18" height="12" viewBox="0 0 24 16" fill="#ffffff">
-                    <path d="M19 12h2c.6 0 1-.4 1-1V8c0-.9-.7-1.7-1.5-1.9C18.7 5.6 16 5 16 5s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9L2.1 5.7C1.4 6.2 1 7 1 8v3c0 .6.4 1 1 1h2"/>
-                    <circle cx="7" cy="12" r="2.5"/>
-                    <circle cx="17" cy="12" r="2.5"/>
-                  </svg>
-                ` : `
-                  <svg width="18" height="14" viewBox="0 0 24 16" fill="#ffffff">
-                    <circle cx="5" cy="11.5" r="3.5"/>
-                    <circle cx="5" cy="11.5" r="1.5" fill="#f59e0b"/>
-                    <circle cx="19" cy="11.5" r="3.5"/>
-                    <circle cx="19" cy="11.5" r="1.5" fill="#f59e0b"/>
-                    <path d="M7 11h9M6.5 12.8h8.5" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
-                    <path d="M9 8.5l2.5 2M11.5 8.5l-2.5 2" stroke="#ffffff" stroke-width="1.2"/>
-                    <path d="M10 5.5c0-1.8 2.5-2.2 5-1c.8.4 1 1.2 0 1.8c-1.5.8-3.5.8-5-.8z"/>
-                    <path d="M4 7.5c1.5 0 3 .5 5-.5c.8 1 0 2.2-1.5 2.5c-1.5 0-3-.8-3.5-2z"/>
-                    <path d="M15 11.5l3.5-7.5h2" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
-                    <circle cx="19.5" cy="3" r="0.8"/>
-                  </svg>
-                `}
-              </div>
-              <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-amber-600 -mt-[1px]"></div>
-            </div>
-          `;
-          return el;
-        };
-
         const setupRouteAndMarkers = async () => {
           if (!pLat || !pLng) {
             if (ride?.pickup_address) {
@@ -738,7 +691,7 @@ function DriverRideMap({ ride }: { ride: any }) {
                 const el = createVehicleMarkerElement(ride?.vehicle_type || "");
                 const drvLat = pLat + 0.002;
                 const drvLng = pLng - 0.002;
-                driverMarkerRef.current = new MarkerClass({ element: el })
+                driverMarkerRef.current = new MarkerClass({ element: el, anchor: "bottom" })
                   .setLngLat([drvLng, drvLat])
                   .addTo(m);
               } catch (e) {}
@@ -758,7 +711,7 @@ function DriverRideMap({ ride }: { ride: any }) {
               try {
                 if (!driverMarkerRef.current) {
                   const el = createVehicleMarkerElement(ride?.vehicle_type || "");
-                  driverMarkerRef.current = new MarkerClass({ element: el })
+                  driverMarkerRef.current = new MarkerClass({ element: el, anchor: "bottom" })
                     .setLngLat([lng, lat])
                     .addTo(mapRef.current);
                 } else {
