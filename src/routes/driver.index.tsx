@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +32,7 @@ export const Route = createFileRoute("/driver/")({
 });
 
 function DriverHome() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const qc = useQueryClient();
   const { mode } = useWorkMode();
