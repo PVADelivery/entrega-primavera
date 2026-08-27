@@ -734,6 +734,34 @@ function DriverRideMap({ ride }: { ride: any }) {
                 driverMarkerRef.current.setLngLat([lng, lat]);
               }
             } catch (e) {}
+
+            // Transmite a posição GPS real imediatamente para o banco para o cliente ver no mapa em tempo real
+            try {
+              if (ride?.driver_id) {
+                (supabase as any)
+                  .from("delivery_drivers")
+                  .update({
+                    current_latitude: lat,
+                    current_longitude: lng,
+                    latitude: lat,
+                    longitude: lng,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .or(`id.eq.${ride.driver_id},user_id.eq.${ride.driver_id}`)
+                  .then(() => {});
+              }
+              if (ride?.id) {
+                (supabase as any)
+                  .from("ride_requests")
+                  .update({
+                    driver_latitude: lat,
+                    driver_longitude: lng,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", ride.id)
+                  .then(() => {});
+              }
+            } catch (e) {}
           };
 
           navigator.geolocation.getCurrentPosition(onLocation, () => {}, { enableHighAccuracy: true, timeout: 6000 });
