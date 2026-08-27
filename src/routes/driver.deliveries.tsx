@@ -436,6 +436,8 @@ function DriverRideMap({ ride }: { ride: any }) {
   const pickupMarkerRef = useRef<any>(null);
   const dropoffMarkerRef = useRef<any>(null);
   const driverMarkerRef = useRef<any>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const fitBoundsRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !mapContainerRef.current || mapRef.current) return;
@@ -456,14 +458,17 @@ function DriverRideMap({ ride }: { ride: any }) {
         let dLat = Number(ride?.dropoff_latitude || ride?.dropoff_lat || ride?.destination_lat || 0);
         let dLng = Number(ride?.dropoff_longitude || ride?.dropoff_lng || ride?.destination_lng || 0);
 
+        let driverRealLat: number | null = null;
+        let driverRealLng: number | null = null;
+
         const m = new MapClass({
           container: mapContainerRef.current,
-          minZoom: 12,
-          maxZoom: 18,
-          maxBounds: [
-            [-54.65, -15.85],
-            [-53.95, -15.25]
-          ],
+          minZoom: 11,
+          maxZoom: 19,
+          dragPan: true,
+          scrollZoom: true,
+          touchZoomRotate: true,
+          doubleClickZoom: true,
           style: {
             version: 8,
             sources: {
@@ -487,34 +492,46 @@ function DriverRideMap({ ride }: { ride: any }) {
               }
             ]
           },
-          center: (pLat && pLng && pLat < -15.0 && pLat > -16.0 && pLng < -53.8 && pLng > -54.8) ? [pLng, pLat] : PVA_CENTER,
+          center: (pLat && pLng && pLat < -14.0 && pLat > -17.0) ? [pLng, pLat] : PVA_CENTER,
           zoom: 14,
           attributionControl: false,
         });
 
+        m.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: true }), "top-right");
+
         mapRef.current = m;
         setTimeout(() => {
           try { m.resize(); } catch (e) {}
-        }, 150);
+        }, 200);
 
         const isCoordInPVA = (lat: number, lng: number) => {
           return typeof lat === "number" && typeof lng === "number" &&
                  !isNaN(lat) && !isNaN(lng) &&
-                 lat < -15.0 && lat > -16.0 &&
-                 lng < -53.8 && lng > -54.8;
+                 lat < -14.5 && lat > -16.5 &&
+                 lng < -53.5 && lng > -55.0;
         };
 
-        const fitMapBounds = (pickupLat: number, pickupLng: number, dropoffLat?: number, dropoffLng?: number, drvLat?: number, drvLng?: number) => {
+        const fitMapBounds = (pickupLat?: number, pickupLng?: number, dropoffLat?: number, dropoffLng?: number, drvLat?: number, drvLng?: number) => {
           try {
+            const p1Lat = pickupLat || pLat;
+            const p1Lng = pickupLng || pLng;
+            const p2Lat = dropoffLat || dLat;
+            const p2Lng = dropoffLng || dLng;
+            const d3Lat = drvLat || driverRealLat;
+            const d3Lng = drvLng || driverRealLng;
+
             const bounds = new maplibregl.LngLatBounds();
-            if (isCoordInPVA(pickupLat, pickupLng)) bounds.extend([pickupLng, pickupLat]);
-            if (dropoffLat && dropoffLng && isCoordInPVA(dropoffLat, dropoffLng)) bounds.extend([dropoffLng, dropoffLat]);
-            if (drvLat && drvLng && isCoordInPVA(drvLat, drvLng)) bounds.extend([drvLng, drvLat]);
+            if (p1Lat && p1Lng && isCoordInPVA(p1Lat, p1Lng)) bounds.extend([p1Lng, p1Lat]);
+            if (p2Lat && p2Lng && isCoordInPVA(p2Lat, p2Lng)) bounds.extend([p2Lng, p2Lat]);
+            if (d3Lat && d3Lng && isCoordInPVA(d3Lat, d3Lng)) bounds.extend([d3Lng, d3Lat]);
+
             if (!bounds.isEmpty()) {
-              m.fitBounds(bounds, { padding: 35, minZoom: 13, maxZoom: 16, duration: 600 });
+              m.fitBounds(bounds, { padding: { top: 40, bottom: 40, left: 40, right: 40 }, maxZoom: 16, duration: 600 });
             }
           } catch (e) {}
         };
+
+        fitBoundsRef.current = () => fitMapBounds();
 
         const drawRouteLine = (pickupLat: number, pickupLng: number, dropoffLat: number, dropoffLng: number) => {
           if (!m || !pickupLat || !pickupLng || !dropoffLat || !dropoffLng) return;
@@ -560,7 +577,6 @@ function DriverRideMap({ ride }: { ride: any }) {
             } catch (e) {}
           };
 
-          // 1. Linha Direta Instantânea Garantida
           const initialGeojson = {
             type: "Feature",
             properties: {},
@@ -574,7 +590,6 @@ function DriverRideMap({ ride }: { ride: any }) {
           };
           updateRouteSource(initialGeojson);
 
-          // 2. Tenta obter o traçado exato das ruas via OSRM
           const url = `https://router.project-osrm.org/route/v1/driving/${pickupLng},${pickupLat};${dropoffLng},${dropoffLat}?overview=full&geometries=geojson`;
           fetch(url)
             .then((res) => res.json())
@@ -595,7 +610,6 @@ function DriverRideMap({ ride }: { ride: any }) {
 
         const renderRoute = (pickupLatitude: number, pickupLongitude: number, dropoffLatitude?: number, dropoffLongitude?: number) => {
           if (MarkerClass) {
-            // Pin Verde para o Local de Partida (Origem / Embarque)
             try {
               if (pickupMarkerRef.current) pickupMarkerRef.current.remove();
               pickupMarkerRef.current = new MarkerClass({
@@ -606,7 +620,6 @@ function DriverRideMap({ ride }: { ride: any }) {
                 .addTo(m);
             } catch (e) {}
 
-            // Pin Vermelho para o Local de Destino (Desembarque)
             if (dropoffLatitude && dropoffLongitude) {
               try {
                 if (dropoffMarkerRef.current) dropoffMarkerRef.current.remove();
@@ -617,10 +630,7 @@ function DriverRideMap({ ride }: { ride: any }) {
                   .setLngLat([dropoffLongitude, dropoffLatitude])
                   .addTo(m);
               } catch (e) {}
-
-              drawRouteLine(pickupLatitude, pickupLongitude, dropoffLatitude, dropoffLongitude);
             }
-            fitMapBounds(pickupLatitude, pickupLongitude, dropoffLatitude, dropoffLongitude);
           }
         };
 
@@ -666,8 +676,9 @@ function DriverRideMap({ ride }: { ride: any }) {
 
         const setupRouteAndMarkers = async () => {
           if (!pLat || !pLng || !isCoordInPVA(pLat, pLng)) {
-            if (ride?.pickup_address) {
-              const coords = await geocodeAddress(ride.pickup_address);
+            const originAddr = ride?.pickup_address || ride?.pickup || ride?.origin;
+            if (originAddr) {
+              const coords = await geocodeAddress(originAddr);
               if (coords && isCoordInPVA(coords[0], coords[1])) {
                 pLat = coords[0];
                 pLng = coords[1];
@@ -676,8 +687,9 @@ function DriverRideMap({ ride }: { ride: any }) {
           }
 
           if (!dLat || !dLng || !isCoordInPVA(dLat, dLng)) {
-            if (ride?.dropoff_address) {
-              const coords = await geocodeAddress(ride.dropoff_address);
+            const destAddr = ride?.dropoff_address || ride?.dropoff || ride?.destination;
+            if (destAddr) {
+              const coords = await geocodeAddress(destAddr);
               if (coords && isCoordInPVA(coords[0], coords[1])) {
                 dLat = coords[0];
                 dLng = coords[1];
@@ -691,51 +703,41 @@ function DriverRideMap({ ride }: { ride: any }) {
           }
 
           if (!dLat || !dLng || !isCoordInPVA(dLat, dLng)) {
-            dLat = pLat - 0.005;
-            dLng = pLng - 0.005;
+            dLat = pLat - 0.008;
+            dLng = pLng - 0.008;
           }
 
           if (isMounted) {
             renderRoute(pLat, pLng, dLat, dLng);
-
-            // Renderiza o marcador animado do veículo (Moto / Carro) imediatamente sem depender do browser GPS
-            if (MarkerClass && !driverMarkerRef.current) {
-              try {
-                const el = createVehicleMarkerElement(ride?.vehicle_type || "");
-                const drvLat = pLat + 0.002;
-                const drvLng = pLng - 0.002;
-                driverMarkerRef.current = new MarkerClass({ element: el, anchor: "bottom" })
-                  .setLngLat([drvLng, drvLat])
-                  .addTo(m);
-              } catch (e) {}
-            }
+            drawRouteLine(pLat, pLng, dLat, dLng);
+            fitMapBounds(pLat, pLng, dLat, dLng);
           }
         };
 
         setupRouteAndMarkers();
 
-        // Posição GPS do Motorista em tempo real
         if (typeof window !== "undefined" && navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              if (!isMounted || !mapRef.current || !MarkerClass) return;
-              const lat = pos.coords.latitude;
-              const lng = pos.coords.longitude;
-              try {
-                if (!driverMarkerRef.current) {
-                  const el = createVehicleMarkerElement(ride?.vehicle_type || "");
-                  driverMarkerRef.current = new MarkerClass({ element: el, anchor: "bottom" })
-                    .setLngLat([lng, lat])
-                    .addTo(mapRef.current);
-                } else {
-                  driverMarkerRef.current.setLngLat([lng, lat]);
-                }
-                fitMapBounds(pLat || -15.5606, pLng || -54.3075, dLat, dLng, lat, lng);
-              } catch (e) {}
-            },
-            () => {},
-            { enableHighAccuracy: true, timeout: 5000 }
-          );
+          const onLocation = (pos: GeolocationPosition) => {
+            if (!isMounted || !mapRef.current || !MarkerClass) return;
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            driverRealLat = lat;
+            driverRealLng = lng;
+
+            try {
+              if (!driverMarkerRef.current) {
+                const el = createVehicleMarkerElement(ride?.vehicle_type || "");
+                driverMarkerRef.current = new MarkerClass({ element: el, anchor: "center" })
+                  .setLngLat([lng, lat])
+                  .addTo(mapRef.current);
+              } else {
+                driverMarkerRef.current.setLngLat([lng, lat]);
+              }
+            } catch (e) {}
+          };
+
+          navigator.geolocation.getCurrentPosition(onLocation, () => {}, { enableHighAccuracy: true, timeout: 6000 });
+          watchIdRef.current = navigator.geolocation.watchPosition(onLocation, () => {}, { enableHighAccuracy: true, maximumAge: 3000 });
         }
       } catch (err) {
         console.warn("[DriverRideMap] Erro ao inicializar MapLibre:", err);
@@ -746,6 +748,9 @@ function DriverRideMap({ ride }: { ride: any }) {
 
     return () => {
       isMounted = false;
+      if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
       if (mapRef.current) {
         try {
           mapRef.current.remove();
@@ -753,11 +758,20 @@ function DriverRideMap({ ride }: { ride: any }) {
         mapRef.current = null;
       }
     };
-  }, [ride?.id, ride?.pickup_address, ride?.pickup_latitude, ride?.pickup_longitude]);
+  }, [ride?.id, ride?.pickup_address, ride?.dropoff_address, ride?.pickup_latitude, ride?.pickup_longitude, ride?.dropoff_latitude, ride?.dropoff_longitude]);
 
   return (
-    <div className="w-full h-48 rounded-xl overflow-hidden bg-muted relative border border-border/60 shadow-md">
-      <div ref={mapContainerRef} className="w-full h-full min-h-[192px]" />
+    <div className="w-full h-64 rounded-2xl overflow-hidden bg-muted relative border border-border/60 shadow-md">
+      <div ref={mapContainerRef} className="w-full h-full min-h-[256px]" />
+      
+      <button
+        type="button"
+        onClick={() => fitBoundsRef.current && fitBoundsRef.current()}
+        className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background/90 backdrop-blur-md border border-border/80 text-foreground text-[11px] font-bold shadow-lg hover:bg-background transition-all active:scale-95 cursor-pointer"
+      >
+        <Navigation className="w-3.5 h-3.5 text-amber-500" />
+        <span>Ver Rota Completa</span>
+      </button>
     </div>
   );
 }
