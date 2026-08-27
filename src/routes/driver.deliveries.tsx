@@ -539,7 +539,7 @@ function DriverRideMap({ ride }: { ride: any }) {
                   paint: {
                     "line-color": "#0f172a",
                     "line-width": 8,
-                    "line-opacity": 0.6,
+                    "line-opacity": 0.5,
                   },
                 });
                 m.addLayer({
@@ -551,8 +551,8 @@ function DriverRideMap({ ride }: { ride: any }) {
                     "line-cap": "round",
                   },
                   paint: {
-                    "line-color": "#2563eb",
-                    "line-width": 5,
+                    "line-color": "#facc15",
+                    "line-width": 5.5,
                     "line-opacity": 1.0,
                   },
                 });
