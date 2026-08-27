@@ -458,6 +458,12 @@ function DriverRideMap({ ride }: { ride: any }) {
 
         const m = new MapClass({
           container: mapContainerRef.current,
+          minZoom: 12,
+          maxZoom: 18,
+          maxBounds: [
+            [-54.65, -15.85],
+            [-53.95, -15.25]
+          ],
           style: {
             version: 8,
             sources: {
@@ -481,7 +487,7 @@ function DriverRideMap({ ride }: { ride: any }) {
               }
             ]
           },
-          center: (pLat && pLng) ? [pLng, pLat] : PVA_CENTER,
+          center: (pLat && pLng && pLat < -15.0 && pLat > -16.0 && pLng < -53.8 && pLng > -54.8) ? [pLng, pLat] : PVA_CENTER,
           zoom: 14,
           attributionControl: false,
         });
@@ -491,14 +497,21 @@ function DriverRideMap({ ride }: { ride: any }) {
           try { m.resize(); } catch (e) {}
         }, 150);
 
+        const isCoordInPVA = (lat: number, lng: number) => {
+          return typeof lat === "number" && typeof lng === "number" &&
+                 !isNaN(lat) && !isNaN(lng) &&
+                 lat < -15.0 && lat > -16.0 &&
+                 lng < -53.8 && lng > -54.8;
+        };
+
         const fitMapBounds = (pickupLat: number, pickupLng: number, dropoffLat?: number, dropoffLng?: number, drvLat?: number, drvLng?: number) => {
           try {
             const bounds = new maplibregl.LngLatBounds();
-            if (pickupLat && pickupLng) bounds.extend([pickupLng, pickupLat]);
-            if (dropoffLat && dropoffLng) bounds.extend([dropoffLng, dropoffLat]);
-            if (drvLat && drvLng) bounds.extend([drvLng, drvLat]);
+            if (isCoordInPVA(pickupLat, pickupLng)) bounds.extend([pickupLng, pickupLat]);
+            if (dropoffLat && dropoffLng && isCoordInPVA(dropoffLat, dropoffLng)) bounds.extend([dropoffLng, dropoffLat]);
+            if (drvLat && drvLng && isCoordInPVA(drvLat, drvLng)) bounds.extend([drvLng, drvLat]);
             if (!bounds.isEmpty()) {
-              m.fitBounds(bounds, { padding: 45, maxZoom: 16, duration: 800 });
+              m.fitBounds(bounds, { padding: 35, minZoom: 13, maxZoom: 16, duration: 600 });
             }
           } catch (e) {}
         };
@@ -652,32 +665,32 @@ function DriverRideMap({ ride }: { ride: any }) {
         };
 
         const setupRouteAndMarkers = async () => {
-          if (!pLat || !pLng) {
+          if (!pLat || !pLng || !isCoordInPVA(pLat, pLng)) {
             if (ride?.pickup_address) {
               const coords = await geocodeAddress(ride.pickup_address);
-              if (coords) {
+              if (coords && isCoordInPVA(coords[0], coords[1])) {
                 pLat = coords[0];
                 pLng = coords[1];
               }
             }
           }
 
-          if (!dLat || !dLng) {
+          if (!dLat || !dLng || !isCoordInPVA(dLat, dLng)) {
             if (ride?.dropoff_address) {
               const coords = await geocodeAddress(ride.dropoff_address);
-              if (coords) {
+              if (coords && isCoordInPVA(coords[0], coords[1])) {
                 dLat = coords[0];
                 dLng = coords[1];
               }
             }
           }
 
-          if (!pLat || !pLng) {
+          if (!pLat || !pLng || !isCoordInPVA(pLat, pLng)) {
             pLat = -15.5606;
             pLng = -54.3075;
           }
 
-          if (!dLat || !dLng) {
+          if (!dLat || !dLng || !isCoordInPVA(dLat, dLng)) {
             dLat = pLat - 0.005;
             dLng = pLng - 0.005;
           }
