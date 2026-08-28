@@ -145,7 +145,7 @@ function DeliveriesPage() {
 
   async function handleAdvanceRideStatus(rideId: string, currentStatus: string) {
     const statusMap: Record<string, string> = {
-      accepted: "arrived",
+      accepted: "in_progress",
       arrived: "in_progress",
       in_progress: "completed",
     };
@@ -159,7 +159,7 @@ function DeliveriesPage() {
         .update({ status: nextStatus, updated_at: new Date().toISOString() })
         .eq("id", rideId);
       if (error) throw error;
-      toast.success("Status da corrida atualizado!");
+      toast.success(nextStatus === "completed" ? "Corrida concluída com sucesso!" : "Corrida iniciada!");
       qc.invalidateQueries({ queryKey: ["rides"] });
     } catch (err: any) {
       toast.error(`Erro ao atualizar corrida: ${err?.message || JSON.stringify(err)}`);
@@ -342,7 +342,7 @@ function DeliveriesPage() {
                         disabled={pending === r.id}
                         className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all cursor-pointer"
                       >
-                        {pending === r.id ? "Atualizando..." : r.status === "accepted" ? "Cheguei no local" : r.status === "arrived" ? "Iniciar corrida" : "Finalizar corrida"}
+                        {pending === r.id ? "Atualizando..." : r.status === "accepted" ? "Iniciar Corrida" : "Finalizar Corrida"}
                       </button>
                       <button
                         onClick={() => handleCancelRide(r.id)}
