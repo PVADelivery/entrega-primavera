@@ -406,22 +406,33 @@ function DriverHome() {
   }
 
   async function handleAdvanceRide(id: string, currentStatus: string) {
-    const nextStatusMap: Record<string, string> = {
-      accepted: "in_progress",
-      in_progress: "completed",
-    };
-    const next = nextStatusMap[currentStatus];
-    if (!next) return;
+    const rawStatus = String(currentStatus || "").toLowerCase();
+    let candidateNextStatuses: string[] = [];
+    if (rawStatus === "accepted" || rawStatus === "arrived" || rawStatus === "pending") {
+      candidateNextStatuses = ["in_progress", "in_route", "ongoing", "completed"];
+    } else {
+      candidateNextStatuses = ["completed", "concluded", "finished", "delivered"];
+    }
     
-    try {
-      const { error } = await (supabase as any)
-        .from("ride_requests")
-        .update({ status: next, updated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
-      toast.success(next === "completed" ? "Corrida concluída!" : "Corrida iniciada!");
+    let success = false;
+    for (const next of candidateNextStatuses) {
+      try {
+        const { error } = await (supabase as any)
+          .from("ride_requests")
+          .update({ status: next, updated_at: new Date().toISOString() })
+          .eq("id", id);
+        if (!error) {
+          success = true;
+          toast.success(next === "completed" || next === "concluded" || next === "finished" ? "Corrida concluída!" : "Corrida iniciada!");
+          break;
+        }
+      } catch {}
+    }
+    
+    if (success) {
       qc.invalidateQueries({ queryKey: ["rides"] });
-    } catch {
+      qc.invalidateQueries({ queryKey: ["deliveries"] });
+    } else {
       toast.error("Erro ao atualizar status da corrida.");
     }
   }

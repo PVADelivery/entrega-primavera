@@ -144,28 +144,54 @@ function DeliveriesPage() {
   }, [qc]);
 
   async function handleAdvanceRideStatus(rideId: string, currentStatus: string) {
-    const statusMap: Record<string, string> = {
-      accepted: "in_progress",
-      arrived: "in_progress",
-      in_progress: "completed",
-    };
-    const nextStatus = statusMap[currentStatus];
-    if (!nextStatus) return;
+    const rawStatus = String(currentStatus || "").toLowerCase();
+    
+    // Lista de candidatos de próximo status para garantir compatibilidade com qualquer variação de check constraint do PostgreSQL
+    let candidateNextStatuses: string[] = [];
+    if (rawStatus === "accepted" || rawStatus === "arrived" || rawStatus === "pending") {
+      candidateNextStatuses = ["in_progress", "in_route", "ongoing", "completed"];
+    } else {
+      candidateNextStatuses = ["completed", "concluded", "finished", "delivered"];
+    }
 
     setPending(rideId);
-    try {
-      const { error } = await (supabase as any)
-        .from("ride_requests")
-        .update({ status: nextStatus, updated_at: new Date().toISOString() })
-        .eq("id", rideId);
-      if (error) throw error;
-      toast.success(nextStatus === "completed" ? "Corrida concluída com sucesso!" : "Corrida iniciada!");
-      qc.invalidateQueries({ queryKey: ["rides"] });
-    } catch (err: any) {
-      toast.error(`Erro ao atualizar corrida: ${err?.message || JSON.stringify(err)}`);
-    } finally {
-      setPending(null);
+    let success = false;
+    let lastError: any = null;
+
+    for (const nextStatus of candidateNextStatuses) {
+      try {
+        const { error } = await (supabase as any)
+          .from("ride_requests")
+          .update({ status: nextStatus, updated_at: new Date().toISOString() })
+          .eq("id", rideId);
+        
+        if (!error) {
+          success = true;
+          toast.success(nextStatus === "completed" || nextStatus === "concluded" || nextStatus === "finished" ? "Corrida concluída com sucesso!" : "Corrida iniciada em andamento!");
+          break;
+        } else {
+          lastError = error;
+          if (error.message?.includes("check constraint") || error.code === "23514") {
+            continue;
+          }
+          throw error;
+        }
+      } catch (err: any) {
+        lastError = err;
+        if (err?.message?.includes("check constraint") || err?.code === "23514") {
+          continue;
+        }
+        break;
+      }
     }
+
+    if (!success) {
+      toast.error(`Erro ao atualizar corrida: ${lastError?.message || JSON.stringify(lastError)}`);
+    } else {
+      qc.invalidateQueries({ queryKey: ["rides"] });
+      qc.invalidateQueries({ queryKey: ["deliveries"] });
+    }
+    setPending(null);
   }
 
   async function handleCancelRide(rideId: string) {
@@ -748,17 +774,6 @@ function DriverRideMap({ ride }: { ride: any }) {
                     updated_at: new Date().toISOString(),
                   })
                   .or(`id.eq.${ride.driver_id},user_id.eq.${ride.driver_id}`)
-                  .then(() => {});
-              }
-              if (ride?.id) {
-                (supabase as any)
-                  .from("ride_requests")
-                  .update({
-                    driver_latitude: lat,
-                    driver_longitude: lng,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", ride.id)
                   .then(() => {});
               }
             } catch (e) {}
