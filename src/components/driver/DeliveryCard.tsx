@@ -36,8 +36,9 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
   const next = isBuscaCondicional ? condicionalNextLabels[delivery.status] : normalNextLabels[delivery.status];
   const displayStoreName = delivery.company_name?.trim() || delivery.companies?.name?.trim() || "Loja não vinculada";
 
-  // Formatação do link do WhatsApp do cliente
-  const customerPhoneClean = (delivery.customer_phone || "").replace(/\D/g, "");
+  // Formatação do link do WhatsApp do cliente com múltiplos fallbacks
+  const rawCustomerPhone = delivery.customer_phone || (delivery as any).phone || (delivery as any).customer?.phone || (delivery as any).customers?.phone || "";
+  const customerPhoneClean = rawCustomerPhone.replace(/\D/g, "");
   const whatsappUrl = customerPhoneClean
     ? `https://wa.me/55${customerPhoneClean}?text=${encodeURIComponent(`Olá ${delivery.customer_name || ""}, sou o entregador do seu pedido #${delivery.short_id || ""} da ${displayStoreName}!`)}`
     : null;
@@ -70,9 +71,22 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               {delivery.short_id && <span className="bg-primary/10 text-primary font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">{delivery.short_id}</span>}
             </div>
 
-            {/* Nome do cliente e Horário */}
-            <div className="flex items-center justify-between text-xs text-muted-foreground mt-0.5 font-medium">
-              <span><span>Cliente: </span><strong className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</strong></span>
+            {/* Nome do cliente, Telefone e Horário */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground mt-1 font-medium">
+              <div className="flex items-center gap-2">
+                <span><span>Cliente: </span><strong className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</strong></span>
+                {customerPhoneClean && (
+                  <a
+                    href={whatsappUrl || `tel:${customerPhoneClean}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-bold hover:bg-emerald-500/20 transition-all text-[11px]"
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    <span>{rawCustomerPhone}</span>
+                  </a>
+                )}
+              </div>
               {delivery.created_at && (
                 <span className="text-[11px] font-mono text-muted-foreground/80 bg-muted/50 px-1.5 py-0.5 rounded">
                   {formatDateTime(delivery.created_at, "time")}

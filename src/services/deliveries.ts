@@ -84,30 +84,32 @@ async function resolveDeliveryCompanies(rows: any[]) {
   if (rows.length === 0) return rows;
 
   const orderIds = Array.from(new Set(rows.map((row) => row.order_id).filter(Boolean))) as string[];
-  const orderCompanies = new Map<string, { companyId: string | null; name: string | null; phone: string | null }>();
+  const orderDetails = new Map<string, { companyId: string | null; name: string | null; phone: string | null; customerPhone: string | null; customerName: string | null }>();
 
   if (orderIds.length > 0) {
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
-      .select("id, company_id, companies(name, phone)")
+      .select("id, company_id, customer_phone, customers(name, phone), companies(name, phone)")
       .in("id", orderIds);
 
     if (ordersError) {
-      console.warn("[deliveries] Não foi possível resolver a loja pelo pedido:", ordersError.message);
+      console.warn("[deliveries] Não foi possível resolver dados pelo pedido:", ordersError.message);
     } else {
       (orders ?? []).forEach((order: any) => {
-        orderCompanies.set(order.id, {
+        orderDetails.set(order.id, {
           companyId: order.company_id ?? null,
           name: order.companies?.name ?? null,
           phone: order.companies?.phone ?? null,
+          customerPhone: order.customers?.phone || order.customer_phone || null,
+          customerName: order.customers?.name || null,
         });
       });
     }
   }
 
   const companyIds = Array.from(new Set(rows.flatMap((row) => {
-    const orderCompanyId = row.order_id ? orderCompanies.get(row.order_id)?.companyId : null;
-    return [row.company_id, orderCompanyId].filter(Boolean);
+    const orderDetail = row.order_id ? orderDetails.get(row.order_id) : null;
+    return [row.company_id, orderDetail?.companyId].filter(Boolean);
   }))) as string[];
   const companiesById = new Map<string, { name: string | null; phone: string | null }>();
 
@@ -140,18 +142,22 @@ async function resolveDeliveryCompanies(rows: any[]) {
   }
 
   return rows.map((row) => {
-    const orderCompany = row.order_id ? orderCompanies.get(row.order_id) : null;
-    const resolvedCompanyId = row.company_id ?? orderCompany?.companyId ?? null;
+    const orderDetail = row.order_id ? orderDetails.get(row.order_id) : null;
+    const resolvedCompanyId = row.company_id ?? orderDetail?.companyId ?? null;
     const directCompany = resolvedCompanyId ? companiesById.get(resolvedCompanyId) : null;
     const embeddedCompany = row.companies ?? null;
-    const companyName = directCompany?.name ?? embeddedCompany?.name ?? orderCompany?.name ?? row.company_name ?? null;
-    const companyPhone = directCompany?.phone ?? embeddedCompany?.phone ?? orderCompany?.phone ?? null;
+    const companyName = directCompany?.name ?? embeddedCompany?.name ?? orderDetail?.name ?? row.company_name ?? null;
+    const companyPhone = directCompany?.phone ?? embeddedCompany?.phone ?? orderDetail?.phone ?? null;
+    const customerPhone = row.customer_phone || orderDetail?.customerPhone || null;
+    const customerName = row.customer_name || orderDetail?.customerName || null;
 
     return {
       ...row,
       company_id: resolvedCompanyId,
       company_name: companyName,
       companies: companyName ? { name: companyName, phone: companyPhone } : null,
+      customer_phone: customerPhone,
+      customer_name: customerName || row.customer_name || "Cliente",
     };
   });
 }
