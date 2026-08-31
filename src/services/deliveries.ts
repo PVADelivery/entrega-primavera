@@ -111,12 +111,12 @@ async function resolveDeliveryCompanies(rows: any[]) {
     const orderDetail = row.order_id ? orderDetails.get(row.order_id) : null;
     return [row.company_id, orderDetail?.companyId].filter(Boolean);
   }))) as string[];
-  const companiesById = new Map<string, { name: string | null; phone: string | null }>();
+  const companiesById = new Map<string, { name: string | null; phone: string | null; pricingTableId: string | null }>();
 
   if (companyIds.length > 0) {
     const { data: companies, error: companiesError } = await supabase
       .from("companies")
-      .select("id, name, phone")
+      .select("id, name, phone, pricing_table_id")
       .in("id", companyIds);
 
     if (companiesError) {
@@ -124,7 +124,11 @@ async function resolveDeliveryCompanies(rows: any[]) {
     }
 
     (companies ?? []).forEach((company: any) => {
-      companiesById.set(company.id, { name: company.name ?? null, phone: company.phone ?? null });
+      companiesById.set(company.id, { 
+        name: company.name ?? null, 
+        phone: company.phone ?? null, 
+        pricingTableId: company.pricing_table_id ?? null 
+      });
     });
 
     // Fallback: lojas bloqueadas por RLS são resolvidas no servidor
@@ -133,7 +137,11 @@ async function resolveDeliveryCompanies(rows: any[]) {
       try {
         const resolved = await getCompanyNames({ data: { ids: missing } });
         (resolved ?? []).forEach((company: any) => {
-          companiesById.set(company.id, { name: company.name ?? null, phone: company.phone ?? null });
+          companiesById.set(company.id, { 
+            name: company.name ?? null, 
+            phone: company.phone ?? null,
+            pricingTableId: company.pricing_table_id ?? null
+          });
         });
       } catch (error: any) {
         console.warn("[deliveries] fallback de lojas falhou:", error?.message ?? error);
@@ -141,7 +149,7 @@ async function resolveDeliveryCompanies(rows: any[]) {
     }
   }
 
-  // Carregar regras de preços oficiais do Admin para garantir valores 100% corretos
+  // Carregar regras de preços oficiais do Admin para fallback se valor estiver ausente no banco
   let allPricingRules: any[] = [];
   let allRegions: any[] = [];
   let allHoods: any[] = [];
@@ -165,6 +173,7 @@ async function resolveDeliveryCompanies(rows: any[]) {
     const embeddedCompany = row.companies ?? null;
     const companyName = directCompany?.name ?? embeddedCompany?.name ?? orderDetail?.name ?? row.company_name ?? null;
     const companyPhone = directCompany?.phone ?? embeddedCompany?.phone ?? orderDetail?.phone ?? null;
+    const pricingTableId = directCompany?.pricingTableId ?? embeddedCompany?.pricing_table_id ?? null;
     const customerPhone = row.customer_phone || orderDetail?.customerPhone || null;
     const customerName = row.customer_name || orderDetail?.customerName || null;
 
@@ -182,10 +191,16 @@ async function resolveDeliveryCompanies(rows: any[]) {
       if (matched) regionId = matched.region_id;
     }
 
-    let calculatedFee: number | null = null;
-    if (regionId && allPricingRules.length > 0) {
+    // 1. Prioridade absoluta: Valor gravado oficialmente na linha da entrega no banco
+    const dbValue = Number(row.value && Number(row.value) > 0 ? row.value : (row.delivery_fee && Number(row.delivery_fee) > 0 ? row.delivery_fee : 0));
+
+    let calculatedFee = dbValue;
+
+    // 2. Se o valor estiver zerado no banco, busca na tabela personalizada da empresa
+    if (calculatedFee <= 0 && regionId && allPricingRules.length > 0) {
       const regIdStr = String(regionId).toLowerCase().trim();
       const matchedRule = allPricingRules.find((r: any) => {
+        if (pricingTableId && r.pricing_table_id !== pricingTableId) return false;
         const orig = String(r.origin_region_id || "").toLowerCase().trim();
         const dest = String(r.destination_region_id || "").toLowerCase().trim();
         const gen = String(r.region_id || "").toLowerCase().trim();
@@ -196,14 +211,15 @@ async function resolveDeliveryCompanies(rows: any[]) {
       }
     }
 
-    if (!calculatedFee && regionId && allRegions.length > 0) {
+    // 3. Fallback tabela de regiões padrão do Admin
+    if (calculatedFee <= 0 && regionId && allRegions.length > 0) {
       const reg = allRegions.find((r: any) => String(r.id).toLowerCase() === String(regionId).toLowerCase());
       if (reg && Number(reg.price ?? reg.delivery_fee) > 0) {
         calculatedFee = Number(reg.price ?? reg.delivery_fee);
       }
     }
 
-    const finalValue = (calculatedFee && calculatedFee > 0) ? calculatedFee : (Number(row.value) > 0 ? Number(row.value) : 10.00);
+    const finalValue = calculatedFee > 0 ? calculatedFee : 10.00;
 
     return {
       ...row,
