@@ -141,6 +141,23 @@ async function resolveDeliveryCompanies(rows: any[]) {
     }
   }
 
+  // Carregar regras de preços oficiais do Admin para garantir valores 100% corretos
+  let allPricingRules: any[] = [];
+  let allRegions: any[] = [];
+  let allHoods: any[] = [];
+  try {
+    const [rulesRes, regsRes, hoodsRes] = await Promise.all([
+      supabase.from("pricing_rules").select("*"),
+      supabase.from("regions").select("id, name, price, delivery_fee"),
+      supabase.from("region_neighborhoods").select("*"),
+    ]);
+    if (rulesRes.data) allPricingRules = rulesRes.data;
+    if (regsRes.data) allRegions = regsRes.data;
+    if (hoodsRes.data) allHoods = hoodsRes.data;
+  } catch (e) {
+    console.warn("[deliveries] Falha ao carregar regras de preços:", e);
+  }
+
   return rows.map((row) => {
     const orderDetail = row.order_id ? orderDetails.get(row.order_id) : null;
     const resolvedCompanyId = row.company_id ?? orderDetail?.companyId ?? null;
@@ -151,8 +168,49 @@ async function resolveDeliveryCompanies(rows: any[]) {
     const customerPhone = row.customer_phone || orderDetail?.customerPhone || null;
     const customerName = row.customer_name || orderDetail?.customerName || null;
 
+    // ── Resolução da Região e Valor Oficial da Tabela de Preços do Admin ──
+    let regionId = row.region_id;
+    const addr = String(row.address || row.delivery_address || row.dropoff_address || "");
+    const cleanAddr = addr.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+    if (!regionId && cleanAddr && allHoods.length > 0) {
+      const matched = allHoods.find((h: any) => {
+        if (!h.name) return false;
+        const hName = h.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+        return cleanAddr.includes(hName);
+      });
+      if (matched) regionId = matched.region_id;
+    }
+
+    let calculatedFee: number | null = null;
+    if (regionId && allPricingRules.length > 0) {
+      const regIdStr = String(regionId).toLowerCase().trim();
+      const matchedRule = allPricingRules.find((r: any) => {
+        const orig = String(r.origin_region_id || "").toLowerCase().trim();
+        const dest = String(r.destination_region_id || "").toLowerCase().trim();
+        const gen = String(r.region_id || "").toLowerCase().trim();
+        return (orig === regIdStr || dest === regIdStr || gen === regIdStr) && Number(r.base_value) > 0;
+      });
+      if (matchedRule && Number(matchedRule.base_value) > 0) {
+        calculatedFee = Number(matchedRule.base_value);
+      }
+    }
+
+    if (!calculatedFee && regionId && allRegions.length > 0) {
+      const reg = allRegions.find((r: any) => String(r.id).toLowerCase() === String(regionId).toLowerCase());
+      if (reg && Number(reg.price ?? reg.delivery_fee) > 0) {
+        calculatedFee = Number(reg.price ?? reg.delivery_fee);
+      }
+    }
+
+    const finalValue = (calculatedFee && calculatedFee > 0) ? calculatedFee : (Number(row.value) > 0 ? Number(row.value) : 10.00);
+
     return {
       ...row,
+      region_id: regionId || row.region_id,
+      value: finalValue,
+      price: finalValue,
+      delivery_fee: finalValue,
       company_id: resolvedCompanyId,
       company_name: companyName,
       companies: companyName ? { name: companyName, phone: companyPhone } : null,
