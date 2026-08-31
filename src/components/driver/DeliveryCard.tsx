@@ -76,15 +76,9 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               <div className="flex items-center gap-2">
                 <span><span>Cliente: </span><strong className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</strong></span>
                 {customerPhoneClean && (
-                  <a
-                    href={whatsappUrl || `tel:${customerPhoneClean}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-bold hover:bg-emerald-500/20 transition-all text-[11px]"
-                  >
-                    <MessageSquare className="h-3 w-3" />
-                    <span>{rawCustomerPhone}</span>
-                  </a>
+                  <span className="text-[11px] text-muted-foreground/80 font-mono">
+                    ({rawCustomerPhone})
+                  </span>
                 )}
               </div>
               {delivery.created_at && (

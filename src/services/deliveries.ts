@@ -89,19 +89,40 @@ async function resolveDeliveryCompanies(rows: any[]) {
   if (orderIds.length > 0) {
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
-      .select("id, company_id, customers(name, phone), companies(name, phone)")
+      .select("id, company_id, user_id, customer_id, customer_phone, delivery_address, customers(name, phone), companies(name, phone)")
       .in("id", orderIds);
 
     if (ordersError) {
       console.warn("[deliveries] Não foi possível resolver dados pelo pedido:", ordersError.message);
     } else {
+      const userIds = Array.from(new Set((orders ?? []).map((o: any) => o.user_id).filter(Boolean))) as string[];
+      const profilesMap = new Map<string, { full_name: string | null; phone: string | null }>();
+
+      if (userIds.length > 0) {
+        try {
+          const { data: profs } = await supabase
+            .from("profiles")
+            .select("id, full_name, phone")
+            .in("id", userIds);
+          (profs ?? []).forEach((p: any) => {
+            profilesMap.set(p.id, { full_name: p.full_name || null, phone: p.phone || null });
+          });
+        } catch (e) {
+          console.warn("[deliveries] Erro ao buscar perfis de clientes:", e);
+        }
+      }
+
       (orders ?? []).forEach((order: any) => {
+        const prof = order.user_id ? profilesMap.get(order.user_id) : null;
+        const resolvedPhone = order.customer_phone || order.customers?.phone || prof?.phone || null;
+        const resolvedName = order.customers?.name || prof?.full_name || null;
+
         orderDetails.set(order.id, {
           companyId: order.company_id ?? null,
           name: order.companies?.name ?? null,
           phone: order.companies?.phone ?? null,
-          customerPhone: order.customers?.phone || null,
-          customerName: order.customers?.name || null,
+          customerPhone: resolvedPhone,
+          customerName: resolvedName,
         });
       });
     }
