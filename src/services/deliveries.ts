@@ -433,6 +433,8 @@ export async function createDeliveryRequest(orderId: string) {
     return existingDelivery;
   }
 
+  const fee = Number(order.delivery_fee ?? order.fee ?? 10);
+
   const { data: delivery, error: deliveryError } = await supabase
     .from("deliveries")
     .insert({
@@ -440,7 +442,7 @@ export async function createDeliveryRequest(orderId: string) {
       order_id: orderId,
       customer_name: "Cliente",
       address: dropoff,
-      value: Number(order.delivery_fee ?? order.fee ?? order.total ?? 0),
+      value: fee,
       status: "pending",
     })
     .select()
