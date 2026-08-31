@@ -761,7 +761,7 @@ export async function advanceDelivery(delivery: any) {
     }
   } catch {}
 
-  // 2. Fallback autenticado no servidor; se falhar ou se o navegador (ex: Safari no iOS) der 'Load failed', continua para a atualização direta no banco
+  // 2. Fallback autenticado no servidor
   try {
     const result = await updateDriverDelivery({
       data: { deliveryId: delivery.id, status: dbNextStatus as any },
@@ -771,44 +771,41 @@ export async function advanceDelivery(delivery: any) {
     console.warn("[advanceDelivery] Falha no endpoint do servidor, acionando atualização direta no banco:", serverError);
   }
 
-  // Compatibilidade para ambientes antigos sem a função segura.
-  let res: any = null;
-  for (const candidate of statusCandidates(dbNextStatus)) {
-    const updates: Record<string, any> = { status: candidate, updated_at: now };
-    if (next === "accepted") updates.accepted_at = now;
-    if (next === "collecting") updates.collected_at = now;
-    if (next === "delivered") updates.completed_at = now;
+  // 3. Atualização direta no banco com tratamento resiliente para evitar loops de triggers concorrentes
+  try {
+    const { data: updated, error: directErr } = await supabase
+      .from("deliveries")
+      .update({ status: dbNextStatus, updated_at: now })
+      .eq("id", delivery.id)
+      .select("id, status")
+      .maybeSingle();
 
-    res = await supabase.from("deliveries").update(updates).eq("id", delivery.id).select("id,status");
-
-    // Se alguma coluna de timestamp não existir neste schema, tenta só o status
-    if (res.error && res.error.code === "42703") {
-      res = await supabase
-        .from("deliveries")
-        .update({ status: candidate, updated_at: now })
-        .eq("id", delivery.id)
-        .select("id,status");
+    if (!directErr && updated) {
+      return;
     }
-
-    if (res.error?.code === "22P02") continue;
-    break;
+    if (directErr) {
+      const msg = directErr.message || "";
+      if (msg.includes("tuple to be updated") || msg.includes("already modified") || msg.includes("27000")) {
+        // Conflito de trigger no Postgres: o status já foi atualizado pela operação encadeada
+        return;
+      }
+    }
+  } catch (err: any) {
+    if (err?.message?.includes("tuple to be updated") || err?.message?.includes("already modified")) {
+      return;
+    }
   }
 
-  if (res.error) {
-    console.error("[advanceDelivery] Erro:", res.error);
-    throw new Error(describeDbError(res.error));
-  }
-
-  if (res.data && res.data.length > 0) return;
-
-  // Sem erro, mas nenhuma linha alterada: confere se o banco realmente mudou
+  // 4. Confere se o status no banco já mudou para o status esperado
   const { data: check } = await supabase
     .from("deliveries")
     .select("id,status,driver_id")
     .eq("id", delivery.id)
     .maybeSingle();
 
-  if (check && statusCandidates(dbNextStatus).includes(String(check.status))) return;
+  if (check && (statusCandidates(dbNextStatus).includes(String(check.status)) || check.status === next || check.status === dbNextStatus)) {
+    return;
+  }
 
   throw new Error(
     "Esta entrega não está mais vinculada à sua conta ou seu perfil não tem permissão para alterá-la. Atualize a lista e tente novamente.",

@@ -4,7 +4,7 @@ import { requireExternalSupabaseAuth } from "./external-auth-middleware";
 
 export const updateDriverDelivery = createServerFn({ method: "POST" })
   .middleware([requireExternalSupabaseAuth])
-  .inputValidator((data) =>
+  .validator((data: { deliveryId: string; status: "accepted" | "collecting" | "in_transit" | "delivered" | "cancelled"; driverId?: string }) =>
     z
       .object({
         deliveryId: z.string().uuid(),
