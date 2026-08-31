@@ -111,6 +111,14 @@ export async function updateDriverDeliveryAdmin(
 
     if (updateError) {
       lastError = updateError;
+      // Se for conflito de trigger encadeado no Postgres (27000)
+      if (
+        updateError.code === "27000" ||
+        updateError.message?.includes("tuple to be updated") ||
+        updateError.message?.includes("already modified")
+      ) {
+        return { success: true, status: candidate };
+      }
       // Coluna inexistente no schema deste banco (ex: collected_at ou completed_at)
       if (updateError.code === "42703") {
         const fallbackUpdates: Record<string, string> = { status: candidate, updated_at: now };

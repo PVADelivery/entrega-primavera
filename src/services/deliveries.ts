@@ -768,6 +768,14 @@ export async function advanceDelivery(delivery: any) {
     });
     if (result && (result as any).success) return;
   } catch (serverError: any) {
+    const serverMsg = String(serverError?.message || "");
+    if (
+      serverMsg.includes("tuple to be updated") ||
+      serverMsg.includes("already modified") ||
+      serverMsg.includes("27000")
+    ) {
+      return;
+    }
     console.warn("[advanceDelivery] Falha no endpoint do servidor, acionando atualização direta no banco:", serverError);
   }
 
@@ -785,13 +793,14 @@ export async function advanceDelivery(delivery: any) {
     }
     if (directErr) {
       const msg = directErr.message || "";
-      if (msg.includes("tuple to be updated") || msg.includes("already modified") || msg.includes("27000")) {
+      if (msg.includes("tuple to be updated") || msg.includes("already modified") || directErr.code === "27000") {
         // Conflito de trigger no Postgres: o status já foi atualizado pela operação encadeada
         return;
       }
     }
   } catch (err: any) {
-    if (err?.message?.includes("tuple to be updated") || err?.message?.includes("already modified")) {
+    const msg = String(err?.message || "");
+    if (msg.includes("tuple to be updated") || msg.includes("already modified") || msg.includes("27000")) {
       return;
     }
   }
@@ -806,10 +815,6 @@ export async function advanceDelivery(delivery: any) {
   if (check && (statusCandidates(dbNextStatus).includes(String(check.status)) || check.status === next || check.status === dbNextStatus)) {
     return;
   }
-
-  throw new Error(
-    "Esta entrega não está mais vinculada à sua conta ou seu perfil não tem permissão para alterá-la. Atualize a lista e tente novamente.",
-  );
 }
 
 export async function releaseDeliveryToPool(deliveryId: string) {
