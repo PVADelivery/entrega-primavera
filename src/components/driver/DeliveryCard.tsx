@@ -228,16 +228,18 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               </Button>
             )}
 
-            {/* Botão pequeno apenas com o ícone do WhatsApp na mesma linha (somente APÓS aceitar a entrega) */}
+            {/* Botão com o ícone oficial do WhatsApp (somente APÓS aceitar a entrega) */}
             {whatsappUrl && !onAccept && (
               <a
                 href={whatsappUrl}
                 target="_blank"
                 rel="noreferrer"
                 title="Conversar no WhatsApp"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-md transition-all hover:bg-emerald-500 active:scale-95"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-md transition-all hover:bg-[#20bd5a] active:scale-95 cursor-pointer"
               >
-                <MessageSquare className="h-5 w-5" />
+                <svg className="h-5 w-5 fill-current text-white" viewBox="0 0 24 24">
+                  <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.333 4.993L2 22l5.233-1.337a9.957 9.957 0 0 0 4.77 1.218h.005c5.505 0 9.987-4.478 9.989-9.984 0-2.668-1.037-5.176-2.924-7.062A9.92 9.92 0 0 0 12.012 2zm5.824 14.161c-.247.695-1.226 1.326-1.996 1.492-.525.113-1.21.205-3.518-.75-2.956-1.222-4.857-4.237-5.006-4.436-.144-.199-1.202-1.603-1.202-3.057 0-1.454.764-2.17 1.036-2.467.272-.298.594-.372.793-.372.198 0 .396.002.569.01.184.008.432-.07.676.516.248.594.842 2.057.917 2.206.074.149.123.322.025.521-.099.198-.148.322-.297.495-.149.174-.313.388-.446.522-.149.149-.305.312-.132.61.174.298.773 1.275 1.658 2.064 1.138 1.014 2.099 1.328 2.396 1.477.297.149.471.124.645-.075.173-.198.743-.867.941-1.164.198-.298.396-.248.669-.149.273.099 1.733.818 2.031.967.297.149.495.223.569.347.074.124.074.72-.173 1.415z"/>
+                </svg>
               </a>
             )}
 
