@@ -111,6 +111,19 @@ export async function updateDriverDeliveryAdmin(
 
     if (updateError) {
       lastError = updateError;
+      // Coluna inexistente no schema deste banco (ex: collected_at ou completed_at)
+      if (updateError.code === "42703") {
+        const fallbackUpdates: Record<string, string> = { status: candidate, updated_at: now };
+        if (isAvailableClaim) fallbackUpdates.driver_id = targetDriverId;
+        let retryQuery = admin.from("deliveries").update(fallbackUpdates).eq("id", deliveryId);
+        retryQuery = isAvailableClaim
+          ? retryQuery.is("driver_id", null).in("status", ["pending", "broadcasted"])
+          : retryQuery.eq("driver_id", delivery.driver_id);
+        const { data: retried, error: retryErr } = await retryQuery.select("id").maybeSingle();
+        if (!retryErr && retried) {
+          return { success: true, status: candidate };
+        }
+      }
       // Valor inexistente no enum deste banco: tenta o próximo apelido.
       if (updateError.code === "22P02") continue;
       throw new Error("Não foi possível atualizar a entrega.");
