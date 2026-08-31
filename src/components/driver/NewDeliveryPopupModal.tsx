@@ -174,7 +174,6 @@ export function NewDeliveryPopupModal() {
         window.location.href = "/driver/deliveries";
       }
     } catch (e: any) {
-      console.log("Corrida já aceita por outro entregador:", e);
       toast.info("Esta entrega já foi aceita por outro entregador.");
       declineDeliveryLocally(activeDelivery.id);
       setActiveDelivery(null);

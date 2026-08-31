@@ -430,7 +430,6 @@ export async function createDeliveryRequest(orderId: string) {
     .maybeSingle();
 
   if (existingDelivery) {
-    console.log(`[Deliveries] Entrega já existe para o pedido ${orderId}. Retornando existente.`);
     return existingDelivery;
   }
 
@@ -441,7 +440,7 @@ export async function createDeliveryRequest(orderId: string) {
       order_id: orderId,
       customer_name: "Cliente",
       address: dropoff,
-      value: order.total || 0,
+      value: Number(order.delivery_fee ?? order.fee ?? order.total ?? 0),
       status: "pending",
     })
     .select()

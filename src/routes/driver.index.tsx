@@ -69,17 +69,10 @@ function DriverHome() {
         ...dataRes,
         service_types: parsedServices,
       });
-
-      console.log("[DriverHome Init] Motorista Carregado:", {
-        userId: user.id,
-        driverId: id,
-        service_types: parsedServices,
-        vehicle_type: (dataRes as any)?.vehicle_type || (dataRes as any)?.vehicle || prof?.vehicle_type || prof?.vehicle,
-      });
     }).catch(() => {
       setDriverId(user.id);
     });
-  }, [user]);
+  }, [user?.id]);
 
   const safeServices = Array.isArray(driverServiceTypes) ? driverServiceTypes : [];
 

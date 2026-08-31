@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 
 export async function fetchCompanies() {
   const response = await supabase.from("companies").select("*").order("name");
-  console.log("FETCH COMPANIES RESPONSE:", response);
   if (response.error) throw response.error;
   return response.data ?? [];
 }
