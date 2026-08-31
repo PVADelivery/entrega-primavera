@@ -212,27 +212,30 @@ async function resolveDeliveryCompanies(rows: any[]) {
       if (matched) regionId = matched.region_id;
     }
 
-    // 1. Prioridade absoluta: Valor gravado oficialmente na linha da entrega no banco
-    const dbValue = Number(row.value && Number(row.value) > 0 ? row.value : (row.delivery_fee && Number(row.delivery_fee) > 0 ? row.delivery_fee : 0));
-
-    let calculatedFee = dbValue;
-
-    // 2. Se o valor estiver zerado no banco, busca na tabela personalizada da empresa
-    if (calculatedFee <= 0 && regionId && allPricingRules.length > 0) {
-      const regIdStr = String(regionId).toLowerCase().trim();
-      const matchedRule = allPricingRules.find((r: any) => {
-        if (pricingTableId && r.pricing_table_id !== pricingTableId) return false;
-        const orig = String(r.origin_region_id || "").toLowerCase().trim();
-        const dest = String(r.destination_region_id || "").toLowerCase().trim();
-        const gen = String(r.region_id || "").toLowerCase().trim();
-        return (orig === regIdStr || dest === regIdStr || gen === regIdStr) && Number(r.base_value) > 0;
-      });
-      if (matchedRule && Number(matchedRule.base_value) > 0) {
-        calculatedFee = Number(matchedRule.base_value);
+    // 1. Verificar tabela personalizada vinculada à loja (pricingTableId)
+    let matchedCompanyFee = 0;
+    if (pricingTableId && allPricingRules.length > 0) {
+      const tableRules = allPricingRules.filter((r: any) => r.pricing_table_id === pricingTableId && Number(r.base_value) > 0);
+      if (tableRules.length > 0) {
+        const regIdStr = String(regionId || "").toLowerCase().trim();
+        const regRule = tableRules.find((r: any) => {
+          const orig = String(r.origin_region_id || "").toLowerCase().trim();
+          const dest = String(r.destination_region_id || "").toLowerCase().trim();
+          const gen = String(r.region_id || "").toLowerCase().trim();
+          return (orig && orig === regIdStr) || (dest && dest === regIdStr) || (gen && gen === regIdStr);
+        });
+        const generalRule = tableRules.find((r: any) => !r.origin_region_id && !r.destination_region_id && !r.region_id);
+        const selectedRule = regRule || generalRule || tableRules[0];
+        if (selectedRule && Number(selectedRule.base_value) > 0) {
+          matchedCompanyFee = Number(selectedRule.base_value);
+        }
       }
     }
 
-    // 3. Fallback tabela de regiões padrão do Admin
+    const dbValue = Number(row.value && Number(row.value) > 0 ? row.value : (row.delivery_fee && Number(row.delivery_fee) > 0 ? row.delivery_fee : 0));
+    let calculatedFee = matchedCompanyFee > 0 ? matchedCompanyFee : dbValue;
+
+    // 2. Se ainda não achou, busca na tabela padrão de regiões do Admin
     if (calculatedFee <= 0 && regionId && allRegions.length > 0) {
       const reg = allRegions.find((r: any) => String(r.id).toLowerCase() === String(regionId).toLowerCase());
       if (reg && Number(reg.price ?? reg.delivery_fee) > 0) {
