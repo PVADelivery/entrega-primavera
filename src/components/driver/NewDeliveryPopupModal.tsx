@@ -2,26 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { getElapsedSeconds } from "@/utils/time";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { declineDeliveryLocally, acceptDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
 import { acceptDelivery } from "@/services/deliveries";
+import { useAudioAlert } from "@/hooks/useAudioAlert";
 import { toast } from "sonner";
 
 export function NewDeliveryPopupModal() {
   const [activeDelivery, setActiveDelivery] = useState<any | null>(null);
   const [accepting, setAccepting] = useState(false);
   const acceptingRef = useRef(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const stopPopupAudio = () => {
-    try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-    } catch {}
-  };
+  const { playAlert, stopAlert } = useAudioAlert();
 
   const triggerOffer = async (newDel: any) => {
     if (!newDel || newDel.driver_id) return;
@@ -30,26 +21,12 @@ export function NewDeliveryPopupModal() {
 
     if (!isBroadcasted && !isPending) return;
 
-    // Regra dos 2 minutos do Admin: se for "pending", verifica se já passaram os 120 segundos
-    if (isPending && !isBroadcasted && newDel.created_at) {
-      const elapsedSeconds = getElapsedSeconds(newDel.created_at);
-      if (elapsedSeconds < 120) {
-        // Reservado para o Admin direcionar! Não abre popup nem toca áudio para entregadores ainda.
-        return;
-      }
-    }
-
     const declined = getDeclinedDeliveries();
     if (declined.has(newDel.id)) return;
 
-    // Tocar som de chamada de entrega em loop enquanto o modal estiver aberto
+    // Tocar som de chamada de entrega em loop de forma desbloqueada e robusta
     try {
-      stopPopupAudio();
-      const audio = new Audio("/ring.mp3");
-      audio.volume = 1.0;
-      audio.loop = true;
-      audioRef.current = audio;
-      audio.play().catch(() => {});
+      playAlert(true);
     } catch (e) {}
 
     // Buscar nome real da loja e endereço de coleta apenas se não estiverem presentes
@@ -155,7 +132,7 @@ export function NewDeliveryPopupModal() {
     if (!activeDelivery || acceptingRef.current) return;
     acceptingRef.current = true;
     setAccepting(true);
-    stopPopupAudio();
+    stopAlert();
 
     try {
       const { data: userRes } = await supabase.auth.getUser();
@@ -188,22 +165,26 @@ export function NewDeliveryPopupModal() {
     if (activeDelivery) {
       declineDeliveryLocally(activeDelivery.id);
     }
-    stopPopupAudio();
+    stopAlert();
     setActiveDelivery(null);
   };
 
   if (!activeDelivery) return null;
 
-  const earnings = Number(
-    (activeDelivery.commission && Number(activeDelivery.commission) > 0)
-      ? activeDelivery.commission
-      : (activeDelivery.delivery_fee && Number(activeDelivery.delivery_fee) > 0)
-        ? activeDelivery.delivery_fee
-        : (activeDelivery.value && Number(activeDelivery.value) > 0)
-          ? activeDelivery.value
-          : (activeDelivery.price && Number(activeDelivery.price) > 0)
-            ? activeDelivery.price
-            : 0
+  const grossFee = Number(
+    (activeDelivery.delivery_fee && Number(activeDelivery.delivery_fee) > 0)
+      ? activeDelivery.delivery_fee
+      : (activeDelivery.value && Number(activeDelivery.value) > 0)
+        ? activeDelivery.value
+        : (activeDelivery.price && Number(activeDelivery.price) > 0)
+          ? activeDelivery.price
+          : 0
+  );
+  // Repasse de 75% para o motoboy (ou comissão direta se configurada)
+  const earnings = (
+    activeDelivery.commission && Number(activeDelivery.commission) > 0
+      ? Number(activeDelivery.commission)
+      : grossFee * 0.75
   ).toFixed(2);
 
   return (
