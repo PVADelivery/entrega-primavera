@@ -278,21 +278,10 @@ export function useDriverNotifications() {
       if (declined.has(rawDelivery.id)) return;
       if (seenIdsRef.current.has(rawDelivery.id)) return;
 
-      // ── Regra dos 2 Minutos do Admin e direcionamento direto ──
+      // ── Direcionamento de corrida e alerta imediato ──
       const currentDriverId = user?.id;
       if (rawDelivery.driver_id) {
         if (rawDelivery.driver_id !== currentDriverId) return; // Atribuído para outro entregador
-      } else {
-        const isBroadcasted = rawDelivery.status === "broadcasted";
-        const isPending = rawDelivery.status === "pending";
-        if (isPending && !isBroadcasted && rawDelivery.created_at) {
-          const elapsedSeconds = getElapsedSeconds(rawDelivery.created_at);
-          if (elapsedSeconds < 120) {
-            // Reservado para o Admin direcionar durante os 2 primeiros minutos!
-            // NÃO notifica a frota geral ainda.
-            return;
-          }
-        }
       }
 
       seenIdsRef.current.add(rawDelivery.id);
