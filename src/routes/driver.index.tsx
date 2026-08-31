@@ -95,8 +95,6 @@ function DriverHome() {
       }
     },
     enabled: mode === "delivery",
-    refetchInterval: 2000,
-    staleTime: 500,
   });
 
   // Agrupamento de entregas pendentes por batch_id
@@ -226,14 +224,6 @@ function DriverHome() {
           return isCompatible;
         });
 
-        console.log("[availableRides] Corridas Disponíveis:", {
-          totalBanco: rides.length,
-          filtradas: filtered.length,
-          driverServices: driverServiceTypes,
-          driverVehicle: driverInfo?.vehicle_type || driverInfo?.vehicle,
-          corridas: filtered,
-        });
-
         return filtered;
       } catch (err) {
         console.error("[availableRides] Erro ao processar corridas:", err);
@@ -241,8 +231,6 @@ function DriverHome() {
       }
     },
     enabled: mode === "ride",
-    refetchInterval: 2000,
-    staleTime: 500,
   });
 
   // Corridas Atribuídas pelo Administrador ao Motorista Logado
@@ -272,12 +260,6 @@ function DriverHome() {
           return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
         });
 
-        console.log("[activeRides/Atribuídas Admin] Corridas do Motorista:", {
-          myIds,
-          totalAtribuidas: filtered.length,
-          corridas: filtered,
-        });
-
         return filtered;
       } catch (err) {
         console.error("[activeRides] Erro ao processar corridas atribuídas:", err);
@@ -285,8 +267,6 @@ function DriverHome() {
       }
     },
     enabled: mode === "ride",
-    refetchInterval: 2000,
-    staleTime: 500,
   });
 
   const earnings = useQuery({
