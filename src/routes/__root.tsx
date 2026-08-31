@@ -111,8 +111,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Lovable App" },
       { name: "twitter:description", content: "Entrega-Primavera is a mobile app for delivery drivers to manage their tasks and deliveries." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a1d8c26f-9513-4266-9a14-53adc5cf11bb/id-preview-98b6acab--a722d62f-5560-40b7-81d1-64762ca79ce4.lovable.app-1780187530199.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a1d8c26f-9513-4266-9a14-53adc5cf11bb/id-preview-98b6acab--a722d62f-5560-40b7-81d1-64762ca79ce4.lovable.app-1780187530199.png" },
+      { property: "og:image", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+      { name: "twitter:image", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
     ],
     links: [
       {
