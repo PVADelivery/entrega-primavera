@@ -168,12 +168,12 @@ export function NewDeliveryPopupModal() {
   if (!activeDelivery) return null;
 
   const grossFee = Number(
-    (activeDelivery.delivery_fee && Number(activeDelivery.delivery_fee) > 0)
-      ? activeDelivery.delivery_fee
-      : (activeDelivery.value && Number(activeDelivery.value) > 0)
-        ? activeDelivery.value
-        : (activeDelivery.price && Number(activeDelivery.price) > 0)
-          ? activeDelivery.price
+    (activeDelivery.value && Number(activeDelivery.value) > 0)
+      ? activeDelivery.value
+      : (activeDelivery.price && Number(activeDelivery.price) > 0)
+        ? activeDelivery.price
+        : (activeDelivery.delivery_fee && Number(activeDelivery.delivery_fee) > 0)
+          ? activeDelivery.delivery_fee
           : 0
   );
   // Repasse de 75% para o motoboy (ou comissão direta se configurada)

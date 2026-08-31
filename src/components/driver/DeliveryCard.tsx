@@ -164,12 +164,12 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               <p className="font-display text-base font-bold tracking-tight text-emerald-400">
                 <span>R$ </span>{(() => {
                   const grossFee = Number(
-                    (delivery.delivery_fee && Number(delivery.delivery_fee) > 0)
-                      ? delivery.delivery_fee
-                      : (delivery.value && Number(delivery.value) > 0)
-                        ? delivery.value
-                        : (delivery.price && Number(delivery.price) > 0)
-                          ? delivery.price
+                    (delivery.value && Number(delivery.value) > 0)
+                      ? delivery.value
+                      : (delivery.price && Number(delivery.price) > 0)
+                        ? delivery.price
+                        : (delivery.delivery_fee && Number(delivery.delivery_fee) > 0)
+                          ? delivery.delivery_fee
                           : (delivery.commission && Number(delivery.commission) > 0)
                             ? delivery.commission
                             : 0
