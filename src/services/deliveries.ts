@@ -89,7 +89,7 @@ async function resolveDeliveryCompanies(rows: any[]) {
   if (orderIds.length > 0) {
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
-      .select("id, company_id, customer_phone, customers(name, phone), companies(name, phone)")
+      .select("id, company_id, customers(name, phone), companies(name, phone)")
       .in("id", orderIds);
 
     if (ordersError) {
@@ -100,7 +100,7 @@ async function resolveDeliveryCompanies(rows: any[]) {
           companyId: order.company_id ?? null,
           name: order.companies?.name ?? null,
           phone: order.companies?.phone ?? null,
-          customerPhone: order.customers?.phone || order.customer_phone || null,
+          customerPhone: order.customers?.phone || null,
           customerName: order.customers?.name || null,
         });
       });
