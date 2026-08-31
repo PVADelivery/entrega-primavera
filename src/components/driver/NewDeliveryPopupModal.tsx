@@ -6,6 +6,7 @@ import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { declineDeliveryLocally, acceptDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
 import { acceptDelivery } from "@/services/deliveries";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
+import { getElapsedSeconds } from "@/utils/time";
 import { toast } from "sonner";
 
 export function NewDeliveryPopupModal() {
@@ -86,14 +87,14 @@ export function NewDeliveryPopupModal() {
             triggerOffer(updated);
           } else if (activeDelivery && updated.id === activeDelivery.id && updated.status !== "pending" && updated.status !== "broadcasted") {
             // Se outro motoboy aceitou ou foi cancelada, encerra o modal imediatamente
-            stopPopupAudio();
+            stopAlert();
             setActiveDelivery(null);
           }
         }
       )
       .subscribe();
 
-    // Verificador periódico: checa a cada 5s entregas que atingiram o limite de 2 minutos do Admin
+    // Verificador periódico: checa a cada 10s entregas disponíveis
     const checkTimer = setInterval(async () => {
       if (activeDelivery) return;
       try {
@@ -105,16 +106,11 @@ export function NewDeliveryPopupModal() {
           .order("created_at", { ascending: false });
 
         if (pendings && pendings.length > 0) {
-          const now = Date.now();
           for (const del of pendings) {
-            const isBroadcasted = del.status === "broadcasted";
-            const elapsedSeconds = getElapsedSeconds(del.created_at);
-            if (isBroadcasted || elapsedSeconds >= 120) {
-              const declined = getDeclinedDeliveries();
-              if (!declined.has(del.id)) {
-                triggerOffer(del);
-                break;
-              }
+            const declined = getDeclinedDeliveries();
+            if (!declined.has(del.id)) {
+              triggerOffer(del);
+              break;
             }
           }
         }
@@ -122,7 +118,7 @@ export function NewDeliveryPopupModal() {
     }, 10000);
 
     return () => {
-      stopPopupAudio();
+      stopAlert();
       clearInterval(checkTimer);
       supabase.removeChannel(channel);
     };
