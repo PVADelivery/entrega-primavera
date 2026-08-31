@@ -89,7 +89,7 @@ async function resolveDeliveryCompanies(rows: any[]) {
   if (orderIds.length > 0) {
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
-      .select("id, company_id, user_id, customer_id, customer_phone, delivery_address, customers(name, phone), companies(name, phone)")
+      .select("id, company_id, user_id, customer_id, delivery_address, customers(name, phone), companies(name, phone)")
       .in("id", orderIds);
 
     if (ordersError) {
@@ -114,7 +114,7 @@ async function resolveDeliveryCompanies(rows: any[]) {
 
       (orders ?? []).forEach((order: any) => {
         const prof = order.user_id ? profilesMap.get(order.user_id) : null;
-        const resolvedPhone = order.customer_phone || order.customers?.phone || prof?.phone || null;
+        const resolvedPhone = order.customers?.phone || prof?.phone || null;
         const resolvedName = order.customers?.name || prof?.full_name || null;
 
         orderDetails.set(order.id, {
