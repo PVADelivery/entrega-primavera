@@ -1,4 +1,4 @@
-﻿import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -25,12 +25,21 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
       if (error) throw error;
       toast.success("Bem-vindo!");
       navigate({ to: "/driver" });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao autenticar");
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("Invalid login credentials") || msg.includes("invalid_grant")) {
+        toast.error("E-mail ou senha incorretos. Verifique seus dados.");
+      } else if (msg.includes("Email not confirmed")) {
+        toast.error("E-mail não confirmado. Verifique sua caixa de entrada.");
+      } else if (msg.includes("Too many requests") || msg.includes("rate limit")) {
+        toast.error("Muitas tentativas. Aguarde alguns instantes.");
+      } else {
+        toast.error(msg || "Erro ao autenticar");
+      }
     } finally {
       setLoading(false);
     }
