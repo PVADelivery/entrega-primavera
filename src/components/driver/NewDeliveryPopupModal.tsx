@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { declineDeliveryLocally, acceptDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
-import { acceptDelivery } from "@/services/deliveries";
+import { acceptDelivery, extractDeliveryFee } from "@/services/deliveries";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
 import { getElapsedSeconds } from "@/utils/time";
 import { toast } from "sonner";
@@ -167,15 +167,7 @@ export function NewDeliveryPopupModal() {
 
   if (!activeDelivery) return null;
 
-  const grossFee = Number(
-    (activeDelivery.value && Number(activeDelivery.value) > 0)
-      ? activeDelivery.value
-      : (activeDelivery.price && Number(activeDelivery.price) > 0)
-        ? activeDelivery.price
-        : (activeDelivery.delivery_fee && Number(activeDelivery.delivery_fee) > 0)
-          ? activeDelivery.delivery_fee
-          : 0
-  );
+  const grossFee = extractDeliveryFee(activeDelivery);
   // Repasse de 75% para o motoboy (ou comissão direta se configurada)
   const earnings = (
     activeDelivery.commission && Number(activeDelivery.commission) > 0

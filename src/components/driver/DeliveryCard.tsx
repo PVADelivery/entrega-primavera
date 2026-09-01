@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Wallet, ArrowRight, Eye, Phone, MessageSquare, AlertCircle } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { formatDateTime } from "@/lib/utils";
-import type { DeliveryWithRelations as Delivery } from "@/services/deliveries";
+import { extractDeliveryFee, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
 
 interface Props {
   delivery: Delivery;
@@ -157,17 +157,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
               </p>
               <p className="font-display text-base font-bold tracking-tight text-emerald-400">
                 <span>R$ </span>{(() => {
-                  const grossFee = Number(
-                    (delivery.value && Number(delivery.value) > 0)
-                      ? delivery.value
-                      : (delivery.price && Number(delivery.price) > 0)
-                        ? delivery.price
-                        : (delivery.delivery_fee && Number(delivery.delivery_fee) > 0)
-                          ? delivery.delivery_fee
-                          : (delivery.commission && Number(delivery.commission) > 0)
-                            ? delivery.commission
-                            : 0
-                  );
+                  const grossFee = extractDeliveryFee(delivery);
                   // O entregador recebe 75% da taxa de entrega (25% retido pela plataforma)
                   const netEarnings = grossFee * 0.75;
                   return netEarnings.toFixed(2);

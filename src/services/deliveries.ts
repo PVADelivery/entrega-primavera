@@ -283,6 +283,7 @@ export function useDeliveries(params?: UseDeliveriesParams) {
         .select(`
           *,
           companies(name, phone),
+          regions(id, name, price, delivery_fee),
           delivery_drivers(id, user_id, vehicle, license_plate)
         `, { count: "exact" })
         .order("created_at", { ascending: false })
@@ -1008,23 +1009,44 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
   return userId;
 }
 
-export const DELIVERY_DONE_STATUSES = ["delivered", "completed"];
-
-export function deliveryGrossFee(row: any): number {
+export function extractDeliveryFee(row: any): number {
   if (!row) return 0;
-  if (row.delivery_fee !== null && row.delivery_fee !== undefined && Number(row.delivery_fee) > 0) {
-    return Number(row.delivery_fee);
+
+  const candidates: number[] = [];
+
+  if (row.delivery_fee != null && Number(row.delivery_fee) > 0) {
+    candidates.push(Number(row.delivery_fee));
   }
-  if (row.value !== null && row.value !== undefined && Number(row.value) > 0) {
-    return Number(row.value);
+  if (row.value != null && Number(row.value) > 0) {
+    candidates.push(Number(row.value));
   }
-  const candidates = [row?.delivery_fee, row?.value, row?.price, row?.commission];
-  for (const c of candidates) {
-    const n = Number(c);
-    if (Number.isFinite(n) && n > 0) return n;
+  if (row.price != null && Number(row.price) > 0) {
+    candidates.push(Number(row.price));
   }
-  return Number(row?.delivery_fee || row?.value || row?.price || 0);
+  if (row.commission != null && Number(row.commission) > 0) {
+    candidates.push(Number(row.commission));
+  }
+
+  // Se o objeto region veio na query
+  if (row.regions) {
+    const isCar = ["carro", "car", "carro_aberto", "frete"].includes(String(row.vehicle_type || "").toLowerCase());
+    const regPrice = isCar
+      ? Number(row.regions.delivery_fee && Number(row.regions.delivery_fee) > 0 ? row.regions.delivery_fee : Number(row.regions.price) * 1.5)
+      : Number(row.regions.price || row.regions.delivery_fee || 0);
+    if (regPrice > 0) {
+      candidates.push(regPrice);
+    }
+  }
+
+  if (candidates.length > 0) {
+    return Math.max(...candidates);
+  }
+  return 10.0;
 }
+
+export const deliveryGrossFee = extractDeliveryFee;
+
+export const DELIVERY_DONE_STATUSES = ["delivered", "completed"];
 
 /** Data de conclusão da entrega, tolerante a bancos com colunas diferentes. */
 export function deliveryDoneAt(row: any): number | null {
@@ -1068,7 +1090,7 @@ export async function fetchEarnings(driverId: string) {
     if (t == null) continue;
 
     // Taxa bruta da entrega: usa a primeira coluna preenchida
-    const fee = deliveryGrossFee(r);
+    const fee = extractDeliveryFee(r);
     // O entregador recebe 75% (25% fica com a plataforma)
     const c = fee * 0.75;
     

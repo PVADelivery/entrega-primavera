@@ -50,7 +50,7 @@ export function useDeliveryDetails(deliveryId?: string | null, initialData?: any
         // 1. Buscar a entrega no banco com todas as colunas
         const { data: del, error: delErr } = await supabase
           .from("deliveries")
-          .select("*, companies(*)")
+          .select("*, companies(*), regions(*)")
           .eq("id", deliveryId)
           .maybeSingle();
 
