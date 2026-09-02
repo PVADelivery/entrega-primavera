@@ -5,8 +5,8 @@ import { DriverShell } from "@/components/driver/DriverShell";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { Send, MessageCircle, Phone, CheckCheck, Headphones, AlertCircle, Sparkles } from "lucide-react";
+import { WhatsappIcon } from "@/components/icons/WhatsappIcon";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/driver/chat")({
@@ -218,10 +218,10 @@ function ChatPage() {
             type="button"
             size="sm"
             onClick={openWhatsAppCentral}
-            className="h-9 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md flex items-center gap-1.5 text-xs shrink-0 cursor-pointer"
+            className="h-9 px-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold rounded-xl shadow-md flex items-center gap-1.5 text-xs shrink-0 cursor-pointer"
             title="Chamar suporte rápido no WhatsApp da Central"
           >
-            <Phone className="h-3.5 w-3.5" />
+            <WhatsappIcon className="h-4 w-4" />
             WhatsApp
           </Button>
         </div>
