@@ -393,6 +393,79 @@ export function useDriverNotifications() {
       }
     };
 
+    const notifyNewRide = (ride: any) => {
+      if (!ride || !ride.id) return;
+      if (seenIdsRef.current.has(ride.id)) return;
+
+      // Filtro de compatibilidade de veículo
+      const dInfo = driverVehicleInfoRef.current;
+      const dServices = dInfo?.service_types || [];
+      const dVeh = dInfo?.vehicle_type || dInfo?.vehicle || "moto";
+      const rVeh = String(ride.vehicle_type || "").toLowerCase();
+
+      if (Array.isArray(dServices) && dServices.length > 0) {
+        const norm = dServices.map(s => String(s).toLowerCase().replace(/_/g, ""));
+        if (rVeh === "taxi" && !norm.some(s => s.includes("taxi") || s.includes("car"))) return;
+        if (rVeh === "mototaxi" && !norm.some(s => s.includes("moto"))) return;
+      } else {
+        if (rVeh === "taxi" && !["car", "carro", "taxi"].includes(dVeh.toLowerCase())) return;
+        if (rVeh === "mototaxi" && !["moto", "mototaxi", "motorcycle"].includes(dVeh.toLowerCase())) return;
+      }
+
+      seenIdsRef.current.add(ride.id);
+      activeAlertsRef.current.add(ride.id);
+      startAlert();
+
+      const isTaxi = rVeh === "taxi" || rVeh === "carro" || rVeh === "car";
+      const rideLabel = isTaxi ? "Táxi (Passageiro)" : "Moto Táxi (Passageiro)";
+      const customer = ride.customer_name || "Passageiro";
+      const pickup = ride.pickup_address || "Ponto de Embarque";
+      const dropoff = ride.dropoff_address || "Destino";
+      const fee = Number(ride.price) || 0;
+      const feeText = fee > 0 ? `R$ ${fee.toFixed(2).replace(".", ",")}` : "";
+      const title = `🚕 ${rideLabel}${feeText ? ` — ${feeText}` : ""}`;
+
+      toast(`🚕 ${rideLabel}`, {
+        description: `📍 ${pickup} → 🏁 ${dropoff}${feeText ? ` • 💰 ${feeText}` : ""}`,
+      });
+
+      if (Capacitor.isNativePlatform()) {
+        DeliveryOverlay.testIncomingCall({
+          details: `${rideLabel}\n👤 ${customer}\n📍 Embarque: ${pickup}\n🏁 Destino: ${dropoff}`,
+          deliveryId: ride.id,
+          storeName: rideLabel,
+          pickup,
+          dropoff,
+          fee: feeText,
+        }).catch(console.warn);
+
+        LocalNotifications.schedule({
+          notifications: [
+            {
+              title,
+              body: `📍 ${pickup} → 🏁 ${dropoff}`,
+              id: hashId(ride.id),
+              actionTypeId: "DELIVERY_ACTION",
+              channelId: NOTIFICATION_CHANNEL_ID,
+              sound: "ring",
+              extra: { type: "ride", rideId: ride.id },
+            },
+          ],
+        }).catch((e) => console.warn("[LocalNotifications] erro:", e));
+      } else if (!Capacitor.isNativePlatform() && typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission === "granted") {
+          try {
+            new Notification(title, {
+              body: `📍 ${pickup} → 🏁 ${dropoff}`,
+              icon: "/favicon-v3.png",
+              tag: `ride-${ride.id}`,
+              requireInteraction: true,
+            });
+          } catch (e) {}
+        }
+      }
+    };
+
     const stopRingingFor = (deliveryId: string) => {
       activeAlertsRef.current.delete(deliveryId);
       if (activeAlertsRef.current.size === 0) {
@@ -443,23 +516,28 @@ export function useDriverNotifications() {
 
       // Listener de status online/offline
       const driverChannel = supabase
-        .channel(`mt24-driver-profile-${user.id}-${Date.now()}`)
+        .channel(`mt24-driver-status-${driverId}`)
         .on(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` },
+          { event: "UPDATE", schema: "public", table: "delivery_drivers", filter: `id=eq.${driverId}` },
           (payload) => {
             const updated = payload.new as any;
             const wasOnline = isOnlineRef.current;
-            isOnlineRef.current = updated.is_online ?? false;
-            if (!isOnlineRef.current && wasOnline) {
-              activeAlertsRef.current.clear();
-              stopAlert();
-              if (Capacitor.isNativePlatform()) {
-                DeliveryOverlay.stopOverlay().catch(() => {});
+            if (typeof updated?.is_online === "boolean") {
+              isOnlineRef.current = updated.is_online;
+              if (typeof window !== "undefined") {
+                localStorage.setItem(`driver_is_online_${user.id}`, String(updated.is_online));
               }
-            } else if (isOnlineRef.current && !wasOnline) {
-              if (Capacitor.isNativePlatform()) {
-                DeliveryOverlay.startOverlay().catch(() => {});
+              if (!updated.is_online && wasOnline) {
+                activeAlertsRef.current.clear();
+                stopAlert();
+                if (Capacitor.isNativePlatform()) {
+                  DeliveryOverlay.stopOverlay().catch(() => {});
+                }
+              } else if (updated.is_online && !wasOnline) {
+                if (Capacitor.isNativePlatform()) {
+                  DeliveryOverlay.startOverlay().catch(() => {});
+                }
               }
             }
           }

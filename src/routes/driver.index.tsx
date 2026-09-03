@@ -35,7 +35,7 @@ function DriverHome() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const qc = useQueryClient();
-  const { mode } = useWorkMode();
+  const { mode, setMode } = useWorkMode();
   useDriverNotifications();
   const [driverId, setDriverId] = useState<string | null>(null);
   const [driverServiceTypes, setDriverServiceTypes] = useState<string[]>([]);
@@ -223,7 +223,7 @@ function DriverHome() {
         return [];
       }
     },
-    enabled: mode === "ride",
+    enabled: true,
   });
 
   // Corridas Atribuídas pelo Administrador ao Motorista Logado
@@ -563,6 +563,33 @@ function DriverHome() {
                 ))}
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* Alerta de Corridas Pendentes quando o entregador está no modo Entregas */}
+      {mode === "delivery" && availableRides.data && availableRides.data.length > 0 && (
+        <section className="mt-6 px-4">
+          <div
+            onClick={() => setMode("ride")}
+            className="cursor-pointer p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 hover:bg-amber-500/20 transition-all flex items-center justify-between shadow-lg"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-xl">
+                🚕
+              </span>
+              <div>
+                <p className="text-xs font-black text-amber-300 uppercase tracking-wide">
+                  {availableRides.data.length === 1
+                    ? "1 Corrida de Passageiro Disponível!"
+                    : `${availableRides.data.length} Corridas de Passageiro Disponíveis!`}
+                </p>
+                <p className="text-[11px] text-amber-200/80">Toque para alternar para Corridas e atender agora</p>
+              </div>
+            </div>
+            <span className="px-3 py-1.5 rounded-xl bg-amber-400 text-black font-extrabold text-xs shrink-0 shadow-sm">
+              Ver
+            </span>
           </div>
         </section>
       )}
