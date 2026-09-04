@@ -321,30 +321,27 @@ export function useDriverNotifications() {
       const dropoff = delivery.delivery_address || delivery.dropoff_address ||
         delivery.address || "Endereço do cliente";
       const orderFee = delivery.orders?.delivery_fee ? Number(delivery.orders.delivery_fee) : 0;
-      const value = orderFee > 0 ? orderFee : Math.max(
+      const grossValue = orderFee > 0 ? orderFee : Math.max(
         Number(delivery.delivery_fee) || 0,
         Number(delivery.value) || 0,
         Number(delivery.price) || 0
       );
-      const feeText = value > 0 ? `R$ ${value.toFixed(2).replace(".", ",")}` : "";
+      // Ganhos do Motoboy: 75% do valor da entrega (ou comissão/taxa do entregador explícita)
+      const driverEarning = delivery.commission && Number(delivery.commission) > 0
+        ? Number(delivery.commission)
+        : (delivery.driver_fee && Number(delivery.driver_fee) > 0
+            ? Number(delivery.driver_fee)
+            : grossValue * 0.75);
+      const feeText = driverEarning > 0 ? `R$ ${driverEarning.toFixed(2).replace(".", ",")}` : "";
       const description = `${storeName} • Retirada: ${pickup} → Entrega: ${dropoff}${feeText ? ` • Ganho: ${feeText}` : ""}`;
       const title = `🏬 ${storeName}${feeText ? ` — ${feeText}` : ""}`;
 
       toast(`🏬 ${storeName}`, {
-        description: `🏁 ${dropoff}${feeText ? ` • 💰 ${feeText}` : ""}`,
+        description: `🏁 ${dropoff}${feeText ? ` • 💰 Ganhos: ${feeText}` : ""}`,
       });
 
-      // Dispara os componentes nativos: IncomingCallActivity, Overlay Flutuante e LocalNotifications
+      // Dispara ÚNICA E EXCLUSIVAMENTE o Card Flutuante Oficial do MT 24 Horas Express
       if (Capacitor.isNativePlatform()) {
-        DeliveryOverlay.testIncomingCall({
-          details: `${storeName}\n📍 Coleta: ${pickup}\n🏁 Entrega: ${dropoff}`,
-          deliveryId: delivery.id,
-          storeName,
-          pickup,
-          dropoff,
-          fee: feeText,
-        }).catch(console.warn);
-
         DeliveryOverlay.showDeliveryCard({
           deliveryId: delivery.id,
           storeName,

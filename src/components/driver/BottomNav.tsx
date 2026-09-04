@@ -49,10 +49,10 @@ export function BottomNav() {
   const totalActive =
     mode === "ride" ? activeRides.data?.length || 0 : activeDeliveries.data?.length || 0;
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 pt-2 pointer-events-none">
+    <nav className="fixed inset-x-0 bottom-0 z-40 px-2.5 pb-2 pt-1 pointer-events-none">
       <div className="mx-auto max-w-md pointer-events-auto">
         <div
-          className="relative flex items-center justify-around rounded-[26px] border border-white/10 bg-[#0d121f]/90 px-2 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.65)] backdrop-blur-2xl transition-all"
+          className="relative flex items-center justify-around rounded-2xl border border-white/10 bg-[#0d121f]/95 px-1.5 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.7)] backdrop-blur-2xl transition-all"
         >
           {items.map(({ to, label, icon: Icon }) => {
             const active = pathname === to || (to !== "/driver" && pathname.startsWith(to));

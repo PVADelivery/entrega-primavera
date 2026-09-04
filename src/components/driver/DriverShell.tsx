@@ -36,7 +36,7 @@ export function DriverShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 text-foreground" suppressHydrationWarning>
+    <div className="min-h-screen bg-background pb-16 text-foreground" suppressHydrationWarning>
       <NewDeliveryPopupModal />
       <div className="mx-auto max-w-md">{children}</div>
       <BottomNav />

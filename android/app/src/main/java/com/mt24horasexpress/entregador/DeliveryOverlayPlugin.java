@@ -195,29 +195,7 @@ public class DeliveryOverlayPlugin extends Plugin {
 
     @PluginMethod
     public void testIncomingCall(PluginCall call) {
-        String details = call.getString("details", "Nova entrega próxima a você!");
-        String deliveryId = call.getString("deliveryId", "");
-        String storeName = call.getString("storeName", "");
-        String pickup = call.getString("pickup", "");
-        String dropoff = call.getString("dropoff", "");
-        String fee = call.getString("fee", "");
-
-        latestDetails = details;
-        latestDeliveryId = deliveryId;
-        latestStore = storeName;
-        latestPickup = pickup;
-        latestDropoff = dropoff;
-        latestFee = fee;
-
-        Intent intent = new Intent(getContext(), IncomingCallActivity.class);
-        intent.putExtra("details", details);
-        intent.putExtra("deliveryId", deliveryId);
-        intent.putExtra("storeName", storeName);
-        intent.putExtra("pickup", pickup);
-        intent.putExtra("dropoff", dropoff);
-        intent.putExtra("fee", fee);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        getContext().startActivity(intent);
+        // Desativado: Usar única e exclusivamente o Card Flutuante Oficial MT 24 Horas
         call.resolve();
     }
 

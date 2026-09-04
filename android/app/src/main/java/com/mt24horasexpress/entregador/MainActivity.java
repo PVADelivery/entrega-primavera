@@ -7,9 +7,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -20,13 +17,6 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(DeliveryOverlayPlugin.class);
         NotificationChannels.ensureIncomingChannel(this);
         super.onCreate(savedInstanceState);
-
-        // Garante que o conteúdo do app respeite a barra de status (topo) e navegação (rodapé)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
 
         handleIntent(getIntent());
     }

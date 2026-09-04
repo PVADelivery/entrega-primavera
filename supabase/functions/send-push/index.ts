@@ -170,7 +170,13 @@ serve(async (req) => {
     pickupAddr = norm(pickupAddr, "Retirada na Loja")
     dropoffAddr = norm(dropoffAddr, "Endereço do cliente")
     if (!Number.isFinite(deliveryFee) || deliveryFee < 0) deliveryFee = 0
-    const feeText = `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`
+    // Repasse de 75% da entrega para o motoboy
+    const driverEarnings = (record.commission && Number(record.commission) > 0)
+      ? Number(record.commission)
+      : (record.driver_fee && Number(record.driver_fee) > 0)
+        ? Number(record.driver_fee)
+        : deliveryFee * 0.75;
+    const feeText = `R$ ${driverEarnings.toFixed(2).replace('.', ',')}`
 
     const formattedDetails = `🏬 Loja: ${companyName}\n📍 Coleta: ${pickupAddr}\n🏁 Entrega: ${dropoffAddr}\n💰 Ganhos: ${feeText}`
     const pushTitle = `🏬 ${companyName}`;

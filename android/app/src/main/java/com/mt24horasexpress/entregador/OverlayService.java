@@ -245,7 +245,11 @@ public class OverlayService extends Service {
                     String finalDropoff = (dropoff != null && !dropoff.trim().isEmpty()) ? dropoff.trim() : "Endereço do cliente";
 
                     if (txtStore != null) txtStore.setText(finalStore);
-                    if (txtEarnings != null) txtEarnings.setText("Ganhos: " + finalFee);
+                    String displayEarnings = finalFee;
+                    if (!displayEarnings.toLowerCase().startsWith("ganhos:")) {
+                        displayEarnings = "Ganhos: " + displayEarnings;
+                    }
+                    if (txtEarnings != null) txtEarnings.setText(displayEarnings);
                     if (txtPickup != null) txtPickup.setText("📍 Coleta: " + finalPickup);
                     if (txtDropoff != null) txtDropoff.setText("🏁 Entrega: " + finalDropoff);
 

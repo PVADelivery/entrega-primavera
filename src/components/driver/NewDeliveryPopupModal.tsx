@@ -6,6 +6,7 @@ import { acceptDelivery, extractDeliveryFee, type DeliveryWithRelations as Deliv
 import { MT24NewDeliveryPopup } from "./MT24NewDeliveryPopup";
 import { isDeliveryEligibleForDriver, ADMIN_WINDOW_SECONDS } from "@/utils/delivery-eligibility";
 import { getElapsedSeconds } from "@/utils/time";
+import { Capacitor } from "@capacitor/core";
 import { toast } from "sonner";
 
 export function NewDeliveryPopupModal() {
@@ -164,6 +165,8 @@ export function NewDeliveryPopupModal() {
     setActiveDelivery(null);
   };
 
+  // No app nativo Android, o Card Flutuante Oficial do MT 24 Horas (OverlayService) é o único popup exibido
+  if (Capacitor.isNativePlatform()) return null;
   if (!activeDelivery) return null;
 
   return (
