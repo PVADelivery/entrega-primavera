@@ -140,6 +140,7 @@ export function useDriverNotifications() {
     let regListener: any = null;
     let errListener: any = null;
     let actListener: any = null;
+    let notifListener: any = null;
 
     if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("PushNotifications")) {
       try {
@@ -219,7 +220,7 @@ export function useDriverNotifications() {
               new Notification(`🏬 ${storeName}`, { body: details, icon: "/favicon-v3.png" });
             } catch {}
           }
-        }).then((handle) => { channelListener = handle; }).catch(() => {});
+        }).then((handle) => { notifListener = handle; }).catch(() => {});
       } catch (err) {
         console.warn("[PushNotifications] Erro:", err);
       }
@@ -229,6 +230,7 @@ export function useDriverNotifications() {
       if (regListener) regListener.remove().catch(() => {});
       if (errListener) errListener.remove().catch(() => {});
       if (actListener) actListener.remove().catch(() => {});
+      if (notifListener) notifListener.remove().catch(() => {});
     };
   }, [user?.id]);
 

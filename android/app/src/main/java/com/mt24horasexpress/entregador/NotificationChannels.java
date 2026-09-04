@@ -14,6 +14,8 @@ public final class NotificationChannels {
 
     public static final String INCOMING_CHANNEL_ID = "delivery-incoming-v9";
     public static final String MARKETPLACE_CHANNEL_ID = "marketplace_orders_v2";
+    public static final String LEGACY_CHANNEL_V1 = "delivery-incoming-v1";
+    public static final String LEGACY_CHANNEL_V8 = "delivery-incoming-v8";
 
     private NotificationChannels() {}
 
@@ -28,34 +30,27 @@ public final class NotificationChannels {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
 
-        // 1) Canal Nativo Marketplace Orders v2 (usado pelo FCM Server com Som Customizado ring.mp3)
-        if (nm.getNotificationChannel(MARKETPLACE_CHANNEL_ID) == null) {
-            NotificationChannel ch = new NotificationChannel(
-                    MARKETPLACE_CHANNEL_ID, "Novos Pedidos & Corridas v2", NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("Alerta sonoro personalizado de novas entregas e pedidos MT 24 Horas Express");
-            ch.setSound(customSound, attrs);
-            ch.enableVibration(true);
-            ch.setVibrationPattern(new long[]{0, 800, 250, 800, 250, 800});
-            ch.enableLights(true);
-            ch.setShowBadge(true);
-            ch.setBypassDnd(true);
-            ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-            nm.createNotificationChannel(ch);
-        }
+        String[] channels = new String[] {
+            INCOMING_CHANNEL_ID,
+            LEGACY_CHANNEL_V1,
+            LEGACY_CHANNEL_V8,
+            MARKETPLACE_CHANNEL_ID
+        };
 
-        // 2) Canal Nativo Entregas v9
-        if (nm.getNotificationChannel(INCOMING_CHANNEL_ID) == null) {
-            NotificationChannel ch = new NotificationChannel(
-                    INCOMING_CHANNEL_ID, "Novas Corridas MT 24 Horas Express v9", NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("Alerta sonoro personalizado de novas corridas disponíveis para entregadores");
-            ch.setSound(customSound, attrs);
-            ch.enableVibration(true);
-            ch.setVibrationPattern(new long[]{0, 800, 250, 800, 250, 800});
-            ch.enableLights(true);
-            ch.setShowBadge(true);
-            ch.setBypassDnd(true);
-            ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-            nm.createNotificationChannel(ch);
+        for (String chId : channels) {
+            if (nm.getNotificationChannel(chId) == null) {
+                NotificationChannel ch = new NotificationChannel(
+                        chId, "Novas Corridas MT 24 Horas Express", NotificationManager.IMPORTANCE_HIGH);
+                ch.setDescription("Alerta sonoro personalizado de novas corridas e entregas disponíveis");
+                ch.setSound(customSound, attrs);
+                ch.enableVibration(true);
+                ch.setVibrationPattern(new long[]{0, 800, 250, 800, 250, 800});
+                ch.enableLights(true);
+                ch.setShowBadge(true);
+                ch.setBypassDnd(true);
+                ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                nm.createNotificationChannel(ch);
+            }
         }
     }
 }
