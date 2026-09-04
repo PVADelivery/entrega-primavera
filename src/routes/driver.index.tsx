@@ -8,7 +8,6 @@ import { DeliveryDetailsSheet } from "@/components/driver/DeliveryDetailsSheet";
 import { acceptDeliveryLocally, declineDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
 import { DeliveryCard } from "@/components/driver/DeliveryCard";
 import { BatchDeliveryCard } from "@/components/driver/BatchDeliveryCard";
-import { MT24NewDeliveryPopup } from "@/components/driver/MT24NewDeliveryPopup";
 import { Capacitor } from "@capacitor/core";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 import { getElapsedSeconds } from "@/utils/time";
@@ -155,21 +154,6 @@ function DriverHome() {
     return result;
   }, [available.data, declinedSet]);
 
-  const incomingDelivery = useMemo(() => {
-    if (mode !== "delivery" || !available.data || available.data.length === 0) return null;
-    const isOnline = user?.id ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : true;
-    if (!isOnline) return null;
-    return available.data.find((d: any) => {
-      if (declinedSet.has(d.id)) return false;
-      if (d.driver_id) return false;
-      // Regra dos 2 minutos do Admin: se não for broadcasted, aguarda 120 segundos
-      if (d.status !== "broadcasted" && d.created_at) {
-        const elapsed = getElapsedSeconds(d.created_at);
-        if (elapsed < 120) return false;
-      }
-      return d.status === "pending" || d.status === "broadcasted";
-    }) || null;
-  }, [mode, available.data, declinedSet, user?.id]);
 
   const active = useQuery({
     queryKey: ["deliveries", "active", driverId],
@@ -722,18 +706,6 @@ function DriverHome() {
         </section>
       )}
 
-      {/* Popup exclusivo MT 24 Horas Express com botões Recusar e Aceitar */}
-      <MT24NewDeliveryPopup
-        delivery={incomingDelivery}
-        open={Boolean(incomingDelivery)}
-        onAccept={handleAccept}
-        onDecline={(id) => {
-          declineDeliveryLocally(id);
-          setDeclinedSet(getDeclinedDeliveries());
-          qc.invalidateQueries({ queryKey: ["deliveries"] });
-        }}
-        pending={pending === incomingDelivery?.id}
-      />
 
       {/* ── BONASOFT Watermark ── */}
       <div className="mt-16 pb-8 text-center opacity-40 select-none pointer-events-none">

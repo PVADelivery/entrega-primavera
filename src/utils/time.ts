@@ -3,7 +3,7 @@
  * Handles ISO strings, UTC strings, naive database strings, and timestamps without timezone offset bugs.
  */
 export function getElapsedSeconds(created_at: string | Date | number | null | undefined): number {
-  if (!created_at) return 999999;
+  if (!created_at) return 0;
   let timestamp: number;
 
   if (typeof created_at === "number") {
@@ -20,7 +20,7 @@ export function getElapsedSeconds(created_at: string | Date | number | null | un
     }
 
     if (isNaN(parsed)) {
-      return 999999;
+      return 0;
     }
     timestamp = parsed;
   }

@@ -9,6 +9,8 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { App } from "@capacitor/app";
 import { toast } from "sonner";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
+import { isDeliveryEligibleForDriver, ADMIN_WINDOW_SECONDS } from "@/utils/delivery-eligibility";
+import { getElapsedSeconds } from "@/utils/time";
 
 const APP_NAME = "MT 24 Horas Express";
 const NOTIFICATION_CHANNEL_ID = "mt24_delivery_alerts_v35";
@@ -93,6 +95,7 @@ export function useDriverNotifications() {
   const isOnlineRef = useRef<boolean>(false);
   const activeAlertsRef = useRef<Set<string>>(new Set());
   const driverVehicleInfoRef = useRef<{ vehicle_type?: string; vehicle?: string; service_types?: string[] } | null>(null);
+  const scheduledDeliveriesRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // ── Permissões e registro FCM
   useEffect(() => {
@@ -252,24 +255,37 @@ export function useDriverNotifications() {
       if (declined.has(rawDelivery.id)) return;
       if (seenIdsRef.current.has(rawDelivery.id)) return;
 
-      // ── Direcionamento de corrida e alerta imediato ──
+      // ── REGRA RÍGIDA DOS 2 MINUTOS DO ADMIN ──
+      // Se não for elegível (ex: está na janela de 2 min do Admin), NUNCA notifica nem toca som!
       const currentDriverId = user?.id;
-      if (rawDelivery.driver_id) {
-        if (rawDelivery.driver_id !== currentDriverId) return; // Atribuído para outro entregador
-      }
+      const isEligible = isDeliveryEligibleForDriver(rawDelivery, currentDriverId);
 
-      // ── REGRA DOS 2 MINUTOS DO ADMIN ──
-      // Se a entrega não foi direcionada especificamente para este entregador e está em status 'pending',
-      // ela pertence exclusivamente à Janela do Admin durante os primeiros 120 segundos!
-      const isBroadcasted = rawDelivery.status === "broadcasted";
-      const isDirectedToMe = rawDelivery.driver_id && String(rawDelivery.driver_id) === String(currentDriverId);
-
-      if (!isBroadcasted && !isDirectedToMe && rawDelivery.created_at) {
-        const elapsedSeconds = getElapsedSeconds(rawDelivery.created_at);
-        if (elapsedSeconds < 120) {
-          // Janela exclusiva do Admin para direcionamento (2 min)! Não notifica entregadores gerais ainda.
-          return;
+      if (!isEligible) {
+        // Se for uma entrega pendente na janela de 2 min do Admin,
+        // agenda a notificação para quando completar os 120 segundos
+        if (rawDelivery.status === "pending" && !rawDelivery.driver_id && rawDelivery.created_at) {
+          const elapsed = getElapsedSeconds(rawDelivery.created_at);
+          if (elapsed < ADMIN_WINDOW_SECONDS) {
+            const delayMs = Math.max(500, (ADMIN_WINDOW_SECONDS - elapsed) * 1000 + 500);
+            if (!scheduledDeliveriesRef.current.has(rawDelivery.id)) {
+              const timer = setTimeout(async () => {
+                scheduledDeliveriesRef.current.delete(rawDelivery.id);
+                try {
+                  const { data: latest } = await supabase
+                    .from("deliveries")
+                    .select("*, companies(name, address)")
+                    .eq("id", rawDelivery.id)
+                    .maybeSingle();
+                  if (latest) {
+                    notifyNewDelivery(latest);
+                  }
+                } catch (e) {}
+              }, delayMs);
+              scheduledDeliveriesRef.current.set(rawDelivery.id, timer);
+            }
+          }
         }
+        return;
       }
 
       seenIdsRef.current.add(rawDelivery.id);
@@ -345,7 +361,7 @@ export function useDriverNotifications() {
               id: hashId(delivery.id),
               actionTypeId: "DELIVERY_ACTION",
               channelId: NOTIFICATION_CHANNEL_ID,
-              sound: "notification_sound",
+              sound: "ring",
               extra: { type: "delivery", deliveryId: delivery.id },
             },
           ],
@@ -620,8 +636,8 @@ export function useDriverNotifications() {
       if (actionListener) actionListener.remove?.().catch(() => {});
       if (overlayListener) overlayListener.remove?.().catch(() => {});
       if (nativeAcceptListener) nativeAcceptListener.remove?.().catch(() => {});
-      if (nativeDeclineListener) nativeDeclineListener.remove?.().catch(() => {});
-      if (appStateListener) appStateListener.remove?.().catch(() => {});
+      scheduledDeliveriesRef.current.forEach((t) => clearTimeout(t));
+      scheduledDeliveriesRef.current.clear();
       if (cleanupInner) cleanupInner();
     };
   }, [user?.id]);

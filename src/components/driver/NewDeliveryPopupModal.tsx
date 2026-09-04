@@ -1,79 +1,104 @@
-import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import iconPrimavera from "@/assets/primavera-icon-v3.png";
+import { useAuth } from "@/contexts/AuthContext";
 import { declineDeliveryLocally, acceptDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
-import { acceptDelivery, extractDeliveryFee } from "@/services/deliveries";
-import { useAudioAlert } from "@/hooks/useAudioAlert";
+import { acceptDelivery, extractDeliveryFee, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
+import { MT24NewDeliveryPopup } from "./MT24NewDeliveryPopup";
+import { isDeliveryEligibleForDriver, ADMIN_WINDOW_SECONDS } from "@/utils/delivery-eligibility";
 import { getElapsedSeconds } from "@/utils/time";
 import { toast } from "sonner";
 
 export function NewDeliveryPopupModal() {
-  const [activeDelivery, setActiveDelivery] = useState<any | null>(null);
-  const [accepting, setAccepting] = useState(false);
+  const { user } = useAuth();
+  const [activeDelivery, setActiveDelivery] = useState<Delivery | null>(null);
+  const [pending, setPending] = useState(false);
   const acceptingRef = useRef(false);
-  const { playAlert, stopAlert } = useAudioAlert();
+  const scheduledTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  const triggerOffer = async (newDel: any) => {
-    if (!newDel || newDel.driver_id) return;
-    const isBroadcasted = newDel.status === "broadcasted";
-    const isPending = newDel.status === "pending";
+  const checkAndOfferDelivery = useCallback(async (del: any) => {
+    if (!del || !del.id) return;
+    if (acceptingRef.current) return;
 
-    if (!isBroadcasted && !isPending) return;
-
+    const currentDriverId = user?.id;
     const declined = getDeclinedDeliveries();
-    if (declined.has(newDel.id)) return;
+    if (declined.has(del.id)) return;
 
-    // Tocar som de chamada de entrega em loop de forma desbloqueada e robusta
-    try {
-      playAlert(true);
-    } catch (e) {}
+    // Regra Rígida de Ouro: NÃO É PARA NOTIFICAR NEM SOM, NEM POP ATÉ DAR OS 2 MINUTOS
+    const isEligible = isDeliveryEligibleForDriver(del, currentDriverId);
 
-    // Buscar nome real da loja e endereço de coleta apenas se não estiverem presentes
-    let storeName = newDel.company_name || newDel.storeName || newDel.companies?.name;
-    let pickupAddress = newDel.pickup_address || newDel.companies?.address;
+    if (!isEligible) {
+      // Se a entrega está na janela do Admin (< 120s) e é pendente sem motorista,
+      // agendamos a verificação para o exato momento em que completar os 120 segundos!
+      if (del.status === "pending" && !del.driver_id && del.created_at) {
+        const elapsed = getElapsedSeconds(del.created_at);
+        if (elapsed < ADMIN_WINDOW_SECONDS) {
+          const delayMs = Math.max(500, (ADMIN_WINDOW_SECONDS - elapsed) * 1000 + 500);
 
-    if ((!storeName || !pickupAddress) && newDel.company_id) {
-      const { data: comp } = await supabase
-        .from("companies")
-        .select("name, address")
-        .eq("id", newDel.company_id)
-        .maybeSingle();
-      if (comp?.name && !storeName) storeName = comp.name;
-      if (comp?.address && !pickupAddress) pickupAddress = comp.address;
+          // Evita timers duplicados para a mesma entrega
+          if (!scheduledTimersRef.current.has(del.id)) {
+            const timer = setTimeout(async () => {
+              scheduledTimersRef.current.delete(del.id);
+              // Quando der os 2 minutos exatos, busca o estado atualizado no banco
+              try {
+                const { data: latest } = await supabase
+                  .from("deliveries")
+                  .select("*, companies(name, address)")
+                  .eq("id", del.id)
+                  .maybeSingle();
+
+                if (latest) {
+                  checkAndOfferDelivery(latest);
+                }
+              } catch (e) {
+                console.warn("[MT24Popup] Erro ao reavaliar entrega após 2 min:", e);
+              }
+            }, delayMs);
+
+            scheduledTimersRef.current.set(del.id, timer);
+          }
+        }
+      }
+      return;
     }
 
-    if (!storeName || storeName === "Empresa Parceira" || storeName === "EMPRESA PARCEIRA" || storeName === "Loja Parceira") {
-      const { data: lastComp } = await supabase
-        .from("companies")
-        .select("name, address")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (lastComp?.name) {
-        storeName = lastComp.name;
-        if (!pickupAddress) pickupAddress = lastComp.address;
-      }
+    // Se já tiver uma entrega aberta e não for essa
+    if (activeDelivery && activeDelivery.id !== del.id) return;
+
+    // Buscar detalhes da empresa se necessário
+    let companyName = del.company_name || del.companies?.name;
+    let pickupAddress = del.pickup_address || del.companies?.address;
+
+    if ((!companyName || !pickupAddress) && del.company_id) {
+      try {
+        const { data: comp } = await supabase
+          .from("companies")
+          .select("name, address")
+          .eq("id", del.company_id)
+          .maybeSingle();
+        if (comp?.name && !companyName) companyName = comp.name;
+        if (comp?.address && !pickupAddress) pickupAddress = comp.address;
+      } catch {}
     }
 
     setActiveDelivery({
-      ...newDel,
-      pickup_address: pickupAddress || newDel.pickup_address,
-      storeName: (storeName || "Loja Parceira").toUpperCase()
+      ...del,
+      company_name: companyName || del.company_name || "Loja Parceira",
+      pickup_address: pickupAddress || del.pickup_address || "Retirada na Loja",
     });
-  };
+  }, [user?.id, activeDelivery]);
 
   useEffect(() => {
-    // Escuta novas solicitações e entregas devolvidas em tempo real
+    if (!user?.id) return;
+
+    // Escuta eventos realtime de deliveries (INSERT e UPDATE)
+    const channelId = `mt24-popup-guard-${user.id}-${Date.now()}`;
     const channel = supabase
-      .channel(`popup-delivery-epraja-${Math.random().toString(36).substring(2, 9)}`)
+      .channel(channelId)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "deliveries" },
         (payload) => {
-          triggerOffer(payload.new);
+          checkAndOfferDelivery(payload.new);
         }
       )
       .on(
@@ -81,169 +106,73 @@ export function NewDeliveryPopupModal() {
         { event: "UPDATE", schema: "public", table: "deliveries" },
         (payload) => {
           const updated = payload.new as any;
+          if (!updated) return;
 
-          // Se a entrega foi devolvida ou reaberta
-          if ((updated.status === "pending" || updated.status === "broadcasted") && !updated.driver_id) {
-            triggerOffer(updated);
-          } else if (activeDelivery && updated.id === activeDelivery.id && updated.status !== "pending" && updated.status !== "broadcasted") {
-            // Se outro motoboy aceitou ou foi cancelada, encerra o modal imediatamente
-            stopAlert();
-            setActiveDelivery(null);
+          // Se a entrega ativa foi aceita por outro ou cancelada, fecha o popup imediatamente
+          if (activeDelivery && activeDelivery.id === updated.id) {
+            if (updated.status !== "pending" && updated.status !== "broadcasted") {
+              setActiveDelivery(null);
+              return;
+            }
+            if (updated.driver_id && String(updated.driver_id) !== String(user.id)) {
+              setActiveDelivery(null);
+              return;
+            }
           }
+
+          checkAndOfferDelivery(updated);
         }
       )
       .subscribe();
 
-    // Verificador periódico: checa a cada 10s entregas disponíveis
-    const checkTimer = setInterval(async () => {
-      if (activeDelivery) return;
-      try {
-        const { data: pendings } = await supabase
-          .from("deliveries")
-          .select("*")
-          .in("status", ["pending", "broadcasted"])
-          .is("driver_id", null)
-          .order("created_at", { ascending: false });
-
-        if (pendings && pendings.length > 0) {
-          for (const del of pendings) {
-            const declined = getDeclinedDeliveries();
-            if (!declined.has(del.id)) {
-              triggerOffer(del);
-              break;
-            }
-          }
-        }
-      } catch {}
-    }, 10000);
-
     return () => {
-      stopAlert();
-      clearInterval(checkTimer);
+      // Limpa canal e todos os timers agendados
       supabase.removeChannel(channel);
+      scheduledTimersRef.current.forEach((t) => clearTimeout(t));
+      scheduledTimersRef.current.clear();
     };
-  }, [activeDelivery?.id]);
+  }, [user?.id, checkAndOfferDelivery, activeDelivery?.id]);
 
-  const handleAccept = async () => {
+  const handleAccept = async (deliveryId: string) => {
     if (!activeDelivery || acceptingRef.current) return;
     acceptingRef.current = true;
-    setAccepting(true);
-    stopAlert();
+    setPending(true);
 
     try {
-      const { data: userRes } = await supabase.auth.getUser();
-      if (userRes?.user) {
-        const { data: driver } = await supabase
-          .from("delivery_drivers")
-          .select("id")
-          .eq("user_id", userRes.user.id)
-          .maybeSingle();
+      const { data: driver } = await supabase
+        .from("delivery_drivers")
+        .select("id")
+        .eq("user_id", user?.id)
+        .maybeSingle();
 
-        const driverId = driver?.id || userRes.user.id;
-        await acceptDelivery(activeDelivery.id, driverId);
-        acceptDeliveryLocally(activeDelivery.id);
-        toast.success("✅ Corrida aceita com sucesso!");
-        setActiveDelivery(null);
-        window.location.href = "/driver/deliveries";
-      }
+      const effectiveDriverId = driver?.id || user?.id || "";
+      await acceptDelivery(deliveryId, effectiveDriverId);
+      acceptDeliveryLocally(deliveryId);
+      toast.success("✅ Corrida aceita com sucesso!");
+      setActiveDelivery(null);
     } catch (e: any) {
       toast.info("Esta entrega já foi aceita por outro entregador.");
-      declineDeliveryLocally(activeDelivery.id);
       setActiveDelivery(null);
     } finally {
-      setAccepting(false);
       acceptingRef.current = false;
+      setPending(false);
     }
   };
 
-  const handleReject = () => {
-    if (acceptingRef.current) return;
-    if (activeDelivery) {
-      declineDeliveryLocally(activeDelivery.id);
-    }
-    stopAlert();
+  const handleDecline = (deliveryId: string) => {
+    declineDeliveryLocally(deliveryId);
     setActiveDelivery(null);
   };
 
   if (!activeDelivery) return null;
 
-  const grossFee = extractDeliveryFee(activeDelivery);
-  // Repasse de 75% para o motoboy (ou comissão direta se configurada)
-  const earnings = (
-    activeDelivery.commission && Number(activeDelivery.commission) > 0
-      ? Number(activeDelivery.commission)
-      : grossFee * 0.75
-  ).toFixed(2);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-sm bg-[#0b1329] border border-slate-800 text-white rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-        
-        {/* Layout idêntico ao modelo "É Pra Já" */}
-        <div className="flex flex-col items-center text-center space-y-4 py-2">
-          
-          {/* Logo Central do Aplicativo */}
-          <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-amber-500/10 p-2 shadow-lg border border-amber-500/20">
-            <img src={iconPrimavera} alt="MT 24 Horas Express" className="h-20 w-20 object-contain" />
-          </div>
-
-          {/* Título Principal */}
-          <div className="space-y-1">
-            {activeDelivery.delivery_type === "BUSCA_CONDICIONAL" && (
-              <span className="inline-block px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 font-black text-xs uppercase tracking-wider border border-purple-500/40 mb-1">
-                👗 BUSCA DE CONDICIONAL
-              </span>
-            )}
-            <h2 className="text-2xl font-black tracking-tight text-white">
-              {activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? "Nova Busca de Condicional!" : "Nova Corrida Disponível!"}
-            </h2>
-          </div>
-
-          {/* Nome da Loja */}
-          <p className="text-lg font-black text-slate-300 uppercase tracking-wide">
-            {activeDelivery.storeName}
-          </p>
-
-          {/* Coleta */}
-          <div className="text-sm text-slate-300 font-medium leading-tight max-w-[280px]">
-            <span className="font-bold text-amber-400">📍 1º Coleta ({activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? "Cliente" : "Loja"}): </span>
-            {activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? (activeDelivery.address || "Endereço do Cliente") : (activeDelivery.pickup_address || "Endereço da Loja")}
-          </div>
-
-          {/* Entrega */}
-          <div className="text-sm text-slate-300 font-medium leading-tight max-w-[280px]">
-            <span className="font-bold text-emerald-400">📍 2º Entrega ({activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? "Loja" : "Cliente"}): </span>
-            {activeDelivery.delivery_type === "BUSCA_CONDICIONAL" ? (activeDelivery.pickup_address || activeDelivery.storeName || "Endereço da Loja") : (activeDelivery.address || "Endereço do Cliente")}
-          </div>
-
-          {/* Ganhos */}
-          <p className="text-lg font-black text-white pt-1">
-            Ganhos: R$ {earnings}
-          </p>
-
-          {/* Botões RECUSAR e ACEITAR lado a lado */}
-          <div className="grid grid-cols-2 gap-3 w-full pt-4">
-            <Button
-              type="button"
-              onClick={handleReject}
-              disabled={accepting}
-              className="h-13 rounded-xl font-black text-base uppercase bg-red-600 hover:bg-red-700 text-white border-none shadow-md transition-transform active:scale-95 disabled:opacity-60"
-            >
-              RECUSAR
-            </Button>
-            <Button
-              type="button"
-              onClick={handleAccept}
-              disabled={accepting}
-              className="h-13 rounded-xl font-black text-base uppercase bg-emerald-500 hover:bg-emerald-600 text-white border-none shadow-md transition-transform active:scale-95 disabled:opacity-60"
-            >
-              {accepting ? "ACEITANDO..." : "ACEITAR"}
-            </Button>
-          </div>
-
-        </div>
-
-      </div>
-    </div>
+    <MT24NewDeliveryPopup
+      delivery={activeDelivery}
+      open={Boolean(activeDelivery)}
+      onAccept={handleAccept}
+      onDecline={handleDecline}
+      pending={pending}
+    />
   );
 }

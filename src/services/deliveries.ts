@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getElapsedSeconds } from "@/utils/time";
+import { isDeliveryEligibleForDriver } from "@/utils/delivery-eligibility";
 import { getCompanyNames } from "@/lib/companies.functions";
 import { updateDriverDelivery } from "@/lib/driver-deliveries.functions";
 import type { DeliveryStatus } from "@/types/models";
@@ -655,13 +656,9 @@ export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: str
 
     // REGRA DOS 2 MINUTOS DO ADMIN:
     // Se a entrega for 'pending' (não 'broadcasted') e não estiver atribuída,
-    // ela fica reservada durante os primeiros 120 segundos para o Admin direcionar!
-    const isBroadcasted = st === "broadcasted";
-    if (!isBroadcasted && d.created_at) {
-      const elapsedSeconds = getElapsedSeconds(d.created_at);
-      if (elapsedSeconds < 120) {
-        return false; // Reservado para a Janela do Admin de 2 minutos!
-      }
+    // ela NUNCA aparece na lista até completarem os 120 segundos (2 minutos)!
+    if (!isDeliveryEligibleForDriver(d)) {
+      return false;
     }
 
     return true;

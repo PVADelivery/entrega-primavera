@@ -5,6 +5,9 @@ import { Store, MapPin, Navigation, CheckCircle2, X, Loader2, Sparkles, Bike } f
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { extractDeliveryFee, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
+import { getElapsedSeconds } from "@/utils/time";
+
+import { isDeliveryEligibleForDriver } from "@/utils/delivery-eligibility";
 
 interface Props {
   delivery: Delivery | null;
@@ -17,9 +20,12 @@ interface Props {
 export function MT24NewDeliveryPopup({ delivery, open, onAccept, onDecline, pending }: Props) {
   const { playAlert, stopAlert, unlockAudio } = useAudioAlert();
 
+  // Blindagem absoluta: NUNCA tocar som nem exibir modal se a entrega estiver na janela de 2 min do Admin
+  const isAvailableForDriver = isDeliveryEligibleForDriver(delivery);
+
   // Alerta sonoro oficial do MT 24 Horas Express (ring.mp3) enquanto o popup estiver ativo
   useEffect(() => {
-    if (open && delivery) {
+    if (open && isAvailableForDriver && delivery) {
       try {
         unlockAudio();
         playAlert(true);
@@ -29,9 +35,9 @@ export function MT24NewDeliveryPopup({ delivery, open, onAccept, onDecline, pend
     } else {
       stopAlert();
     }
-  }, [open, delivery?.id]);
+  }, [open, isAvailableForDriver, delivery?.id]);
 
-  if (!delivery) return null;
+  if (!delivery || !isAvailableForDriver) return null;
 
   const isBuscaCondicional = (delivery as any).delivery_type === "BUSCA_CONDICIONAL";
 
