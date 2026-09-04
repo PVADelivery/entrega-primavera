@@ -10,7 +10,6 @@ import { DeliveryCard } from "@/components/driver/DeliveryCard";
 import { BatchDeliveryCard } from "@/components/driver/BatchDeliveryCard";
 import { Capacitor } from "@capacitor/core";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
-import { getElapsedSeconds } from "@/utils/time";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";

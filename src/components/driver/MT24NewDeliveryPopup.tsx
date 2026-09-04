@@ -5,8 +5,6 @@ import { Store, MapPin, Navigation, CheckCircle2, X, Loader2, Sparkles, Bike } f
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { extractDeliveryFee, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
-import { getElapsedSeconds } from "@/utils/time";
-
 import { isDeliveryEligibleForDriver } from "@/utils/delivery-eligibility";
 
 interface Props {
