@@ -653,7 +653,17 @@ export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: str
     const isUnassigned = !d.driver_id || String(d.driver_id).trim() === "" || d.driver_id === "none" || d.driver_id === "00000000-0000-0000-0000-000000000000";
     if (!isUnassigned) return false;
 
-    // Qualquer entrega não atribuída a motorista deve aparecer imediatamente
+    // REGRA DOS 2 MINUTOS DO ADMIN:
+    // Se a entrega for 'pending' (não 'broadcasted') e não estiver atribuída,
+    // ela fica reservada durante os primeiros 120 segundos para o Admin direcionar!
+    const isBroadcasted = st === "broadcasted";
+    if (!isBroadcasted && d.created_at) {
+      const elapsedSeconds = getElapsedSeconds(d.created_at);
+      if (elapsedSeconds < 120) {
+        return false; // Reservado para a Janela do Admin de 2 minutos!
+      }
+    }
+
     return true;
   });
 

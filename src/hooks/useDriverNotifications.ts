@@ -258,6 +258,20 @@ export function useDriverNotifications() {
         if (rawDelivery.driver_id !== currentDriverId) return; // Atribuído para outro entregador
       }
 
+      // ── REGRA DOS 2 MINUTOS DO ADMIN ──
+      // Se a entrega não foi direcionada especificamente para este entregador e está em status 'pending',
+      // ela pertence exclusivamente à Janela do Admin durante os primeiros 120 segundos!
+      const isBroadcasted = rawDelivery.status === "broadcasted";
+      const isDirectedToMe = rawDelivery.driver_id && String(rawDelivery.driver_id) === String(currentDriverId);
+
+      if (!isBroadcasted && !isDirectedToMe && rawDelivery.created_at) {
+        const elapsedSeconds = getElapsedSeconds(rawDelivery.created_at);
+        if (elapsedSeconds < 120) {
+          // Janela exclusiva do Admin para direcionamento (2 min)! Não notifica entregadores gerais ainda.
+          return;
+        }
+      }
+
       seenIdsRef.current.add(rawDelivery.id);
       activeAlertsRef.current.add(rawDelivery.id);
 

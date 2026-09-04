@@ -11,6 +11,7 @@ import { BatchDeliveryCard } from "@/components/driver/BatchDeliveryCard";
 import { MT24NewDeliveryPopup } from "@/components/driver/MT24NewDeliveryPopup";
 import { Capacitor } from "@capacitor/core";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
+import { getElapsedSeconds } from "@/utils/time";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,7 +159,16 @@ function DriverHome() {
     if (mode !== "delivery" || !available.data || available.data.length === 0) return null;
     const isOnline = user?.id ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : true;
     if (!isOnline) return null;
-    return available.data.find((d: any) => !declinedSet.has(d.id) && !d.driver_id && (d.status === "pending" || d.status === "broadcasted")) || null;
+    return available.data.find((d: any) => {
+      if (declinedSet.has(d.id)) return false;
+      if (d.driver_id) return false;
+      // Regra dos 2 minutos do Admin: se não for broadcasted, aguarda 120 segundos
+      if (d.status !== "broadcasted" && d.created_at) {
+        const elapsed = getElapsedSeconds(d.created_at);
+        if (elapsed < 120) return false;
+      }
+      return d.status === "pending" || d.status === "broadcasted";
+    }) || null;
   }, [mode, available.data, declinedSet, user?.id]);
 
   const active = useQuery({

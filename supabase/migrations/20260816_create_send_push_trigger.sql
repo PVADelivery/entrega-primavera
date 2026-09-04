@@ -24,6 +24,11 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Se for INSERT e ainda estiver pendente sem entregador (Janela de 2 min do Admin), não envia push agora!
+  IF TG_OP = 'INSERT' AND NEW.driver_id IS NULL AND NEW.status = 'pending' THEN
+    RETURN NEW;
+  END IF;
+
   -- Se for UPDATE, só executa se:
   -- 1) Atribuição direta de entregador (OLD.driver_id IS NULL AND NEW.driver_id IS NOT NULL)
   -- 2) Transmissão manual do Admin (OLD.status <> 'broadcasted' AND NEW.status = 'broadcasted')
