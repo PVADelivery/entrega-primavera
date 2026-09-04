@@ -115,14 +115,30 @@ public class DeliveryOverlayPlugin extends Plugin {
     @PluginMethod
     public void requestOverlayPermission(PluginCall call) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(getContext())) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getContext().getPackageName()));
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getContext().getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (getActivity() != null) {
+                    getActivity().startActivity(intent);
+                } else {
+                    getContext().startActivity(intent);
+                }
+            } catch (Exception e) {
+                android.util.Log.e("DeliveryOverlayPlugin", "Erro ao abrir tela de permissao: " + e.getMessage());
+            }
             call.resolve();
         } else {
             call.resolve();
         }
+    }
+
+    @PluginMethod
+    public void checkOverlayPermission(PluginCall call) {
+        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(getContext());
+        JSObject ret = new JSObject();
+        ret.put("granted", granted);
+        call.resolve(ret);
     }
 
     @PluginMethod

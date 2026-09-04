@@ -1,15 +1,20 @@
 package com.mt24horasexpress.entregador;
 
 import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private boolean requestedOverlayOnLaunch = false;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(DeliveryOverlayPlugin.class);
@@ -24,6 +29,31 @@ public class MainActivity extends BridgeActivity {
         });
 
         handleIntent(getIntent());
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Solicita permissão de aparecer sobre outros apps na abertura do app se ainda não tiver
+        if (!requestedOverlayOnLaunch) {
+            requestedOverlayOnLaunch = true;
+            new Handler(Looper.getMainLooper()).postDelayed(this::checkAndPromptOverlayPermission, 1200);
+        }
+    }
+
+    public void checkAndPromptOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(this)) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:" + getPackageName()));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception e) {
+                    android.util.Log.w("MainActivity", "Erro ao abrir tela de permissão de sobreposição: " + e.getMessage());
+                }
+            }
+        }
     }
 
     @Override

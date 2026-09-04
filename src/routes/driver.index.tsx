@@ -47,10 +47,17 @@ function DriverHome() {
   const [pendingRide, setPendingRide] = useState<string | null>(null);
   const acceptingDeliveryRef = useRef(false);
   const [declinedSet, setDeclinedSet] = useState<Set<string>>(() => getDeclinedDeliveries());
+  const [overlayGranted, setOverlayGranted] = useState(true);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
-      DeliveryOverlay.requestOverlayPermission().catch(() => {});
+      DeliveryOverlay.checkOverlayPermission().then(({ granted }) => {
+        setOverlayGranted(granted);
+        if (!granted) {
+          DeliveryOverlay.requestOverlayPermission().catch(() => {});
+        }
+      }).catch(() => {});
+
       setTimeout(() => {
         DeliveryOverlay.startOverlay().catch(() => {});
       }, 1000);
@@ -444,6 +451,28 @@ function DriverHome() {
   return (
     <DriverShell>
       <DriverHeader />
+
+      {!overlayGranted && (
+        <div className="mx-4 mt-3 p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between gap-3 shadow-md animate-pulse">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">⚠️</span>
+            <div>
+              <p className="text-xs font-black text-amber-300 uppercase tracking-wide">Permissão Sobre Outros Apps</p>
+              <p className="text-[11px] text-amber-200/80">Necessária para alertar chamadas de corridas</p>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              await DeliveryOverlay.requestOverlayPermission();
+              const { granted } = await DeliveryOverlay.checkOverlayPermission();
+              setOverlayGranted(granted);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs shrink-0 shadow-sm active:scale-95 transition-all"
+          >
+            Ativar Agora
+          </button>
+        </div>
+      )}
 
       <div className="mt-4">
         <WorkModeSwitch />
