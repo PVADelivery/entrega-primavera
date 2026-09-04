@@ -1,6 +1,7 @@
 package com.mt24horasexpress.entregador;
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -39,10 +40,20 @@ public class IncomingCallActivity extends Activity {
     public static final String ACTION_CALL_ACCEPTED = "com.mt24horasexpress.entregador.CALL_ACCEPTED";
     public static final String ACTION_CALL_REJECTED = "com.mt24horasexpress.entregador.CALL_REJECTED";
 
-    private static final String SUPABASE_URL = "https://nptkxlrhrlssdsevpgqe.supabase.co";
-    private static final String SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wdGt4bHJocmxzc2RzZXZwZ3FlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNDE4MTQsImV4cCI6MjA5MDYxNzgxNH0.t8Cu-yFnSqOURT4GXCZ_mBghpxucT89nRBFlBNA1vZs";
+    private static final String SUPABASE_URL = "https://owlbzwsdcognrgolvnzg.supabase.co";
+    private static final String SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bGJ6d3NkY29nbnJnb2x2bnpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTQ1NTMsImV4cCI6MjA5NTU3MDU1M30.R6-FUqubIr3uABzv1CS7jiS5cwygrNiIqk4oNbq7O44";
 
-    public static IncomingCallActivity instance;
+    public static volatile IncomingCallActivity instance;
+
+    private static int hashId(String str) {
+        if (str == null) return 0;
+        int hash = 0;
+        for (int i = 0; i < str.length(); i++) {
+            hash = ((hash << 5) - hash) + str.charAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash);
+    }
 
     private MediaPlayer mediaPlayer;
     private Vibrator vibrator;
@@ -58,7 +69,6 @@ public class IncomingCallActivity extends Activity {
     private boolean resultHandled = false;
     private Handler resultTimeoutHandler;
     private Runnable resultTimeoutRunnable;
-
 
     private BroadcastReceiver updateReceiver = new BroadcastReceiver() {
         @Override
@@ -125,7 +135,7 @@ public class IncomingCallActivity extends Activity {
             }
         }
 
-        if (storeName.isEmpty() || "Loja Parceira".equalsIgnoreCase(storeName.trim())) storeName = "MT 24 Horas Express Delivery";
+        if (storeName.isEmpty() || "Loja Parceira".equalsIgnoreCase(storeName.trim())) storeName = "MT 24 Horas Express";
         if (pickup.isEmpty())    pickup    = "Retirada na Loja";
         if (dropoff.isEmpty())   dropoff   = "Endereço do cliente";
         if (fee.isEmpty()) fee = "R$ 0,00";
@@ -138,82 +148,100 @@ public class IncomingCallActivity extends Activity {
 
         if (tvStore   != null) tvStore.setText(storeName);
         if (tvEarn    != null) tvEarn.setText(fee);
-        if (tvPickup  != null) tvPickup.setText(pickup);
-        if (tvDropoff != null) tvDropoff.setText(dropoff);
+        if (tvPickup  != null) tvPickup.setText("📍 Coleta: " + pickup);
+        if (tvDropoff != null) tvDropoff.setText("🏁 Entrega: " + dropoff);
+    }
+
+    private void wakeUpScreen() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true);
+                setTurnScreenOn(true);
+            }
+            getWindow().addFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                            | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                            | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                            | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                            | WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON);
+
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                if (wakeLock != null && wakeLock.isHeld()) {
+                    try { wakeLock.release(); } catch (Exception ignored) {}
+                }
+                wakeLock = pm.newWakeLock(
+                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK
+                                | PowerManager.ACQUIRE_CAUSES_WAKEUP
+                                | PowerManager.ON_AFTER_RELEASE,
+                        "MT24HorasEntregador::IncomingCallWakeLock");
+                wakeLock.acquire(45000);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Erro ao acordar tela: " + e.getMessage());
+        }
+    }
+
+    private void startAlertSoundAndVibration() {
+        try {
+            if (mediaPlayer == null) {
+                mediaPlayer = MediaPlayer.create(this, R.raw.notification_sound);
+                if (mediaPlayer == null) {
+                    mediaPlayer = MediaPlayer.create(this, R.raw.ring);
+                }
+                if (mediaPlayer != null) {
+                    mediaPlayer.setLooping(true);
+                    mediaPlayer.start();
+                }
+            }
+        } catch (Exception eMedia) {
+            Log.w(TAG, "Erro som: " + eMedia.getMessage());
+        }
+
+        try {
+            vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (vibrator != null) {
+                long[] pattern = {0, 1000, 1000};
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
+                } else {
+                    vibrator.vibrate(pattern, 0);
+                }
+            }
+        } catch (Exception eVib) {
+            Log.w(TAG, "Erro vibração: " + eVib.getMessage());
+        }
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
         instance = this;
+        Log.d(TAG, "onNewIntent disparado para nova corrida!");
 
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(ACTION_UPDATE_CALL);
-        filter.addAction(ACTION_CANCEL_CALL);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(updateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(updateReceiver, filter);
-        }
+        wakeUpScreen();
 
-        // Acende a tela e mostra sobre a tela de bloqueio
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true);
-            setTurnScreenOn(true);
-        } else {
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-                    | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
-        }
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+        isSubmitting = false;
+        resultHandled = false;
+        setSubmitting(false, "Aceitar");
 
-        // Wake lock agressivo para garantir que a tela acende
-        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (powerManager != null) {
-            wakeLock = powerManager.newWakeLock(
-                    PowerManager.FULL_WAKE_LOCK
-                            | PowerManager.ACQUIRE_CAUSES_WAKEUP
-                            | PowerManager.ON_AFTER_RELEASE,
-                    "DeliveryApp:IncomingCall");
-            wakeLock.acquire(60000); // 60 segundos max
-        }
+        loadIntentData(intent);
+        startAlertSoundAndVibration();
 
-        setContentView(R.layout.activity_incoming_call);
+        stopStatusCheckLoop();
+        startStatusCheckLoop();
+    }
 
-        btnAccept = findViewById(R.id.btnAccept);
-        btnReject = findViewById(R.id.btnReject);
+    private void loadIntentData(Intent intent) {
+        if (intent == null) return;
+        String details = intent.getStringExtra("details");
+        currentDeliveryId = intent.getStringExtra("deliveryId");
+        String storeName = intent.getStringExtra("storeName");
+        String pickup    = intent.getStringExtra("pickup");
+        String dropoff   = intent.getStringExtra("dropoff");
+        String fee       = intent.getStringExtra("fee");
 
-        // Toca o som de alerta
-        try {
-            mediaPlayer = MediaPlayer.create(this, R.raw.ring);
-            if (mediaPlayer != null) {
-                mediaPlayer.setLooping(true);
-                mediaPlayer.start();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Erro ao tocar som: " + e.getMessage());
-        }
-
-        // Vibração pulsante
-        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        if (vibrator != null && vibrator.hasVibrator()) {
-            long[] pattern = {0, 1000, 1000};
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
-            } else {
-                vibrator.vibrate(pattern, 0);
-            }
-        }
-
-        // Carrega os detalhes da corrida
-        String details = getIntent().getStringExtra("details");
-        currentDeliveryId = getIntent().getStringExtra("deliveryId");
-        String storeName = getIntent().getStringExtra("storeName");
-        String pickup    = getIntent().getStringExtra("pickup");
-        String dropoff   = getIntent().getStringExtra("dropoff");
-        String fee       = getIntent().getStringExtra("fee");
-
-        // Prioriza dados do plugin estático (mais recentes, vindos do JS ou FCM nativo)
         if (DeliveryOverlayPlugin.latestDetails != null && !DeliveryOverlayPlugin.latestDetails.isEmpty()) {
             details = DeliveryOverlayPlugin.latestDetails;
         }
@@ -236,13 +264,36 @@ public class IncomingCallActivity extends Activity {
         updateCall(details, currentDeliveryId, storeName, pickup, dropoff, fee);
         applyResponsiveHeight();
 
-        // Se algum dado essencial não veio no payload, completa buscando no Supabase
         boolean incomplete = clean(storeName).isEmpty() || clean(dropoff).isEmpty()
                 || clean(pickup).isEmpty() || clean(fee).isEmpty();
         if (incomplete) {
             fetchMissingDetails(currentDeliveryId);
         }
+    }
 
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        instance = this;
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_UPDATE_CALL);
+        filter.addAction(ACTION_CANCEL_CALL);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(updateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(updateReceiver, filter);
+        }
+
+        wakeUpScreen();
+
+        setContentView(R.layout.activity_incoming_call);
+
+        btnAccept = findViewById(R.id.btnAccept);
+        btnReject = findViewById(R.id.btnReject);
+
+        startAlertSoundAndVibration();
+        loadIntentData(getIntent());
 
         View btnClose = findViewById(R.id.btnClose);
         if (btnClose != null) {
@@ -262,46 +313,90 @@ public class IncomingCallActivity extends Activity {
             setSubmitting(true, "Aceitando...");
             stopRinging();
             stopStatusCheckLoop();
+            NativeSoundPlayer.stopSound();
 
             final String deliveryId = currentDeliveryId;
 
-            if (DeliveryOverlayPlugin.instance != null) {
-                Log.d(TAG, "Aceitar via JS plugin. deliveryId=" + deliveryId);
-                startResultTimeout();
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    DeliveryOverlayPlugin.instance.triggerCallResponse("accepted", deliveryId);
-                }, 200);
-            } else {
-                Log.d(TAG, "Aceitar via HTTP nativo (JS indisponível). deliveryId=" + deliveryId);
-                new Thread(() -> {
-                    final boolean success = acceptDeliveryViaNativeHttp(deliveryId);
-                    runOnUiThread(() -> finishWithResult(
-                            success,
-                            success ? "✅ Corrida aceita!" : "❌ Corrida já foi aceita por outro entregador"));
-                }).start();
+            // 1. Imediatamente limpa notificações da bandeja e overlay
+            MyFirebaseMessagingService.dismissDeliveryAlert(this, deliveryId);
+            try {
+                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    nm.cancel(hashId(deliveryId));
+                    nm.cancelAll();
+                }
+            } catch (Exception ignored) {}
+
+            if (OverlayService.instance != null) {
+                OverlayService.instance.hideDeliveryCard(deliveryId);
             }
+
+            // 2. Registra aceite no plugin e dispara eventos para a camada JS/Web
+            DeliveryOverlayPlugin.setPendingAccepted(deliveryId);
+            if (DeliveryOverlayPlugin.instance != null) {
+                DeliveryOverlayPlugin.instance.triggerDeliveryAccepted(deliveryId);
+                DeliveryOverlayPlugin.instance.triggerCallResponse("accepted", deliveryId);
+            }
+
+            // 3. Broadcast nativo de aceite
+            Intent acceptIntent = new Intent(ACTION_CALL_ACCEPTED);
+            acceptIntent.putExtra("deliveryId", deliveryId);
+            acceptIntent.setPackage(getPackageName());
+            sendBroadcast(acceptIntent);
+
+            // 4. Aceite direto nativo (HTTP RPC) em thread de background como garantia
+            new Thread(() -> {
+                acceptDeliveryViaNativeHttp(deliveryId);
+            }).start();
+
+            // 5. Finaliza a Activity do Popup e direciona para a tela principal
+            finishWithResult(true, "✅ Corrida aceita!");
         });
 
-        // ===== BOTÃO REJEITAR =====
+        // ===== BOTÃO RECUSAR =====
         btnReject.setOnClickListener(v -> {
-            if (isSubmitting || resultHandled) return;
-            resultHandled = true;
-            setSubmitting(true, null);
-            btnReject.setText("Recusada");
             stopRinging();
             stopStatusCheckLoop();
-            if (DeliveryOverlayPlugin.instance != null) {
-                DeliveryOverlayPlugin.instance.triggerCallResponse("rejected", currentDeliveryId);
-            }
-            Intent intent = new Intent(ACTION_CALL_REJECTED);
-            intent.putExtra("deliveryId", currentDeliveryId);
-            intent.setPackage(getPackageName());
-            sendBroadcast(intent);
-            Toast.makeText(getApplicationContext(), "Corrida recusada", Toast.LENGTH_SHORT).show();
-            new Handler(Looper.getMainLooper()).postDelayed(this::finish, 500);
-        });
-    }
+            NativeSoundPlayer.stopSound();
 
+            final String deliveryId = currentDeliveryId;
+
+            // Limpa notificação e overlay
+            MyFirebaseMessagingService.dismissDeliveryAlert(this, deliveryId);
+            try {
+                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    nm.cancel(hashId(deliveryId));
+                }
+            } catch (Exception ignored) {}
+
+            if (OverlayService.instance != null) {
+                OverlayService.instance.hideDeliveryCard(deliveryId);
+            }
+
+            if (DeliveryOverlayPlugin.instance != null) {
+                DeliveryOverlayPlugin.instance.triggerDeliveryDeclined(deliveryId);
+                DeliveryOverlayPlugin.instance.triggerCallResponse("rejected", deliveryId);
+            }
+
+            Intent rejectIntent = new Intent(ACTION_CALL_REJECTED);
+            rejectIntent.putExtra("deliveryId", deliveryId);
+            rejectIntent.setPackage(getPackageName());
+            sendBroadcast(rejectIntent);
+
+            finish();
+        });
+
+        // Configura tamanho responsivo do Dialog
+        try {
+            android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+            int width = (int) (metrics.widthPixels * 0.90);
+            if (getWindow() != null) {
+                getWindow().setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+                getWindow().setGravity(android.view.Gravity.CENTER);
+            }
+        } catch (Exception ignored) {}
+    }
 
     private void startStatusCheckLoop() {
         if (checkHandler == null) {
@@ -450,7 +545,9 @@ public class IncomingCallActivity extends Activity {
             mediaPlayer = null;
         }
         if (vibrator != null) {
-            vibrator.cancel();
+            try {
+                vibrator.cancel();
+            } catch (Exception ignored) {}
         }
     }
 
@@ -460,13 +557,14 @@ public class IncomingCallActivity extends Activity {
         if (instance == this) instance = null;
         stopStatusCheckLoop();
         stopRinging();
+        NativeSoundPlayer.stopSound();
         try {
-            unregisterReceiver(updateReceiver);
-        } catch (Exception e) {
-            // Ignore
-        }
+            if (updateReceiver != null) unregisterReceiver(updateReceiver);
+        } catch (Exception ignored) {}
         if (wakeLock != null && wakeLock.isHeld()) {
-            wakeLock.release();
+            try {
+                wakeLock.release();
+            } catch (Exception ignored) {}
         }
     }
 
@@ -488,6 +586,7 @@ public class IncomingCallActivity extends Activity {
         }
         stopRinging();
         stopStatusCheckLoop();
+        NativeSoundPlayer.stopSound();
 
         String text = message != null && !message.trim().isEmpty()
                 ? message
@@ -518,19 +617,6 @@ public class IncomingCallActivity extends Activity {
         }
         View close = findViewById(R.id.btnClose);
         if (close != null) close.setEnabled(!submitting);
-    }
-
-    private void startResultTimeout() {
-        if (resultTimeoutHandler == null) {
-            resultTimeoutHandler = new Handler(Looper.getMainLooper());
-        }
-        resultTimeoutRunnable = () -> {
-            if (!resultHandled) {
-                Log.w(TAG, "Timeout aguardando confirmação do aceite. Abrindo o app.");
-                finishWithResult(true, "Abrindo o app para confirmar a corrida...");
-            }
-        };
-        resultTimeoutHandler.postDelayed(resultTimeoutRunnable, 9000);
     }
 
     /** Ajusta a altura máxima do corpo do card conforme a tela (evita corte em telas pequenas). */
@@ -608,4 +694,3 @@ public class IncomingCallActivity extends Activity {
         return "";
     }
 }
-

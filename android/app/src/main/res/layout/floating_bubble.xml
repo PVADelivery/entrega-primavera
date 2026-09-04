@@ -1,20 +1,148 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootContainer"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="top|start">
 
-    <ImageView
-        android:id="@+id/bubbleIcon"
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:src="@mipmap/ic_launcher_round" />
+    <!-- BUBBLE FLUTUANTE PADRÃO -->
+    <FrameLayout
+        android:id="@+id/bubbleContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
 
-    <ImageView
-        android:id="@+id/closeButton"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:layout_gravity="top|end"
-        android:background="#88000000"
-        android:padding="4dp"
-        android:src="@android:drawable/ic_menu_close_clear_cancel" />
-</FrameLayout>
+        <ImageView
+            android:id="@+id/bubbleIcon"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:src="@mipmap/ic_launcher_round"
+            android:contentDescription="É Pra Já Entregador" />
+
+        <ImageView
+            android:id="@+id/closeButton"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="top|end"
+            android:background="#88000000"
+            android:padding="3dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:contentDescription="Fechar" />
+    </FrameLayout>
+
+    <!-- CARD FLUTUANTE DE NOVA CORRIDA (EXPANSÍVEL SOBRE OUTROS APPS) -->
+    <LinearLayout
+        android:id="@+id/deliveryCardContainer"
+        android:layout_width="320dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_overlay_card"
+        android:elevation="12dp"
+        android:orientation="vertical"
+        android:padding="14dp"
+        android:visibility="gone">
+
+        <!-- Top Header com Badge e botão fechar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="#FFF3E0"
+                android:paddingLeft="8dp"
+                android:paddingTop="3dp"
+                android:paddingRight="8dp"
+                android:paddingBottom="3dp"
+                android:text="NOVA CORRIDA DISPONÍVEL"
+                android:textColor="#E65100"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/cardCloseBtn"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:padding="4dp"
+                android:src="@android:drawable/ic_menu_close_clear_cancel" />
+        </LinearLayout>
+
+        <!-- Nome da Loja -->
+        <TextView
+            android:id="@+id/cardStoreName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Loja Exemplo"
+            android:textColor="#1A1A1A"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <!-- Ganhos -->
+        <TextView
+            android:id="@+id/cardEarnings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Ganhos: R$ 8,00"
+            android:textColor="#2E7D32"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <!-- Coleta -->
+        <TextView
+            android:id="@+id/cardPickup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="📍 Coleta: Retirada na Loja"
+            android:textColor="#555555"
+            android:textSize="12sp" />
+
+        <!-- Entrega -->
+        <TextView
+            android:id="@+id/cardDropoff"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="🏁 Entrega: Rua Teste, 123"
+            android:textColor="#333333"
+            android:textSize="12sp" />
+
+        <!-- Botões de Ação: RECUSAR e ACEITAR -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/cardBtnDecline"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:backgroundTint="#ECEFF1"
+                android:text="RECUSAR"
+                android:textColor="#D32F2F"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/cardBtnAccept"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1.4"
+                android:backgroundTint="#2E7D32"
+                android:text="ACEITAR"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

@@ -5,17 +5,14 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.media.AudioAttributes;
-import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 
 /** Centraliza a criação do canal de notificação de corridas (som + vibração + tela bloqueada). */
 public final class NotificationChannels {
 
-    public static final String INCOMING_CHANNEL_ID = "delivery-incoming-v9";
-    public static final String MARKETPLACE_CHANNEL_ID = "marketplace_orders_v2";
-    public static final String LEGACY_CHANNEL_V1 = "delivery-incoming-v1";
-    public static final String LEGACY_CHANNEL_V8 = "delivery-incoming-v8";
+    public static final String INCOMING_CHANNEL_ID = "delivery_alerts_official_v34";
+    public static final String MARKETPLACE_CHANNEL_ID = "marketplace_orders_v34";
 
     private NotificationChannels() {}
 
@@ -24,33 +21,60 @@ public final class NotificationChannels {
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         if (nm == null) return;
 
-        Uri customSound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.ring);
-        AudioAttributes attrs = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+        // Limpa canais obsoletos para forçar o registro correto do som oficial no sistema
+        try {
+            nm.deleteNotificationChannel("delivery_alerts_official_v31");
+            nm.deleteNotificationChannel("marketplace_orders_v31");
+            nm.deleteNotificationChannel("delivery_alerts_v29_silent");
+            nm.deleteNotificationChannel("marketplace_orders_v29_silent");
+            nm.deleteNotificationChannel("fcm_fallback_notification_channel");
+            nm.deleteNotificationChannel("delivery-incoming-v25-silent");
+            nm.deleteNotificationChannel("marketplace_orders_v25_silent");
+            nm.deleteNotificationChannel("delivery-incoming-v18");
+            nm.deleteNotificationChannel("delivery-incoming-v15");
+            nm.deleteNotificationChannel("delivery-incoming-v12");
+            nm.deleteNotificationChannel("delivery-incoming-v10");
+            nm.deleteNotificationChannel("delivery-incoming-v9");
+            nm.deleteNotificationChannel("delivery-incoming-v8");
+            nm.deleteNotificationChannel("delivery-incoming-v1");
+            nm.deleteNotificationChannel("delivery-incoming");
+            nm.deleteNotificationChannel("marketplace_orders_v2");
+        } catch (Exception ignored) {}
+
+        Uri soundUri = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.notification_sound);
+        AudioAttributes audioAttributes = new AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .build();
 
-        String[] channels = new String[] {
-            INCOMING_CHANNEL_ID,
-            LEGACY_CHANNEL_V1,
-            LEGACY_CHANNEL_V8,
-            MARKETPLACE_CHANNEL_ID
-        };
+        // 1) Canal Nativo Marketplace Orders v34
+        if (nm.getNotificationChannel(MARKETPLACE_CHANNEL_ID) == null) {
+            NotificationChannel ch = new NotificationChannel(
+                    MARKETPLACE_CHANNEL_ID, "Novos Pedidos & Corridas", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("Alerta sonoro e visual de novas entregas e pedidos MT 24 Horas Express");
+            ch.setSound(soundUri, audioAttributes);
+            ch.enableVibration(true);
+            ch.setVibrationPattern(new long[]{0, 800, 250, 800, 250, 800});
+            ch.enableLights(true);
+            ch.setShowBadge(true);
+            ch.setBypassDnd(true);
+            ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            nm.createNotificationChannel(ch);
+        }
 
-        for (String chId : channels) {
-            if (nm.getNotificationChannel(chId) == null) {
-                NotificationChannel ch = new NotificationChannel(
-                        chId, "Novas Corridas MT 24 Horas Express", NotificationManager.IMPORTANCE_HIGH);
-                ch.setDescription("Alerta sonoro personalizado de novas corridas e entregas disponíveis");
-                ch.setSound(customSound, attrs);
-                ch.enableVibration(true);
-                ch.setVibrationPattern(new long[]{0, 800, 250, 800, 250, 800});
-                ch.enableLights(true);
-                ch.setShowBadge(true);
-                ch.setBypassDnd(true);
-                ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-                nm.createNotificationChannel(ch);
-            }
+        // 2) Canal Nativo Entregas v34 com o som oficial notification_sound.mp3 registrado nativamente
+        if (nm.getNotificationChannel(INCOMING_CHANNEL_ID) == null) {
+            NotificationChannel ch = new NotificationChannel(
+                    INCOMING_CHANNEL_ID, "Novas Corridas MT 24 Horas", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("Alerta sonoro e visual de novas corridas disponíveis para entregadores");
+            ch.setSound(soundUri, audioAttributes);
+            ch.enableVibration(true);
+            ch.setVibrationPattern(new long[]{0, 800, 250, 800, 250, 800});
+            ch.enableLights(true);
+            ch.setShowBadge(true);
+            ch.setBypassDnd(true);
+            ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            nm.createNotificationChannel(ch);
         }
     }
 }

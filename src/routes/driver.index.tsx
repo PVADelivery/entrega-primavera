@@ -5,9 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DriverShell } from "@/components/driver/DriverShell";
 import { DriverHeader } from "@/components/driver/Header";
 import { DeliveryDetailsSheet } from "@/components/driver/DeliveryDetailsSheet";
-import { acceptDeliveryLocally } from "@/hooks/useDriverNotifications";
+import { acceptDeliveryLocally, declineDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
 import { DeliveryCard } from "@/components/driver/DeliveryCard";
 import { BatchDeliveryCard } from "@/components/driver/BatchDeliveryCard";
+import { IncomingDeliveryModal } from "@/components/driver/IncomingDeliveryModal";
+import { Capacitor } from "@capacitor/core";
+import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +46,26 @@ function DriverHome() {
   const [pending, setPending] = useState<string | null>(null);
   const [pendingRide, setPendingRide] = useState<string | null>(null);
   const acceptingDeliveryRef = useRef(false);
+  const [declinedSet, setDeclinedSet] = useState<Set<string>>(() => getDeclinedDeliveries());
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      DeliveryOverlay.requestOverlayPermission().catch(() => {});
+      setTimeout(() => {
+        DeliveryOverlay.startOverlay().catch(() => {});
+      }, 1000);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleDeclined = () => setDeclinedSet(getDeclinedDeliveries());
+    window.addEventListener("delivery-declined", handleDeclined);
+    window.addEventListener("delivery-accepted", handleDeclined);
+    return () => {
+      window.removeEventListener("delivery-declined", handleDeclined);
+      window.removeEventListener("delivery-accepted", handleDeclined);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -98,6 +121,7 @@ function DriverHome() {
     const singles: any[] = [];
 
     available.data.forEach((d: any) => {
+      if (declinedSet.has(d.id)) return;
       if (d.batch_id) {
         if (!batchMap.has(d.batch_id)) {
           batchMap.set(d.batch_id, []);
@@ -121,7 +145,14 @@ function DriverHome() {
     singles.forEach((d) => result.push({ type: "single", delivery: d }));
 
     return result;
-  }, [available.data]);
+  }, [available.data, declinedSet]);
+
+  const incomingDelivery = useMemo(() => {
+    if (mode !== "delivery" || !available.data || available.data.length === 0) return null;
+    const isOnline = user?.id ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : true;
+    if (!isOnline) return null;
+    return available.data.find((d: any) => !declinedSet.has(d.id) && !d.driver_id && (d.status === "pending" || d.status === "broadcasted")) || null;
+  }, [mode, available.data, declinedSet, user?.id]);
 
   const active = useQuery({
     queryKey: ["deliveries", "active", driverId],
@@ -637,6 +668,11 @@ function DriverHome() {
                       key={item.delivery.id}
                       delivery={item.delivery}
                       onAccept={() => handleAccept(item.delivery.id)}
+                      onDecline={() => {
+                        declineDeliveryLocally(item.delivery.id);
+                        setDeclinedSet(getDeclinedDeliveries());
+                        qc.invalidateQueries({ queryKey: ["deliveries"] });
+                      }}
                       pending={pending === item.delivery.id}
                     />
                   );
@@ -646,6 +682,19 @@ function DriverHome() {
           </div>
         </section>
       )}
+
+      {/* Modal / Popup In-App com botões Aceitar e Recusar (mesmo sistema do É Pra Já) */}
+      <IncomingDeliveryModal
+        delivery={incomingDelivery}
+        open={Boolean(incomingDelivery)}
+        onAccept={handleAccept}
+        onDecline={(id) => {
+          declineDeliveryLocally(id);
+          setDeclinedSet(getDeclinedDeliveries());
+          qc.invalidateQueries({ queryKey: ["deliveries"] });
+        }}
+        pending={pending === incomingDelivery?.id}
+      />
 
       {/* ── BONASOFT Watermark ── */}
       <div className="mt-16 pb-8 text-center opacity-40 select-none pointer-events-none">

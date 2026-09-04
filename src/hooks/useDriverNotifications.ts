@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
-import { getElapsedSeconds } from "@/utils/time";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
@@ -12,7 +11,7 @@ import { toast } from "sonner";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 
 const APP_NAME = "MT 24 Horas Express";
-const NOTIFICATION_CHANNEL_ID = "delivery-incoming-v1";
+const NOTIFICATION_CHANNEL_ID = "delivery_alerts_official_v34";
 
 const hashId = (str: string | number) => {
   const s = String(str);
@@ -41,8 +40,12 @@ export const declineDeliveryLocally = (deliveryId: string) => {
     declined.add(deliveryId);
     localStorage.setItem("declined_deliveries", JSON.stringify(Array.from(declined)));
     window.dispatchEvent(new CustomEvent("delivery-declined", { detail: { deliveryId } }));
-    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
-      LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }, { id: 7777 }] }).catch(() => {});
+
+    if (Capacitor.isNativePlatform()) {
+      LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
+      DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
+      DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
+      DeliveryOverlay.stopNativeAudio().catch(() => {});
     }
   } catch (e) {
     console.error("[Notify] erro ao declinar localmente:", e);
@@ -66,6 +69,13 @@ export const acceptDeliveryLocally = (deliveryId: string) => {
     accepted.add(deliveryId);
     localStorage.setItem("accepted_deliveries", JSON.stringify(Array.from(accepted)));
     window.dispatchEvent(new CustomEvent("delivery-accepted", { detail: { id: deliveryId } }));
+
+    if (Capacitor.isNativePlatform()) {
+      LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
+      DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
+      DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
+      DeliveryOverlay.stopNativeAudio().catch(() => {});
+    }
   } catch (e) {
     console.error("[Notify] erro ao aceitar localmente:", e);
   }
@@ -97,39 +107,11 @@ export function useDriverNotifications() {
       }
     }
 
-    // 1. Notificações locais do dispositivo (se suportado nativamente)
+    // 1. Notificações locais do dispositivo
     if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
       try {
         LocalNotifications.requestPermissions().then((res) => {
           permissionRef.current = res.display === "granted" ? "granted" : "denied";
-          if (permissionRef.current === "granted" && Capacitor.getPlatform() === "android") {
-            LocalNotifications.registerActionTypes({
-              types: [
-                {
-                  id: "DELIVERY_ACTION",
-                  actions: [
-                    { id: "accept", title: "✅ Aceitar" },
-                    { id: "reject", title: "❌ Rejeitar", destructive: true },
-                  ],
-                },
-              ],
-            }).catch(() => {});
-
-            LocalNotifications.listChannels().then((channels) => {
-              const hasChannel = channels.channels.some(c => c.id === NOTIFICATION_CHANNEL_ID);
-              if (!hasChannel) {
-                LocalNotifications.createChannel({
-                  id: NOTIFICATION_CHANNEL_ID,
-                  name: `Novas Corridas ${APP_NAME}`,
-                  description: "Alerta de alta prioridade para novas corridas",
-                  importance: 5,
-                  visibility: 1,
-                  sound: "ring",
-                  vibration: true,
-                }).catch(() => {});
-              }
-            }).catch(() => {});
-          }
         }).catch(() => {});
       } catch (err) {
         console.warn("[LocalNotifications] Não suportado:", err);
@@ -141,8 +123,9 @@ export function useDriverNotifications() {
     let errListener: any = null;
     let actListener: any = null;
     let notifListener: any = null;
+    let refreshListener: any = null;
 
-    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("PushNotifications")) {
+    if (Capacitor.isNativePlatform()) {
       try {
         const syncFcmToken = async (tokenVal: string) => {
           if (!tokenVal) return;
@@ -155,82 +138,63 @@ export function useDriverNotifications() {
           }
         };
 
-        PushNotifications.addListener("registration", (token) => {
-          console.log("[FCM] Token recebido:", token.value);
-          syncFcmToken(token.value);
-        }).then((handle) => { regListener = handle; }).catch(() => {});
+        if (Capacitor.isPluginAvailable("PushNotifications")) {
+          PushNotifications.addListener("registration", (token) => {
+            console.log("[FCM] Token recebido:", token.value);
+            syncFcmToken(token.value);
+          }).then((handle) => { regListener = handle; }).catch(() => {});
+
+          PushNotifications.requestPermissions().then((result) => {
+            if (result.receive === "granted") {
+              PushNotifications.register().catch((e) => console.warn("[FCM] register erro:", e));
+            }
+          }).catch((e) => console.warn("[FCM] requestPermissions erro:", e));
+
+          PushNotifications.addListener("registrationError", (error: any) => {
+            console.warn("[FCM] Erro no register:", error);
+          }).then((handle) => { errListener = handle; }).catch(() => {});
+
+          PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+            console.log("[FCM] Push action performed:", action);
+            const actionId = action.actionId;
+            const data = action.notification?.data;
+            const deliveryId = data?.deliveryId || data?.delivery_id;
+
+            if (actionId === "reject" || actionId === "ACTION_DECLINE") {
+              if (deliveryId) declineDeliveryLocally(deliveryId);
+              return;
+            }
+
+            const targetRoute = deliveryId ? `/driver?deliveryId=${deliveryId}` : "/driver";
+            if (targetRoute && typeof window !== "undefined") {
+              window.location.href = targetRoute;
+            }
+          }).then((handle) => { actListener = handle; }).catch(() => {});
+        }
+
+        DeliveryOverlay.getPendingFcmToken().then(({ token }) => {
+          if (token) syncFcmToken(token);
+        }).catch(() => {});
+
+        DeliveryOverlay.addListener("onFcmTokenRefresh", ({ token }: any) => {
+          if (token) syncFcmToken(token);
+        }).then((handle) => { refreshListener = handle; }).catch(() => {});
 
         const cachedToken = localStorage.getItem("driver_fcm_token");
         if (cachedToken && user?.id) {
           syncFcmToken(cachedToken);
         }
-
-        PushNotifications.requestPermissions().then((result) => {
-          if (result.receive === "granted") {
-            PushNotifications.register().catch((e) => console.warn("[FCM] register erro:", e));
-          }
-        }).catch((e) => console.warn("[FCM] requestPermissions erro:", e));
-
-        PushNotifications.addListener("registrationError", (error: any) => {
-          console.warn("[FCM] Erro no register:", error);
-        }).then((handle) => { errListener = handle; }).catch(() => {});
-
-        PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-          console.log("[FCM] Push action performed:", action);
-          const actionId = action.actionId;
-          const data = action.notification?.data;
-          const deliveryId = data?.deliveryId || data?.delivery_id;
-
-          if (actionId === "reject" || actionId === "tap_reject") {
-            if (deliveryId) declineDeliveryLocally(deliveryId);
-            return;
-          }
-
-          const targetRoute = deliveryId ? `/driver?deliveryId=${deliveryId}` : "/driver";
-          if (targetRoute && typeof window !== "undefined") {
-            window.location.href = targetRoute;
-          }
-        }).then((handle) => { actListener = handle; }).catch(() => {});
-
-        PushNotifications.addListener("pushNotificationReceived", async (notification) => {
-          console.log("[FCM] Push recebido em foreground:", notification);
-          const deliveryId = notification.data?.deliveryId;
-          if (!deliveryId) return;
-
-          if (notification.data?.type === "cancel_delivery") {
-            activeAlertsRef.current.delete(deliveryId);
-            if (activeAlertsRef.current.size === 0) {
-              stopAlert();
-              DeliveryOverlay.dismissIncomingCall().catch(() => {});
-            }
-            return;
-          }
-
-          const storeName = notification.data?.storeName || APP_NAME;
-          const dropoff = notification.data?.dropoff || "Endereço do cliente";
-          const fee = notification.data?.fee || "";
-          const details = notification.data?.details || `${storeName}\n🏁 Entrega: ${dropoff}`;
-
-          toast(`🏬 ${storeName}`, {
-            description: `🏁 ${dropoff}${fee ? ` • 💰 ${fee}` : ""}`,
-          });
-
-          if (!Capacitor.isNativePlatform() && permissionRef.current === "granted") {
-            try {
-              new Notification(`🏬 ${storeName}`, { body: details, icon: "/favicon-v3.png" });
-            } catch {}
-          }
-        }).then((handle) => { notifListener = handle; }).catch(() => {});
       } catch (err) {
         console.warn("[PushNotifications] Erro:", err);
       }
     }
 
     return () => {
-      if (regListener) regListener.remove().catch(() => {});
-      if (errListener) errListener.remove().catch(() => {});
-      if (actListener) actListener.remove().catch(() => {});
-      if (notifListener) notifListener.remove().catch(() => {});
+      if (regListener) regListener.remove?.().catch(() => {});
+      if (errListener) errListener.remove?.().catch(() => {});
+      if (actListener) actListener.remove?.().catch(() => {});
+      if (notifListener) notifListener.remove?.().catch(() => {});
+      if (refreshListener) refreshListener.remove?.().catch(() => {});
     };
   }, [user?.id]);
 
@@ -239,6 +203,8 @@ export function useDriverNotifications() {
     if (!user?.id) return;
     let actionListener: PluginListenerHandle | undefined;
     let overlayListener: PluginListenerHandle | undefined;
+    let nativeAcceptListener: PluginListenerHandle | undefined;
+    let nativeDeclineListener: PluginListenerHandle | undefined;
     let appStateListener: PluginListenerHandle | undefined;
     let cancelled = false;
 
@@ -249,9 +215,12 @@ export function useDriverNotifications() {
         if (activeAlertsRef.current.size === 0) {
           stopAlert();
           DeliveryOverlay.dismissIncomingCall().catch(() => {});
+          DeliveryOverlay.stopNativeAudio().catch(() => {});
         }
-        if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
+        if (Capacitor.isNativePlatform()) {
           LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
+          DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
+          DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
         }
       }
     };
@@ -264,9 +233,12 @@ export function useDriverNotifications() {
         if (activeAlertsRef.current.size === 0) {
           stopAlert();
           DeliveryOverlay.dismissIncomingCall().catch(() => {});
+          DeliveryOverlay.stopNativeAudio().catch(() => {});
         }
-        if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
+        if (Capacitor.isNativePlatform()) {
           LocalNotifications.cancel({ notifications: [{ id: hashId(id) }] }).catch(() => {});
+          DeliveryOverlay.cancelDeliveryNotification({ deliveryId: id }).catch(() => {});
+          DeliveryOverlay.hideDeliveryCard({ deliveryId: id }).catch(() => {});
         }
       }
     };
@@ -289,12 +261,12 @@ export function useDriverNotifications() {
       seenIdsRef.current.add(rawDelivery.id);
       activeAlertsRef.current.add(rawDelivery.id);
 
-      // Dispara o ronco do motor de moto e som continuo
+      // Dispara o alerta sonoro e vibração
       try {
         unlockAudio();
         playAlert(true);
       } catch (e) {
-        console.warn("[Notify] som do motor falhou:", e);
+        console.warn("[Notify] som falhou:", e);
       }
 
       // Busca detalhes completos apenas se não vierem no payload da entrega
@@ -332,10 +304,18 @@ export function useDriverNotifications() {
         description: `🏁 ${dropoff}${feeText ? ` • 💰 ${feeText}` : ""}`,
       });
 
-      // Dispara a chamada nativa de tela cheia (IncomingCallActivity e Overlay)
+      // Dispara os componentes nativos: IncomingCallActivity, Overlay Flutuante e LocalNotifications
       if (Capacitor.isNativePlatform()) {
         DeliveryOverlay.testIncomingCall({
           details: `${storeName}\n📍 Coleta: ${pickup}\n🏁 Entrega: ${dropoff}`,
+          deliveryId: delivery.id,
+          storeName,
+          pickup,
+          dropoff,
+          fee: feeText,
+        }).catch(console.warn);
+
+        DeliveryOverlay.showDeliveryCard({
           deliveryId: delivery.id,
           storeName,
           pickup,
@@ -351,7 +331,7 @@ export function useDriverNotifications() {
               id: hashId(delivery.id),
               actionTypeId: "DELIVERY_ACTION",
               channelId: NOTIFICATION_CHANNEL_ID,
-              sound: "ring",
+              sound: "notification_sound",
               extra: { type: "delivery", deliveryId: delivery.id },
             },
           ],
@@ -373,97 +353,6 @@ export function useDriverNotifications() {
           } catch (e) {
             console.warn("[WebNotification] Erro ao criar notificação:", e);
           }
-        } else if (currentPerm === "default") {
-          Notification.requestPermission().then((perm) => {
-            permissionRef.current = perm;
-            if (perm === "granted") {
-              try {
-                const notif = new Notification(title, {
-                  body: description,
-                  icon: "/favicon-v3.png",
-                  tag: `delivery-${delivery.id}`,
-                  requireInteraction: true,
-                });
-                notif.onclick = () => {
-                  window.focus();
-                  window.location.href = `/driver?deliveryId=${delivery.id}`;
-                };
-              } catch (e) {}
-            }
-          }).catch(() => {});
-        }
-      }
-    };
-
-    const notifyNewRide = (ride: any) => {
-      if (!ride || !ride.id) return;
-      if (seenIdsRef.current.has(ride.id)) return;
-
-      // Filtro de compatibilidade de veículo
-      const dInfo = driverVehicleInfoRef.current;
-      const dServices = dInfo?.service_types || [];
-      const dVeh = dInfo?.vehicle_type || dInfo?.vehicle || "moto";
-      const rVeh = String(ride.vehicle_type || "").toLowerCase();
-
-      if (Array.isArray(dServices) && dServices.length > 0) {
-        const norm = dServices.map(s => String(s).toLowerCase().replace(/_/g, ""));
-        if (rVeh === "taxi" && !norm.some(s => s.includes("taxi") || s.includes("car"))) return;
-        if (rVeh === "mototaxi" && !norm.some(s => s.includes("moto"))) return;
-      } else {
-        if (rVeh === "taxi" && !["car", "carro", "taxi"].includes(dVeh.toLowerCase())) return;
-        if (rVeh === "mototaxi" && !["moto", "mototaxi", "motorcycle"].includes(dVeh.toLowerCase())) return;
-      }
-
-      seenIdsRef.current.add(ride.id);
-      activeAlertsRef.current.add(ride.id);
-      startAlert();
-
-      const isTaxi = rVeh === "taxi" || rVeh === "carro" || rVeh === "car";
-      const rideLabel = isTaxi ? "Táxi (Passageiro)" : "Moto Táxi (Passageiro)";
-      const customer = ride.customer_name || "Passageiro";
-      const pickup = ride.pickup_address || "Ponto de Embarque";
-      const dropoff = ride.dropoff_address || "Destino";
-      const fee = Number(ride.price) || 0;
-      const feeText = fee > 0 ? `R$ ${fee.toFixed(2).replace(".", ",")}` : "";
-      const title = `🚕 ${rideLabel}${feeText ? ` — ${feeText}` : ""}`;
-
-      toast(`🚕 ${rideLabel}`, {
-        description: `📍 ${pickup} → 🏁 ${dropoff}${feeText ? ` • 💰 ${feeText}` : ""}`,
-      });
-
-      if (Capacitor.isNativePlatform()) {
-        DeliveryOverlay.testIncomingCall({
-          details: `${rideLabel}\n👤 ${customer}\n📍 Embarque: ${pickup}\n🏁 Destino: ${dropoff}`,
-          deliveryId: ride.id,
-          storeName: rideLabel,
-          pickup,
-          dropoff,
-          fee: feeText,
-        }).catch(console.warn);
-
-        LocalNotifications.schedule({
-          notifications: [
-            {
-              title,
-              body: `📍 ${pickup} → 🏁 ${dropoff}`,
-              id: hashId(ride.id),
-              actionTypeId: "DELIVERY_ACTION",
-              channelId: NOTIFICATION_CHANNEL_ID,
-              sound: "ring",
-              extra: { type: "ride", rideId: ride.id },
-            },
-          ],
-        }).catch((e) => console.warn("[LocalNotifications] erro:", e));
-      } else if (!Capacitor.isNativePlatform() && typeof window !== "undefined" && "Notification" in window) {
-        if (Notification.permission === "granted") {
-          try {
-            new Notification(title, {
-              body: `📍 ${pickup} → 🏁 ${dropoff}`,
-              icon: "/favicon-v3.png",
-              tag: `ride-${ride.id}`,
-              requireInteraction: true,
-            });
-          } catch (e) {}
         }
       }
     };
@@ -473,9 +362,12 @@ export function useDriverNotifications() {
       if (activeAlertsRef.current.size === 0) {
         stopAlert();
         DeliveryOverlay.dismissIncomingCall().catch(() => {});
+        DeliveryOverlay.stopNativeAudio().catch(() => {});
       }
-      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
+      if (Capacitor.isNativePlatform()) {
         LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
+        DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
+        DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
       }
     };
 
@@ -507,6 +399,7 @@ export function useDriverNotifications() {
           const { data: { session } } = await supabase.auth.getSession();
           const userToken = session?.access_token ?? "";
           DeliveryOverlay.saveDriverContext({ driverId, userToken }).catch(() => {});
+          DeliveryOverlay.setDriverOnlineStatus({ isOnline: isOnlineRef.current }).catch(() => {});
         } catch (e) {}
 
         if (isOnlineRef.current) {
@@ -514,6 +407,26 @@ export function useDriverNotifications() {
         } else {
           DeliveryOverlay.stopOverlay().catch(() => {});
         }
+
+        // Verifica se houve aceite pendente feito nativamente na tela de chamada
+        DeliveryOverlay.getPendingAcceptedDelivery().then(({ deliveryId }) => {
+          if (deliveryId) {
+            console.log("[NativeAccept] Corrida pendente de aceite nativo detectada:", deliveryId);
+            acceptDeliveryLocally(deliveryId);
+          }
+        }).catch(() => {});
+
+        nativeAcceptListener = await DeliveryOverlay.addListener("onDeliveryAccepted", ({ deliveryId }: any) => {
+          if (deliveryId) {
+            acceptDeliveryLocally(deliveryId);
+          }
+        });
+
+        nativeDeclineListener = await DeliveryOverlay.addListener("onDeliveryDeclined", ({ deliveryId }: any) => {
+          if (deliveryId) {
+            declineDeliveryLocally(deliveryId);
+          }
+        });
       }
 
       // Listener de status online/offline
@@ -530,11 +443,15 @@ export function useDriverNotifications() {
               if (typeof window !== "undefined") {
                 localStorage.setItem(`driver_is_online_${user.id}`, String(updated.is_online));
               }
+              if (Capacitor.isNativePlatform()) {
+                DeliveryOverlay.setDriverOnlineStatus({ isOnline: updated.is_online }).catch(() => {});
+              }
               if (!updated.is_online && wasOnline) {
                 activeAlertsRef.current.clear();
                 stopAlert();
                 if (Capacitor.isNativePlatform()) {
                   DeliveryOverlay.stopOverlay().catch(() => {});
+                  DeliveryOverlay.stopNativeAudio().catch(() => {});
                 }
               } else if (updated.is_online && !wasOnline) {
                 if (Capacitor.isNativePlatform()) {
@@ -567,53 +484,17 @@ export function useDriverNotifications() {
               if (!error && data && data.length > 0) {
                 DeliveryOverlay.reportCallResult({ success: true, message: "✅ Corrida aceita!" }).catch(() => {});
                 acceptDeliveryLocally(deliveryId);
-                toast("✅ Corrida aceita!", { description: "Aceita via tela nativa." });
+                toast("✅ Corrida aceita!", { description: "Aceita com sucesso." });
               } else {
                 DeliveryOverlay.reportCallResult({ success: false, message: "Corrida já foi aceita por outro entregador" }).catch(() => {});
                 declineDeliveryLocally(deliveryId);
                 toast("❌ Ops! Já foi aceita.", { description: "Outro entregador aceitou antes de você." });
               }
-            } else if (response.status === "rejected") {
+            } else if (response.status === "rejected" || response.status === "declined") {
               declineDeliveryLocally(deliveryId);
             }
           }
         );
-      }
-
-      // Listener de ações de notificação local (aceitar/rejeitar)
-      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
-        try {
-          actionListener = await LocalNotifications.addListener(
-            "localNotificationActionPerformed",
-            async (action) => {
-              if (action.notification.extra?.type === "delivery") {
-                const deliveryId = action.notification.extra.deliveryId;
-                if (action.actionId === "accept") {
-                  stopAlert();
-                  activeAlertsRef.current.delete(deliveryId);
-                  const { data, error } = await supabase
-                    .from("deliveries")
-                    .update({ status: "accepted", driver_id: driverId })
-                    .eq("id", deliveryId)
-                    .in("status", ["pending", "broadcasted"])
-                    .is("driver_id", null)
-                    .select("id");
-                  if (!error && data && data.length > 0) {
-                    acceptDeliveryLocally(deliveryId);
-                    toast("✅ Corrida aceita!", { description: "Aceita via notificação." });
-                  } else {
-                    toast("❌ Ops! Já foi aceita.", { description: "Outro entregador aceitou antes de você." });
-                    declineDeliveryLocally(deliveryId);
-                  }
-                } else if (action.actionId === "reject") {
-                  declineDeliveryLocally(deliveryId);
-                }
-              }
-            }
-          );
-        } catch (err) {
-          console.warn("[LocalNotifications] addListener falhou ou não suportado:", err);
-        }
       }
 
       // Seed inicial
@@ -633,7 +514,7 @@ export function useDriverNotifications() {
         }
       }
 
-      // Polling a cada 3s
+      // Polling a cada 5s
       const pollDeliveries = async () => {
         const isNowOnline = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
         if (cancelled || !isNowOnline) return;
@@ -655,7 +536,7 @@ export function useDriverNotifications() {
         }
       };
 
-      const intervalId = setInterval(pollDeliveries, 10000);
+      const intervalId = setInterval(pollDeliveries, 5000);
 
       if (Capacitor.isNativePlatform()) {
         appStateListener = await App.addListener("appStateChange", ({ isActive }) => {
@@ -687,9 +568,7 @@ export function useDriverNotifications() {
               stopRingingFor(d.id);
             }
 
-            if (
-              (d?.status === "pending" || d?.status === "broadcasted") && !d?.driver_id
-            ) {
+            if ((d?.status === "pending" || d?.status === "broadcasted") && !d?.driver_id) {
               if (isOnlineRef.current) {
                 seenIdsRef.current.delete(d.id);
                 notifyNewDelivery(d);
@@ -702,6 +581,7 @@ export function useDriverNotifications() {
               if (activeAlertsRef.current.size === 0) {
                 stopAlert();
                 DeliveryOverlay.dismissIncomingCall().catch(() => {});
+                DeliveryOverlay.stopNativeAudio().catch(() => {});
               }
             }
           }
@@ -720,11 +600,14 @@ export function useDriverNotifications() {
     return () => {
       cancelled = true;
       window.removeEventListener("delivery-declined", handleDeclineEvent);
+      window.removeEventListener("delivery-accepted", handleAcceptEvent);
       channelsRef.current.forEach((ch) => supabase.removeChannel(ch));
       channelsRef.current = [];
-      if (actionListener) actionListener.remove().catch(() => {});
-      if (overlayListener) overlayListener.remove().catch(() => {});
-      if (appStateListener) appStateListener.remove().catch(() => {});
+      if (actionListener) actionListener.remove?.().catch(() => {});
+      if (overlayListener) overlayListener.remove?.().catch(() => {});
+      if (nativeAcceptListener) nativeAcceptListener.remove?.().catch(() => {});
+      if (nativeDeclineListener) nativeDeclineListener.remove?.().catch(() => {});
+      if (appStateListener) appStateListener.remove?.().catch(() => {});
       if (cleanupInner) cleanupInner();
     };
   }, [user?.id]);

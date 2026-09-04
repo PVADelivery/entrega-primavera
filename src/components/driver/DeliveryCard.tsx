@@ -10,6 +10,7 @@ interface Props {
   onAccept?: () => void;
   onAdvance?: () => void;
   onCancel?: () => void;
+  onDecline?: () => void;
   pending?: boolean;
 }
 
@@ -191,10 +192,20 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending 
 
         {(onAccept || (next && onAdvance) || onCancel || (!onAccept && !onAdvance) || whatsappUrl) && (
           <div className="mt-3 flex items-center gap-2">
+            {onDecline && onAccept && (
+              <Button
+                variant="outline"
+                className="h-11 rounded-xl border-red-500/40 text-red-400 hover:bg-red-500/10 font-black px-3.5 text-xs uppercase tracking-wider"
+                disabled={pending}
+                onClick={onDecline}
+              >
+                RECUSAR
+              </Button>
+            )}
             {onAccept && (
               <Button
-                className="group/btn h-11 flex-1 rounded-xl font-semibold shadow-[var(--shadow-elegant)] transition-all"
-                disabled={Boolean(pending)}
+                className="group/btn h-11 flex-1 rounded-xl font-bold shadow-md"
+                disabled={pending}
                 onClick={() => {
                   if (pending) return;
                   onAccept();

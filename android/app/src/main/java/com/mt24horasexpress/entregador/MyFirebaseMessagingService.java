@@ -6,22 +6,92 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
+
+import androidx.core.app.NotificationCompat;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "MyFirebaseMsgService";
-    public static final String ACTION_SHOW_POPUP = "com.mt24horasexpress.entregador.SHOW_POPUP";
-    private static final String CHANNEL_ID = "delivery-incoming-v8";
-    private static final int NOTIF_ID = 6666;
 
-    private int hashId(String str) {
+    // ── Deduplicação anti-rajada rápida apenas (3 segundos) ─────────────────
+    private static final long DEDUP_WINDOW_MS = 3_000;
+    private static final int MAX_TRACKED_ALERTS = 50;
+    private static final Map<String, Long> recentAlerts = Collections.synchronizedMap(
+            new LinkedHashMap<String, Long>(32, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Long> eldest) {
+                    return size() > MAX_TRACKED_ALERTS;
+                }
+            });
+
+    /** Retorna true apenas no primeiro alerta da corrida dentro da janela de 3s. */
+    private static boolean markAlertedOnce(String key) {
+        long now = System.currentTimeMillis();
+        synchronized (recentAlerts) {
+            Iterator<Map.Entry<String, Long>> it = recentAlerts.entrySet().iterator();
+            while (it.hasNext()) {
+                if (now - it.next().getValue() > DEDUP_WINDOW_MS) it.remove();
+            }
+            Long last = recentAlerts.get(key);
+            if (last != null && now - last < DEDUP_WINDOW_MS) return false;
+            recentAlerts.put(key, now);
+            return true;
+        }
+    }
+
+    /**
+     * Cancelamento vindo do backend (outro entregador aceitou / corrida
+     * cancelada / rebroadcast): limpa a deduplicação para que um eventual
+     * reenvio legítimo da MESMA corrida volte a alertar.
+     */
+    public static void cancelDeliveryAlert(Context context, String deliveryId) {
+        if (deliveryId == null || deliveryId.isEmpty()) return;
+        NativeSoundPlayer.stopSound();
+        synchronized (recentAlerts) {
+            recentAlerts.remove(deliveryId);
+        }
+        NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) nm.cancel(hashId(deliveryId));
+        if (OverlayService.instance != null) {
+            OverlayService.instance.hideDeliveryCard(deliveryId);
+        }
+        if (IncomingCallActivity.instance != null) {
+            IncomingCallActivity.instance.runOnUiThread(() -> IncomingCallActivity.instance.finish());
+        }
+    }
+
+    /**
+     * Aceite/recusa feitos pelo próprio entregador no app: apenas remove a
+     * notificação da bandeja, limpando o alerta.
+     */
+    public static void dismissDeliveryAlert(Context context, String deliveryId) {
+        if (deliveryId == null || deliveryId.isEmpty()) return;
+        NativeSoundPlayer.stopSound();
+        synchronized (recentAlerts) {
+            recentAlerts.remove(deliveryId);
+        }
+        NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) nm.cancel(hashId(deliveryId));
+        if (OverlayService.instance != null) {
+            OverlayService.instance.hideDeliveryCard(deliveryId);
+        }
+        if (IncomingCallActivity.instance != null) {
+            IncomingCallActivity.instance.runOnUiThread(() -> IncomingCallActivity.instance.finish());
+        }
+    }
+
+    private static int hashId(String str) {
         if (str == null) return 0;
         int hash = 0;
         for (int i = 0; i < str.length(); i++) {
@@ -45,36 +115,23 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         // ── CANCELAMENTO: Quando outro entregador aceita a corrida ou ela é cancelada
         if ("cancel_delivery".equals(type)) {
             String deliveryId = data.get("deliveryId");
-            Log.d(TAG, "Corrida " + deliveryId + " aceita por outro motorista. Encerrando notificação e popup!");
-
-            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (nm != null) {
-                nm.cancel(NOTIF_ID);
-                if (deliveryId != null && !deliveryId.isEmpty()) {
-                    nm.cancel(hashId(deliveryId));
-                }
-            }
-
-            if (IncomingCallActivity.instance != null) {
-                IncomingCallActivity.instance.runOnUiThread(() -> {
-                    try {
-                        IncomingCallActivity.instance.finish();
-                    } catch (Exception e) {
-                        Log.w(TAG, "Erro ao fechar IncomingCallActivity: " + e.getMessage());
-                    }
-                });
-            }
-
-            Intent cancelIntent = new Intent(IncomingCallActivity.ACTION_CANCEL_CALL);
-            cancelIntent.putExtra("deliveryId", deliveryId);
-            cancelIntent.setPackage(getPackageName());
-            sendBroadcast(cancelIntent);
+            if (deliveryId == null || deliveryId.isEmpty()) deliveryId = data.get("delivery_id");
+            Log.d(TAG, "Corrida " + deliveryId + " indisponível. Encerrando notificação.");
+            cancelDeliveryAlert(this, deliveryId);
             return;
         }
 
-        boolean isDelivery = "delivery".equals(type) || "INSERT".equals(type) || "UPDATE".equals(type) 
+        boolean isDelivery = "delivery".equals(type) || "INSERT".equals(type) || "UPDATE".equals(type)
                 || "new_delivery".equals(type) || data.containsKey("deliveryId") || data.containsKey("delivery_id");
         if (!isDelivery) return;
+
+        // ── GUARDA OFFLINE: entregador offline não deve receber som/alerta de corrida.
+        boolean driverOnline = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean("is_online", true);
+        if (!driverOnline) {
+            Log.d(TAG, "Entregador offline — alerta de corrida suprimido.");
+            return;
+        }
 
         String deliveryId = data.get("deliveryId");
         if (deliveryId == null || deliveryId.isEmpty()) deliveryId = data.get("delivery_id");
@@ -96,6 +153,11 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
         String fee        = data.get("fee");
         if (fee == null || fee.isEmpty()) fee = data.get("delivery_fee");
+        if (fee == null || fee.isEmpty()) fee = data.get("price");
+        if (fee == null || fee.isEmpty()) fee = data.get("value");
+        if (fee == null || fee.isEmpty()) fee = data.get("commission");
+        if (fee == null || fee.isEmpty()) fee = data.get("driver_fee");
+        if (fee == null || fee.isEmpty()) fee = data.get("total_value");
         if (storeName == null) storeName = "";
         if (pickup    == null) pickup    = "";
         if (dropoff   == null) dropoff   = "";
@@ -105,7 +167,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             address = address.replace("Veja no app", "Retirada na Loja");
         }
 
-        // Extrai o nome da loja e o endereço de entrega do bloco formatado caso venha como fallback
+        // Extrai o nome da loja, endereço e taxa do bloco formatado caso venham como fallback
         if ((storeName.isEmpty() || "Loja Parceira".equalsIgnoreCase(storeName.trim())) && address != null && address.contains("🏬 Loja:")) {
             try {
                 int startIdx = address.indexOf("🏬 Loja:") + "🏬 Loja:".length();
@@ -114,7 +176,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 if (!parsed.isEmpty() && !"Loja Parceira".equalsIgnoreCase(parsed)) {
                     storeName = parsed;
                 }
-            } catch (Exception e) {}
+            } catch (Exception ignored) {}
         }
         if ((dropoff.isEmpty() || "Endereço do cliente".equalsIgnoreCase(dropoff.trim())) && address != null && address.contains("🏁 Entrega:")) {
             try {
@@ -124,7 +186,17 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 if (!parsed.isEmpty() && !"Endereço do cliente".equalsIgnoreCase(parsed)) {
                     dropoff = parsed;
                 }
-            } catch (Exception e) {}
+            } catch (Exception ignored) {}
+        }
+        if ((fee.isEmpty() || "0".equals(fee) || "0.00".equals(fee) || "R$ 0,00".equals(fee) || "R$ 0.00".equals(fee)) && address != null && address.contains("💰 Ganhos:")) {
+            try {
+                int startIdx = address.indexOf("💰 Ganhos:") + "💰 Ganhos:".length();
+                int endIdx = address.indexOf("\n", startIdx);
+                String parsed = (endIdx != -1 ? address.substring(startIdx, endIdx) : address.substring(startIdx)).trim();
+                if (!parsed.isEmpty() && !"R$ 0,00".equals(parsed) && !"R$ 0.00".equals(parsed)) {
+                    fee = parsed;
+                }
+            } catch (Exception ignored) {}
         }
 
         String details    = (title  != null && !title.isEmpty()   ? title + "\n"  : "")
@@ -134,7 +206,16 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             details = details.replace("Veja no app", "Retirada na Loja");
         }
 
-        // Salva para a IncomingCallActivity ler quando abrir
+        // ── DEDUPLICAÇÃO ANTI-BURST (3s apenas)
+        String dedupKey = (deliveryId != null && !deliveryId.isEmpty())
+                ? deliveryId
+                : "details:" + details.hashCode();
+        if (!markAlertedOnce(dedupKey)) {
+            Log.d(TAG, "Push duplicado ignorado para " + dedupKey + " (janela de 3s).");
+            return;
+        }
+
+        // Salva nos static fields para a IncomingCallActivity / Plugins lerem
         DeliveryOverlayPlugin.latestDetails    = details;
         DeliveryOverlayPlugin.latestDeliveryId = deliveryId != null ? deliveryId : "";
         DeliveryOverlayPlugin.latestStore      = storeName;
@@ -142,90 +223,44 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         DeliveryOverlayPlugin.latestDropoff    = dropoff;
         DeliveryOverlayPlugin.latestFee        = fee;
 
-        Log.d(TAG, "Popup para deliveryId=" + deliveryId);
-
-        // ── CAMADA 1: via OverlayService (foreground service pode chamar startActivity no Android 10+)
-        try {
-            Intent svcIntent = new Intent(this, OverlayService.class);
-            svcIntent.setAction(ACTION_SHOW_POPUP);
-            svcIntent.putExtra("details",    details);
-            svcIntent.putExtra("deliveryId", deliveryId);
-            svcIntent.putExtra("storeName", storeName);
-            svcIntent.putExtra("pickup",     pickup);
-            svcIntent.putExtra("dropoff",    dropoff);
-            svcIntent.putExtra("fee",        fee);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(svcIntent);
-            } else {
-                startService(svcIntent);
-            }
-            Log.d(TAG, "OverlayService SHOW_POPUP iniciado.");
-        } catch (Exception e) {
-            Log.w(TAG, "Falha ao iniciar OverlayService: " + e.getMessage());
-        }
-
-        // ── CAMADA 2: startActivity direto (funciona quando SYSTEM_ALERT_WINDOW está ativo)
-        try {
-            Intent actIntent = new Intent(this, IncomingCallActivity.class);
-            actIntent.putExtra("details",    details);
-            actIntent.putExtra("deliveryId", deliveryId);
-            actIntent.putExtra("storeName", storeName);
-            actIntent.putExtra("pickup",     pickup);
-            actIntent.putExtra("dropoff",    dropoff);
-            actIntent.putExtra("fee",        fee);
-            actIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                    | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(actIntent);
-            Log.d(TAG, "startActivity direto disparado.");
-        } catch (Exception e) {
-            Log.w(TAG, "startActivity bloqueado: " + e.getMessage());
-        }
-
-        // ── CAMADA 3: Notification heads-up & Full Screen Intent (Popup nativo)
         try {
             ensureChannel();
 
-            Intent fsIntent = new Intent(this, IncomingCallActivity.class);
-            fsIntent.putExtra("details",    details);
-            fsIntent.putExtra("deliveryId", deliveryId);
-            fsIntent.putExtra("storeName", storeName);
-            fsIntent.putExtra("pickup",     pickup);
-            fsIntent.putExtra("dropoff",    dropoff);
-            fsIntent.putExtra("fee",        fee);
-            fsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-
+            int notificationId = hashId(deliveryId == null ? details : deliveryId);
             int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) piFlags |= PendingIntent.FLAG_IMMUTABLE;
-
-            PendingIntent tapPI = PendingIntent.getActivity(this, 1, fsIntent, piFlags);
-
-            android.net.Uri sound = android.net.Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.ring);
-
-            Notification.Builder builder;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                builder = new Notification.Builder(this, NotificationChannels.INCOMING_CHANNEL_ID);
-            } else {
-                builder = new Notification.Builder(this);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                piFlags |= PendingIntent.FLAG_IMMUTABLE;
             }
 
-        // Override estrito de title e storeName para garantir o Nome da Loja
-        if (title != null && title.contains("Nova corrida") && address != null && address.contains("🏬 Loja:")) {
-            try {
-                int startIdx = address.indexOf("🏬 Loja:") + "🏬 Loja:".length();
-                int endIdx = address.indexOf("\n", startIdx);
-                String parsedStore = (endIdx != -1 ? address.substring(startIdx, endIdx) : address.substring(startIdx)).trim();
-                if (!parsedStore.isEmpty() && !"Loja Parceira".equalsIgnoreCase(parsedStore)) {
-                    storeName = parsedStore;
-                }
-            } catch (Exception e) {}
-        }
+            // Intent para abrir o app principal MainActivity ao tocar na notificacao
+            Intent mainIntent = new Intent(this, MainActivity.class);
+            mainIntent.putExtra("details", details);
+            mainIntent.putExtra("deliveryId", deliveryId);
+            mainIntent.putExtra("storeName", storeName);
+            mainIntent.putExtra("pickup", pickup);
+            mainIntent.putExtra("dropoff", dropoff);
+            mainIntent.putExtra("fee", fee);
+            mainIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-        String finalStoreName = (storeName != null && !storeName.trim().isEmpty() && !"Loja Parceira".equalsIgnoreCase(storeName.trim()))
-                ? storeName.trim()
-                : "MT 24 Horas Express Delivery";
+            PendingIntent contentPI = PendingIntent.getActivity(this, notificationId, mainIntent, piFlags);
 
-        String cardTitle = "🏬 " + finalStoreName;
+            // Botão 1: ACEITAR na notificação da central
+            Intent acceptIntent = new Intent(this, NotificationActionReceiver.class);
+            acceptIntent.setAction("ACTION_ACCEPT");
+            acceptIntent.putExtra("deliveryId", deliveryId);
+            PendingIntent acceptPI = PendingIntent.getBroadcast(this, notificationId * 10 + 1, acceptIntent, piFlags);
+
+            // Botão 2: RECUSAR na notificação da central
+            Intent declineIntent = new Intent(this, NotificationActionReceiver.class);
+            declineIntent.setAction("ACTION_DECLINE");
+            declineIntent.putExtra("deliveryId", deliveryId);
+            PendingIntent declinePI = PendingIntent.getBroadcast(this, notificationId * 10 + 2, declineIntent, piFlags);
+
+            String finalStoreName = (storeName != null && !storeName.trim().isEmpty() && !"Loja Parceira".equalsIgnoreCase(storeName.trim()))
+                    ? storeName.trim()
+                    : "MT 24 Horas Express";
+
+            String cardTitle = "🏬 " + finalStoreName;
 
             String cardSubtext = (dropoff != null && !dropoff.trim().isEmpty() && !"Endereço do cliente".equalsIgnoreCase(dropoff.trim()))
                     ? "🏁 Entrega: " + dropoff.trim()
@@ -236,26 +271,51 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                     + "\n🏁 Entrega: " + (dropoff != null && !dropoff.trim().isEmpty() ? dropoff : "Endereço do cliente")
                     + "\n💰 Ganhos: " + (fee != null && !fee.trim().isEmpty() ? fee : "A calcular");
 
-            builder.setSmallIcon(android.R.drawable.sym_call_incoming)
+            Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.notification_sound);
+
+            // Constrói notificação na central com som oficial e botões rápidos
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NotificationChannels.INCOMING_CHANNEL_ID)
+                    .setSmallIcon(R.mipmap.ic_launcher)
                     .setContentTitle(cardTitle)
                     .setContentText(cardSubtext)
-                    .setStyle(new Notification.BigTextStyle().bigText(formattedBigText))
-                    .setCategory(Notification.CATEGORY_CALL)
-                    .setPriority(Notification.PRIORITY_MAX)
-                    .setSound(sound)
-                    .setVibrate(new long[]{0, 600, 200, 600, 200, 600})
-                    .setVisibility(Notification.VISIBILITY_PUBLIC)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(formattedBigText))
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                     .setAutoCancel(true)
                     .setOngoing(false)
-                    .setContentIntent(tapPI);
+                    .setOnlyAlertOnce(false)
+                    .setSound(soundUri)
+                    .setContentIntent(contentPI)
+                    .addAction(R.mipmap.ic_launcher, "ACEITAR", acceptPI)
+                    .addAction(R.mipmap.ic_launcher, "RECUSAR", declinePI);
 
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) {
-                nm.notify(NOTIF_ID, builder.build());
-                if (deliveryId != null && !deliveryId.isEmpty()) {
-                    nm.notify(hashId(deliveryId), builder.build());
+                nm.notify(notificationId, builder.build());
+                Log.d(TAG, "Notificação da central disparada para deliveryId=" + deliveryId);
+            }
+
+            // Exibe o Card Flutuante Branco sobre outros apps (Overlay)
+            try {
+                if (OverlayService.instance != null) {
+                    OverlayService.instance.showDeliveryCard(deliveryId, finalStoreName, pickup, dropoff, fee);
+                } else {
+                    Intent overlayIntent = new Intent(this, OverlayService.class);
+                    overlayIntent.setAction(OverlayService.ACTION_SHOW_DELIVERY);
+                    overlayIntent.putExtra("deliveryId", deliveryId);
+                    overlayIntent.putExtra("storeName", finalStoreName);
+                    overlayIntent.putExtra("pickup", pickup);
+                    overlayIntent.putExtra("dropoff", dropoff);
+                    overlayIntent.putExtra("fee", fee);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(overlayIntent);
+                    } else {
+                        startService(overlayIntent);
+                    }
                 }
-                Log.d(TAG, "Notificação heads-up disparada.");
+            } catch (Exception eOverlay) {
+                Log.w(TAG, "Falha ao acionar overlay flutuante: " + eOverlay.getMessage());
             }
         } catch (Exception e) {
             Log.e(TAG, "Erro na notificação: " + e.getMessage());
@@ -268,6 +328,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     @Override
     public void onNewToken(String token) {
-        Log.d(TAG, "FCM Token: " + token);
+        getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString("pending_fcm_token", token)
+                .apply();
+        if (DeliveryOverlayPlugin.instance != null) {
+            DeliveryOverlayPlugin.instance.triggerFcmTokenRefresh(token);
+        }
+        Log.d(TAG, "Novo token FCM armazenado para sincronização.");
     }
 }

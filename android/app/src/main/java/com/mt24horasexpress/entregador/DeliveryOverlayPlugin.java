@@ -18,9 +18,11 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "DeliveryOverlay")
 public class DeliveryOverlayPlugin extends Plugin {
 
-    public static final String PREFS_NAME = "eprajadriver";
+    public static final String PREFS_NAME = "mt24horas_entregador";
 
     public static DeliveryOverlayPlugin instance;
+    private static String pendingAcceptedDeliveryId = null;
+
     public static String latestDetails = "";
     public static String latestDeliveryId = "";
     public static String latestStore = "";
@@ -28,21 +30,19 @@ public class DeliveryOverlayPlugin extends Plugin {
     public static String latestDropoff = "";
     public static String latestFee = "";
 
-    private BroadcastReceiver callReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver callReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            if (intent == null) return;
             String action = intent.getAction();
             String deliveryId = intent.getStringExtra("deliveryId");
-            JSObject ret = new JSObject();
-            if (deliveryId != null) {
-                ret.put("deliveryId", deliveryId);
-            }
             if (IncomingCallActivity.ACTION_CALL_ACCEPTED.equals(action)) {
-                ret.put("status", "accepted");
-                notifyListeners("onCallResponse", ret);
+                setPendingAccepted(deliveryId);
+                triggerDeliveryAccepted(deliveryId);
+                triggerCallResponse("accepted", deliveryId);
             } else if (IncomingCallActivity.ACTION_CALL_REJECTED.equals(action)) {
-                ret.put("status", "rejected");
-                notifyListeners("onCallResponse", ret);
+                triggerDeliveryDeclined(deliveryId);
+                triggerCallResponse("rejected", deliveryId);
             }
         }
     };
@@ -54,12 +54,36 @@ public class DeliveryOverlayPlugin extends Plugin {
         IntentFilter filter = new IntentFilter();
         filter.addAction(IncomingCallActivity.ACTION_CALL_ACCEPTED);
         filter.addAction(IncomingCallActivity.ACTION_CALL_REJECTED);
-        
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             getContext().registerReceiver(callReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
             getContext().registerReceiver(callReceiver, filter);
         }
+    }
+
+    public void triggerFcmTokenRefresh(String token) {
+        JSObject ret = new JSObject();
+        ret.put("token", token);
+        notifyListeners("onFcmTokenRefresh", ret);
+    }
+
+    public void triggerDeliveryDeclined(String deliveryId) {
+        JSObject ret = new JSObject();
+        ret.put("deliveryId", deliveryId);
+        notifyListeners("onDeliveryDeclined", ret);
+    }
+
+    public static void setPendingAccepted(String deliveryId) {
+        pendingAcceptedDeliveryId = deliveryId;
+    }
+
+    public void triggerDeliveryAccepted(String deliveryId) {
+        if (deliveryId == null || deliveryId.isEmpty()) return;
+        pendingAcceptedDeliveryId = deliveryId;
+        JSObject ret = new JSObject();
+        ret.put("deliveryId", deliveryId);
+        notifyListeners("onDeliveryAccepted", ret);
     }
 
     public void triggerCallResponse(String status, String deliveryId) {
@@ -69,6 +93,23 @@ public class DeliveryOverlayPlugin extends Plugin {
         }
         ret.put("status", status);
         notifyListeners("onCallResponse", ret);
+    }
+
+    @PluginMethod
+    public void getPendingAcceptedDelivery(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("deliveryId", pendingAcceptedDeliveryId != null ? pendingAcceptedDeliveryId : "");
+        pendingAcceptedDeliveryId = null;
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void getPendingFcmToken(PluginCall call) {
+        SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String token = prefs.getString("pending_fcm_token", "");
+        JSObject ret = new JSObject();
+        ret.put("token", token);
+        call.resolve(ret);
     }
 
     @PluginMethod
@@ -113,9 +154,6 @@ public class DeliveryOverlayPlugin extends Plugin {
 
     @PluginMethod
     public void startOverlay(PluginCall call) {
-        // Mesmo sem permissão de sobreposição, iniciamos o serviço em primeiro
-        // plano: ele mantém o processo vivo para o FCM continuar chegando
-        // depois de vários minutos com o app fechado/em segundo plano.
         Intent intent = new Intent(getContext(), OverlayService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getContext().startForegroundService(intent);
@@ -195,17 +233,12 @@ public class DeliveryOverlayPlugin extends Plugin {
             intent.putExtra("pickup", pickup);
             intent.putExtra("dropoff", dropoff);
             intent.putExtra("fee", fee);
-            intent.setPackage(getContext().getPackageName()); // FORÇA EXPLICITO
+            intent.setPackage(getContext().getPackageName());
             getContext().sendBroadcast(intent);
         }
         call.resolve();
     }
 
-    /**
-     * Salva o contexto do entregador (driver_id + auth token) no SharedPreferences.
-     * Chamado pelo JS logo após o login, para que o aceite nativo funcione
-     * mesmo quando o app está morto e o JS não está rodando.
-     */
     @PluginMethod
     public void saveDriverContext(PluginCall call) {
         String driverId = call.getString("driverId", "");
@@ -218,10 +251,6 @@ public class DeliveryOverlayPlugin extends Plugin {
         call.resolve();
     }
 
-    /**
-     * Recebe do JS o resultado da confirmação do aceite no Supabase e repassa
-     * para o card nativo, que só fecha depois desse retorno.
-     */
     @PluginMethod
     public void reportCallResult(PluginCall call) {
         final boolean success = Boolean.TRUE.equals(call.getBoolean("success", false));
@@ -243,6 +272,73 @@ public class DeliveryOverlayPlugin extends Plugin {
             intent.setPackage(getContext().getPackageName());
             getContext().sendBroadcast(intent);
         }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void cancelDeliveryNotification(PluginCall call) {
+        String deliveryId = call.getString("deliveryId", "");
+        if (deliveryId != null && !deliveryId.isEmpty()) {
+            MyFirebaseMessagingService.dismissDeliveryAlert(getContext(), deliveryId);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void showDeliveryCard(PluginCall call) {
+        String deliveryId = call.getString("deliveryId", "");
+        String storeName  = call.getString("storeName", "Nova Corrida");
+        String pickup     = call.getString("pickup", "Retirada na Loja");
+        String dropoff    = call.getString("dropoff", "Endereço do cliente");
+        String fee        = call.getString("fee", "");
+
+        if (OverlayService.instance != null) {
+            OverlayService.instance.showDeliveryCard(deliveryId, storeName, pickup, dropoff, fee);
+        } else {
+            Intent intent = new Intent(getContext(), OverlayService.class);
+            intent.setAction(OverlayService.ACTION_SHOW_DELIVERY);
+            intent.putExtra("deliveryId", deliveryId);
+            intent.putExtra("storeName", storeName);
+            intent.putExtra("pickup", pickup);
+            intent.putExtra("dropoff", dropoff);
+            intent.putExtra("fee", fee);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getContext().startForegroundService(intent);
+            } else {
+                getContext().startService(intent);
+            }
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void hideDeliveryCard(PluginCall call) {
+        String deliveryId = call.getString("deliveryId", "");
+        if (OverlayService.instance != null) {
+            OverlayService.instance.hideDeliveryCard(deliveryId);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void setDriverOnlineStatus(PluginCall call) {
+        Boolean isOnline = call.getBoolean("isOnline", true);
+        getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("is_online", Boolean.TRUE.equals(isOnline))
+                .apply();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void stopNativeAudio(PluginCall call) {
+        NativeSoundPlayer.stopSound();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void playNativeAudio(PluginCall call) {
+        NativeSoundPlayer.playDeliveryAlert(getContext());
         call.resolve();
     }
 }
