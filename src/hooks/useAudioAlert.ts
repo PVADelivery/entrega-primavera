@@ -6,6 +6,7 @@ const ALERT_SOUND_URL = "/ring.mp3";
 let globalAudio: HTMLAudioElement | null = null;
 let audioCtx: AudioContext | null = null;
 let isAlertActiveGlobal = false;
+let hasUnlockedAudio = false;
 
 const getAudioContext = (): AudioContext | null => {
   if (typeof window === "undefined") return null;
@@ -55,10 +56,11 @@ if (typeof window !== "undefined") {
       if (ctx && ctx.state === "suspended") {
         ctx.resume().catch(() => {});
       }
-      // Se o alerta de corrida estiver ativo, NUNCA executa teste de pausa no áudio!
+      if (hasUnlockedAudio) return;
       if (isAlertActiveGlobal) return;
 
       if (globalAudio && globalAudio.paused && (navigator as any).userActivation?.hasBeenActive) {
+        hasUnlockedAudio = true;
         const origVol = globalAudio.volume;
         globalAudio.volume = 0.001;
         const p = globalAudio.play();
@@ -98,7 +100,11 @@ export function useAudioAlert() {
       try {
         globalAudio.volume = 1.0;
         globalAudio.loop = true;
-        globalAudio.play().catch((e) => console.warn("[AudioAlert] unlockAudio play erro:", e));
+        globalAudio.play().catch((e) => {
+          if (e?.name !== "AbortError" && e?.name !== "NotAllowedError") {
+            console.warn("[AudioAlert] unlockAudio play erro:", e);
+          }
+        });
       } catch (e) {}
     }
   }, []);
@@ -153,13 +159,15 @@ export function useAudioAlert() {
         const p = globalAudio.play();
         if (p !== undefined) {
           p.catch((err) => {
-            if (err?.name !== "NotAllowedError") {
-              console.warn("[AudioAlert] Autoplay impedido pelo navegador:", err);
+            // Ignora AbortError (interrupção normal causada por pause() imediato/troca de tela)
+            // e NotAllowedError (política de autoplay antes do clique do usuário)
+            if (err?.name !== "NotAllowedError" && err?.name !== "AbortError") {
+              console.warn("[AudioAlert] Falha ao tocar áudio MP3:", err);
             }
           });
         }
       } catch (e) {
-        console.warn("[AudioAlert] Erro ao tocar áudio MP3:", e);
+        console.warn("[AudioAlert] Erro ao disparar áudio MP3:", e);
       }
     }
 
