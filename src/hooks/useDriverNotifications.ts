@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 
 const APP_NAME = "MT 24 Horas Express";
-const NOTIFICATION_CHANNEL_ID = "delivery_alerts_official_v34";
+const NOTIFICATION_CHANNEL_ID = "mt24_delivery_alerts_v35";
 
 const hashId = (str: string | number) => {
   const s = String(str);

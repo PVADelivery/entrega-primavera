@@ -185,10 +185,7 @@ public class IncomingCallActivity extends Activity {
     private void startAlertSoundAndVibration() {
         try {
             if (mediaPlayer == null) {
-                mediaPlayer = MediaPlayer.create(this, R.raw.notification_sound);
-                if (mediaPlayer == null) {
-                    mediaPlayer = MediaPlayer.create(this, R.raw.ring);
-                }
+                mediaPlayer = MediaPlayer.create(this, R.raw.ring);
                 if (mediaPlayer != null) {
                     mediaPlayer.setLooping(true);
                     mediaPlayer.start();

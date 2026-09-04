@@ -271,7 +271,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                     + "\n🏁 Entrega: " + (dropoff != null && !dropoff.trim().isEmpty() ? dropoff : "Endereço do cliente")
                     + "\n💰 Ganhos: " + (fee != null && !fee.trim().isEmpty() ? fee : "A calcular");
 
-            Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.notification_sound);
+            Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.ring);
 
             // Constrói notificação na central com som oficial e botões rápidos
             NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NotificationChannels.INCOMING_CHANNEL_ID)

@@ -20,13 +20,10 @@ public class NativeSoundPlayer {
             try {
                 stopSound();
 
-                mediaPlayer = MediaPlayer.create(context.getApplicationContext(), R.raw.notification_sound);
+                // Som oficial MT 24 Horas Express (ring.mp3)
+                mediaPlayer = MediaPlayer.create(context.getApplicationContext(), R.raw.ring);
                 if (mediaPlayer == null) {
-                    // Fallback para ring se notification_sound não carregar
-                    mediaPlayer = MediaPlayer.create(context.getApplicationContext(), R.raw.ring);
-                }
-                if (mediaPlayer == null) {
-                    Log.e(TAG, "Falha ao criar MediaPlayer para notification_sound / ring");
+                    Log.e(TAG, "Falha ao criar MediaPlayer para ring");
                     return;
                 }
 
@@ -50,7 +47,7 @@ public class NativeSoundPlayer {
                 });
 
                 mediaPlayer.start();
-                Log.d(TAG, "Áudio oficial de notificação iniciado com sucesso!");
+                Log.d(TAG, "Áudio oficial MT 24 Horas Express (ring.mp3) iniciado com sucesso!");
 
                 // Limite máximo de segurança: 40 segundos
                 timeoutHandler.removeCallbacks(autoStopRunnable);
@@ -71,7 +68,7 @@ public class NativeSoundPlayer {
                     }
                     mediaPlayer.release();
                     mediaPlayer = null;
-                    Log.d(TAG, "Áudio oficial parado e liberado.");
+                    Log.d(TAG, "Áudio oficial MT 24 Horas parado.");
                 }
             } catch (Exception e) {
                 Log.w(TAG, "Erro ao parar áudio: " + e.getMessage());

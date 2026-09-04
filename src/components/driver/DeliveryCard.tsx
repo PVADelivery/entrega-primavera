@@ -32,7 +32,7 @@ const condicionalNextLabels: Record<string, string> = {
   in_transit: "Confirmar Entrega na loja",
 };
 
-export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, pending }: Props) {
+export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDecline, pending }: Props) {
   const isBuscaCondicional = (delivery as any).delivery_type === "BUSCA_CONDICIONAL";
   const next = isBuscaCondicional ? condicionalNextLabels[delivery.status] : normalNextLabels[delivery.status];
   const displayStoreName = delivery.company_name?.trim() || delivery.companies?.name?.trim() || "Loja não vinculada";

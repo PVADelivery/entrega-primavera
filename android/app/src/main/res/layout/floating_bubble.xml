@@ -17,29 +17,29 @@
             android:layout_width="60dp"
             android:layout_height="60dp"
             android:src="@mipmap/ic_launcher_round"
-            android:contentDescription="É Pra Já Entregador" />
+            android:contentDescription="MT 24 Horas Express Entregador" />
 
         <ImageView
             android:id="@+id/closeButton"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
             android:layout_gravity="top|end"
-            android:background="#88000000"
+            android:background="#AA000000"
             android:padding="3dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             android:contentDescription="Fechar" />
     </FrameLayout>
 
-    <!-- CARD FLUTUANTE DE NOVA CORRIDA (EXPANSÍVEL SOBRE OUTROS APPS) -->
+    <!-- CARD FLUTUANTE DE NOVA CORRIDA (EXCLUSIVO MT 24 HORAS EXPRESS) -->
     <LinearLayout
         android:id="@+id/deliveryCardContainer"
         android:layout_width="320dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:background="@drawable/bg_overlay_card"
-        android:elevation="12dp"
+        android:elevation="14dp"
         android:orientation="vertical"
-        android:padding="14dp"
+        android:padding="16dp"
         android:visibility="gone">
 
         <!-- Top Header com Badge e botão fechar -->
@@ -53,20 +53,20 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:background="#FFF3E0"
-                android:paddingLeft="8dp"
-                android:paddingTop="3dp"
-                android:paddingRight="8dp"
-                android:paddingBottom="3dp"
-                android:text="NOVA CORRIDA DISPONÍVEL"
-                android:textColor="#E65100"
+                android:background="#2B1D04"
+                android:paddingLeft="10dp"
+                android:paddingTop="4dp"
+                android:paddingRight="10dp"
+                android:paddingBottom="4dp"
+                android:text="⚡ MT 24 HORAS EXPRESS"
+                android:textColor="#F59E0B"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
             <ImageView
                 android:id="@+id/cardCloseBtn"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
                 android:padding="4dp"
                 android:src="@android:drawable/ic_menu_close_clear_cancel" />
         </LinearLayout>
@@ -76,21 +76,21 @@
             android:id="@+id/cardStoreName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Loja Exemplo"
-            android:textColor="#1A1A1A"
-            android:textSize="16sp"
+            android:layout_marginTop="10dp"
+            android:text="Loja MT 24 Horas"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
             android:textStyle="bold" />
 
-        <!-- Ganhos -->
+        <!-- Ganhos do Entregador -->
         <TextView
             android:id="@+id/cardEarnings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="Ganhos: R$ 8,00"
-            android:textColor="#2E7D32"
-            android:textSize="15sp"
+            android:layout_marginTop="3dp"
+            android:text="Ganhos: R$ 0,00"
+            android:textColor="#34D399"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
         <!-- Coleta -->
@@ -98,9 +98,9 @@
             android:id="@+id/cardPickup"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="📍 Coleta: Retirada na Loja"
-            android:textColor="#555555"
+            android:layout_marginTop="8dp"
+            android:text="📍 1º Coleta: Retirada na Loja"
+            android:textColor="#CBD5E1"
             android:textSize="12sp" />
 
         <!-- Entrega -->
@@ -109,36 +109,36 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="🏁 Entrega: Rua Teste, 123"
-            android:textColor="#333333"
+            android:text="🏁 2º Entrega: Endereço do Cliente"
+            android:textColor="#94A3B8"
             android:textSize="12sp" />
 
         <!-- Botões de Ação: RECUSAR e ACEITAR -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="14dp"
             android:orientation="horizontal">
 
             <Button
                 android:id="@+id/cardBtnDecline"
                 android:layout_width="0dp"
-                android:layout_height="44dp"
+                android:layout_height="46dp"
                 android:layout_marginEnd="6dp"
                 android:layout_weight="1"
-                android:backgroundTint="#ECEFF1"
+                android:backgroundTint="#331414"
                 android:text="RECUSAR"
-                android:textColor="#D32F2F"
+                android:textColor="#F87171"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
             <Button
                 android:id="@+id/cardBtnAccept"
                 android:layout_width="0dp"
-                android:layout_height="44dp"
+                android:layout_height="46dp"
                 android:layout_marginStart="6dp"
                 android:layout_weight="1.4"
-                android:backgroundTint="#2E7D32"
+                android:backgroundTint="#059669"
                 android:text="ACEITAR"
                 android:textColor="#FFFFFF"
                 android:textSize="13sp"

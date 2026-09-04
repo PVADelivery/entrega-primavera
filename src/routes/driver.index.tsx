@@ -8,7 +8,7 @@ import { DeliveryDetailsSheet } from "@/components/driver/DeliveryDetailsSheet";
 import { acceptDeliveryLocally, declineDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
 import { DeliveryCard } from "@/components/driver/DeliveryCard";
 import { BatchDeliveryCard } from "@/components/driver/BatchDeliveryCard";
-import { IncomingDeliveryModal } from "@/components/driver/IncomingDeliveryModal";
+import { MT24NewDeliveryPopup } from "@/components/driver/MT24NewDeliveryPopup";
 import { Capacitor } from "@capacitor/core";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 import { Card } from "@/components/ui/card";
@@ -712,8 +712,8 @@ function DriverHome() {
         </section>
       )}
 
-      {/* Modal / Popup In-App com botões Aceitar e Recusar (mesmo sistema do É Pra Já) */}
-      <IncomingDeliveryModal
+      {/* Popup exclusivo MT 24 Horas Express com botões Recusar e Aceitar */}
+      <MT24NewDeliveryPopup
         delivery={incomingDelivery}
         open={Boolean(incomingDelivery)}
         onAccept={handleAccept}
