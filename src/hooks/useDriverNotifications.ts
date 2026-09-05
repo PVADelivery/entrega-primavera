@@ -222,41 +222,38 @@ export function useDriverNotifications() {
     let appStateListener: PluginListenerHandle | undefined;
     let cancelled = false;
 
-    const handleDeclineEvent = (e: any) => {
-      const { deliveryId } = e.detail || {};
-      if (deliveryId) {
-        activeAlertsRef.current.delete(deliveryId);
-        invalidateDeliveries();
-        if (activeAlertsRef.current.size === 0) {
-          stopAlert();
+    const stopRingingFor = (deliveryId: string) => {
+      if (!deliveryId) return;
+      activeAlertsRef.current.delete(deliveryId);
+      const timer = scheduledDeliveriesRef.current.get(deliveryId);
+      if (timer) {
+        clearTimeout(timer);
+        scheduledDeliveriesRef.current.delete(deliveryId);
+      }
+      invalidateDeliveries();
+      if (activeAlertsRef.current.size === 0) {
+        stopAlert();
+        if (Capacitor.isNativePlatform()) {
           DeliveryOverlay.dismissIncomingCall().catch(() => {});
           DeliveryOverlay.stopNativeAudio().catch(() => {});
         }
-        if (Capacitor.isNativePlatform()) {
-          LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
-          DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
-          DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
-        }
       }
+      if (Capacitor.isNativePlatform()) {
+        LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
+        DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
+        DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
+      }
+    };
+
+    const handleDeclineEvent = (e: any) => {
+      const { deliveryId } = e.detail || {};
+      if (deliveryId) stopRingingFor(deliveryId);
     };
     window.addEventListener("delivery-declined", handleDeclineEvent);
 
     const handleAcceptEvent = (e: any) => {
       const { id } = e.detail || {};
-      if (id) {
-        activeAlertsRef.current.delete(id);
-        invalidateDeliveries();
-        if (activeAlertsRef.current.size === 0) {
-          stopAlert();
-          DeliveryOverlay.dismissIncomingCall().catch(() => {});
-          DeliveryOverlay.stopNativeAudio().catch(() => {});
-        }
-        if (Capacitor.isNativePlatform()) {
-          LocalNotifications.cancel({ notifications: [{ id: hashId(id) }] }).catch(() => {});
-          DeliveryOverlay.cancelDeliveryNotification({ deliveryId: id }).catch(() => {});
-          DeliveryOverlay.hideDeliveryCard({ deliveryId: id }).catch(() => {});
-        }
-      }
+      if (id) stopRingingFor(id);
     };
     window.addEventListener("delivery-accepted", handleAcceptEvent);
 
@@ -309,7 +306,7 @@ export function useDriverNotifications() {
       // Dispara o alerta sonoro e vibração
       try {
         unlockAudio();
-        playAlert(true);
+        playAlert(false);
       } catch (e) {
         console.warn("[Notify] som falhou:", e);
       }
@@ -388,20 +385,6 @@ export function useDriverNotifications() {
             console.warn("[WebNotification] Erro ao criar notificação:", e);
           }
         }
-      }
-    };
-
-    const stopRingingFor = (deliveryId: string) => {
-      activeAlertsRef.current.delete(deliveryId);
-      if (activeAlertsRef.current.size === 0) {
-        stopAlert();
-        DeliveryOverlay.dismissIncomingCall().catch(() => {});
-        DeliveryOverlay.stopNativeAudio().catch(() => {});
-      }
-      if (Capacitor.isNativePlatform()) {
-        LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
-        DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
-        DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
       }
     };
 
@@ -561,9 +544,30 @@ export function useDriverNotifications() {
           if (data && !cancelled) {
             const freshIds = new Set(data.map((d: any) => d.id));
             data.forEach((d: any) => notifyNewDelivery(d));
+
+            // Limpa timers agendados de corridas que não estão mais pendentes (ex: canceladas pelo lojista)
+            scheduledDeliveriesRef.current.forEach((timer, id) => {
+              if (!freshIds.has(id)) {
+                clearTimeout(timer);
+                scheduledDeliveriesRef.current.delete(id);
+              }
+            });
+
             Array.from(activeAlertsRef.current).forEach((id) => {
               if (!freshIds.has(id)) stopRingingFor(id);
             });
+
+            if (data.length === 0) {
+              scheduledDeliveriesRef.current.forEach((t) => clearTimeout(t));
+              scheduledDeliveriesRef.current.clear();
+              activeAlertsRef.current.clear();
+              stopAlert();
+            }
+          } else if (!data || data.length === 0) {
+            scheduledDeliveriesRef.current.forEach((t) => clearTimeout(t));
+            scheduledDeliveriesRef.current.clear();
+            activeAlertsRef.current.clear();
+            stopAlert();
           }
         } catch (e) {
           console.warn("[Notify] polling falhou:", e);

@@ -22,20 +22,24 @@ DECLARE
   v_details TEXT;
   v_payload JSONB;
 BEGIN
-  -- Só executa se o status for 'pending' ou 'broadcasted'
-  IF NEW.status <> 'pending' AND NEW.status <> 'broadcasted' THEN
+  -- Se for INSERT: só executa se o status for 'pending' ou 'broadcasted'
+  IF TG_OP = 'INSERT' AND NEW.status <> 'pending' AND NEW.status <> 'broadcasted' THEN
     RETURN NEW;
   END IF;
 
-  -- Se for UPDATE, só executa se:
+  -- Se for UPDATE, executa quando:
   -- 1) Atribuição direta de entregador (OLD.driver_id IS NULL AND NEW.driver_id IS NOT NULL)
   -- 2) Transmissão manual do Admin (OLD.status <> 'broadcasted' AND NEW.status = 'broadcasted')
   -- 3) Mudança de status para 'pending' (OLD.status <> 'pending' AND NEW.status = 'pending')
+  -- 4) Cancelamento da entrega pelo lojista ou admin (NEW.status = 'cancelled')
+  -- 5) Corrida aceita ou finalizada que precisa encerrar alerta dos demais entregadores
   IF TG_OP = 'UPDATE' THEN
     IF NOT (
       (OLD.driver_id IS NULL AND NEW.driver_id IS NOT NULL) OR
       (COALESCE(OLD.status, '') <> 'broadcasted' AND NEW.status = 'broadcasted') OR
-      (COALESCE(OLD.status, '') <> 'pending' AND NEW.status = 'pending')
+      (COALESCE(OLD.status, '') <> 'pending' AND NEW.status = 'pending') OR
+      (NEW.status = 'cancelled' OR NEW.status = 'cancelada') OR
+      (COALESCE(OLD.status, '') IN ('pending', 'broadcasted') AND NEW.status NOT IN ('pending', 'broadcasted'))
     ) THEN
       RETURN NEW;
     END IF;
@@ -120,7 +124,7 @@ BEGIN
       ),
       '{delivery_address}', to_jsonb(v_dropoff_addr)
     ),
-    'old_record', null
+    'old_record', CASE WHEN TG_OP = 'UPDATE' THEN row_to_json(OLD)::jsonb ELSE null END
   );
 
   -- Realiza o disparo HTTP POST direto para a Edge Function send-push do Primavera

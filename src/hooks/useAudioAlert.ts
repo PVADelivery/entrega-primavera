@@ -99,7 +99,7 @@ export function useAudioAlert() {
     if (globalAudio && isAlertActiveGlobal && globalAudio.paused) {
       try {
         globalAudio.volume = 1.0;
-        globalAudio.loop = true;
+        globalAudio.loop = false;
         globalAudio.play().catch((e) => {
           if (e?.name !== "AbortError" && e?.name !== "NotAllowedError") {
             console.warn("[AudioAlert] unlockAudio play erro:", e);
@@ -118,6 +118,7 @@ export function useAudioAlert() {
       try {
         globalAudio.pause();
         globalAudio.currentTime = 0;
+        globalAudio.loop = false;
       } catch (e) {
         console.warn("[AudioAlert] Falha ao parar áudio:", e);
       }
@@ -135,7 +136,7 @@ export function useAudioAlert() {
     }
   }, []);
 
-  const playAlert = useCallback((loop = true) => {
+  const playAlert = useCallback((loop = false) => {
     isAlertActiveGlobal = true;
     playingRef.current = true;
     setIsPlaying(true);
@@ -149,6 +150,11 @@ export function useAudioAlert() {
       try {
         globalAudio.volume = 1.0;
         globalAudio.loop = loop;
+        globalAudio.onended = () => {
+          if (!loop) {
+            stopAlert();
+          }
+        };
 
         // Se já estiver tocando e não estiver pausado, garante que continua tocando o áudio completo!
         if (!globalAudio.paused && globalAudio.currentTime > 0) {
@@ -159,8 +165,6 @@ export function useAudioAlert() {
         const p = globalAudio.play();
         if (p !== undefined) {
           p.catch((err) => {
-            // Ignora AbortError (interrupção normal causada por pause() imediato/troca de tela)
-            // e NotAllowedError (política de autoplay antes do clique do usuário)
             if (err?.name !== "NotAllowedError" && err?.name !== "AbortError") {
               console.warn("[AudioAlert] Falha ao tocar áudio MP3:", err);
             }
@@ -173,16 +177,14 @@ export function useAudioAlert() {
 
     if (typeof navigator !== "undefined" && "vibrate" in navigator && canUseBrowserVibration()) {
       try {
-        navigator.vibrate([500, 200, 500, 200, 500, 200, 500]);
+        navigator.vibrate([500, 200, 500, 200, 500]);
       } catch {}
     }
 
-    if (loop) {
-      if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
-      timeoutIdRef.current = setTimeout(() => {
-        stopAlert();
-      }, 60_000); // 60 segundos de reprodução contínua até o entregador aceitar/rejeitar
-    }
+    if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
+    timeoutIdRef.current = setTimeout(() => {
+      stopAlert();
+    }, loop ? 30_000 : 25_000);
   }, [stopAlert]);
 
   useEffect(() => {

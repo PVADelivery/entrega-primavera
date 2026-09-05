@@ -36,13 +36,15 @@ serve(async (req) => {
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
 
     // =========================================================================
-    // CASE A: UPDATE EVENT — Delivery accepted or cancelled by another driver
+    // CASE A: UPDATE EVENT — Delivery accepted or cancelled by store/admin/driver
     // =========================================================================
     const wasPending = oldRecord && (oldRecord.status === 'pending' || oldRecord.status === 'broadcasted')
     const isNoLongerPending = record.status !== 'pending' && record.status !== 'broadcasted'
+    const isCancelled = record.status === 'cancelled' || record.status === 'cancelada'
+    const isAcceptedOrFinished = eventType === 'UPDATE' && wasPending && isNoLongerPending
 
-    if (eventType === 'UPDATE' && wasPending && isNoLongerPending) {
-      console.log(`Corrida ${record.id} aceita/cancelada. Enviando comando CANCEL_DELIVERY para os demais entregadores...`)
+    if (isCancelled || isAcceptedOrFinished) {
+      console.log(`Corrida ${record.id} aceita ou cancelada (status: ${record.status}). Enviando comando CANCEL_DELIVERY para os entregadores...`)
 
       let query = supabaseClient
         .from('delivery_drivers')
@@ -50,7 +52,9 @@ serve(async (req) => {
         .not('fcm_token', 'is', null)
         .eq('is_online', true)
 
-      if (record.driver_id) {
+      // Se a corrida foi aceita por um motorista, não cancela para ele.
+      // Se foi CANCELADA pelo lojista/admin, cancela para TODOS os motoristas!
+      if (!isCancelled && record.driver_id) {
         query = query.neq('id', record.driver_id)
       }
 
