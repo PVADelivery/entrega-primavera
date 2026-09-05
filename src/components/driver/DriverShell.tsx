@@ -38,6 +38,7 @@ export function DriverShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background pb-16 text-foreground" suppressHydrationWarning>
       <div className="mx-auto max-w-md">{children}</div>
       <BottomNav />
+      <PermissionModal />
     </div>
   );
 }
