@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -18,7 +20,9 @@ import com.google.firebase.messaging.RemoteMessage;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
@@ -34,6 +38,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                     return size() > MAX_TRACKED_ALERTS;
                 }
             });
+
+    // ── Agendamento em segundo plano para a regra dos 2 minutos (120s) ──────
+    private static final Map<String, Runnable> scheduledAlerts = new ConcurrentHashMap<>();
+    private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     /** Retorna true apenas no primeiro alerta da corrida dentro da janela de 3s. */
     private static boolean markAlertedOnce(String key) {
@@ -52,11 +60,17 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     /**
      * Cancelamento vindo do backend (outro entregador aceitou / corrida
-     * cancelada / rebroadcast): limpa a deduplicação para que um eventual
-     * reenvio legítimo da MESMA corrida volte a alertar.
+     * cancelada / rebroadcast): cancela agendamento pendente e fecha alertas.
      */
     public static void cancelDeliveryAlert(Context context, String deliveryId) {
         if (deliveryId == null || deliveryId.isEmpty()) return;
+
+        Runnable r = scheduledAlerts.remove(deliveryId);
+        if (r != null) {
+            mainHandler.removeCallbacks(r);
+            Log.d(TAG, "Alerta agendado cancelado para corrida: " + deliveryId);
+        }
+
         NativeSoundPlayer.stopSound();
         synchronized (recentAlerts) {
             recentAlerts.remove(deliveryId);
@@ -72,11 +86,17 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     /**
-     * Aceite/recusa feitos pelo próprio entregador no app: apenas remove a
-     * notificação da bandeja, limpando o alerta.
+     * Aceite/recusa feitos pelo próprio entregador no app: cancela agendamento
+     * e remove a notificação da bandeja.
      */
     public static void dismissDeliveryAlert(Context context, String deliveryId) {
         if (deliveryId == null || deliveryId.isEmpty()) return;
+
+        Runnable r = scheduledAlerts.remove(deliveryId);
+        if (r != null) {
+            mainHandler.removeCallbacks(r);
+        }
+
         NativeSoundPlayer.stopSound();
         synchronized (recentAlerts) {
             recentAlerts.remove(deliveryId);
@@ -101,6 +121,25 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         return Math.abs(hash);
     }
 
+    private static long parseIsoDate(String dateStr) {
+        if (dateStr == null || dateStr.trim().isEmpty()) return System.currentTimeMillis();
+        try {
+            String s = dateStr.trim().replace(" ", "T");
+            if (!s.endsWith("Z") && !s.contains("+") && !s.substring(Math.max(0, s.length() - 6)).contains("-")) {
+                s += "Z";
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                return java.time.Instant.parse(s).toEpochMilli();
+            } else {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+                sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                return sdf.parse(s.substring(0, Math.min(19, s.length()))).getTime();
+            }
+        } catch (Exception e) {
+            return System.currentTimeMillis();
+        }
+    }
+
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
@@ -116,7 +155,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if ("cancel_delivery".equals(type)) {
             String deliveryId = data.get("deliveryId");
             if (deliveryId == null || deliveryId.isEmpty()) deliveryId = data.get("delivery_id");
-            Log.d(TAG, "Corrida " + deliveryId + " indisponível. Encerrando notificação.");
+            Log.d(TAG, "Corrida " + deliveryId + " cancelada/indisponível. Encerrando alerta.");
             cancelDeliveryAlert(this, deliveryId);
             return;
         }
@@ -163,6 +202,21 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if (dropoff   == null) dropoff   = "";
         if (fee       == null) fee       = "";
 
+        // Ganhos do entregador: 75% do valor total da entrega
+        if (fee.isEmpty() || "0".equals(fee) || "0.00".equals(fee) || "R$ 0,00".equals(fee)) {
+            try {
+                String rawVal = data.get("value");
+                if (rawVal == null || rawVal.isEmpty()) rawVal = data.get("price");
+                if (rawVal == null || rawVal.isEmpty()) rawVal = data.get("delivery_fee");
+                if (rawVal != null && !rawVal.isEmpty()) {
+                    double v = Double.parseDouble(rawVal);
+                    if (v > 0) {
+                        fee = String.format(Locale.US, "R$ %.2f", v * 0.75).replace(".", ",");
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
         if (address != null && address.contains("Veja no app")) {
             address = address.replace("Veja no app", "Retirada na Loja");
         }
@@ -206,6 +260,71 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             details = details.replace("Veja no app", "Retirada na Loja");
         }
 
+        // ── REGRA DOS 2 MINUTOS DO ADMIN / ATRIBUIÇÃO DIRETA ────────────────
+        String status = data.get("status");
+        if (status == null || status.isEmpty()) status = "pending";
+        String driverIdInPayload = data.get("driver_id");
+        String createdAt = data.get("created_at");
+
+        String myDriverId = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+                .getString("driver_id", "");
+
+        // 1. Se atribuída diretamente a outro entregador, ignora
+        if (driverIdInPayload != null && !driverIdInPayload.isEmpty() && !"none".equalsIgnoreCase(driverIdInPayload) && !"00000000-0000-0000-0000-000000000000".equals(driverIdInPayload)) {
+            if (myDriverId != null && !myDriverId.isEmpty() && !myDriverId.equalsIgnoreCase(driverIdInPayload)) {
+                Log.d(TAG, "Corrida atribuída a outro motorista (" + driverIdInPayload + "). Ignorando.");
+                return;
+            }
+            // Atribuída a mim diretamente: alerta IMEDIATAMENTE!
+            triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
+            return;
+        }
+
+        // 2. Se transmitida para todos pelo Admin ('broadcasted'): alerta IMEDIATAMENTE!
+        if ("broadcasted".equalsIgnoreCase(status)) {
+            triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
+            return;
+        }
+
+        // 3. Corrida geral pendente: REGRA RIGOROSA DOS 2 MINUTOS (120 segundos)
+        long createdAtMs = parseIsoDate(createdAt);
+        long elapsedMs = System.currentTimeMillis() - createdAtMs;
+        long remainingMs = 120_000L - elapsedMs;
+
+        if (remainingMs > 500) {
+            Log.d(TAG, "Entrega " + deliveryId + " na janela de 2 min do Admin (" + (elapsedMs / 1000) + "s decorridos). Agendando alerta para daqui a " + (remainingMs / 1000) + "s.");
+            final String fDeliveryId = deliveryId;
+            final String fStoreName = storeName;
+            final String fPickup = pickup;
+            final String fDropoff = dropoff;
+            final String fFee = fee;
+            final String fDetails = details;
+
+            Runnable scheduledRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    scheduledAlerts.remove(fDeliveryId);
+                    boolean isOnline = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+                            .getBoolean("is_online", true);
+                    if (!isOnline) {
+                        Log.d(TAG, "Alerta agendado cancelado: motorista offline.");
+                        return;
+                    }
+                    Log.d(TAG, "Janela de 2 min do Admin concluída para " + fDeliveryId + ". Disparando alerta e card flutuante!");
+                    triggerDeliveryAlert(fDeliveryId, fStoreName, fPickup, fDropoff, fFee, fDetails);
+                }
+            };
+
+            scheduledAlerts.put(deliveryId, scheduledRunnable);
+            mainHandler.postDelayed(scheduledRunnable, remainingMs);
+            return;
+        }
+
+        // Já se passaram 120s ou mais: dispara alerta IMEDIATAMENTE!
+        triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
+    }
+
+    private void triggerDeliveryAlert(String deliveryId, String storeName, String pickup, String dropoff, String fee, String details) {
         // ── DEDUPLICAÇÃO ANTI-BURST (3s apenas)
         String dedupKey = (deliveryId != null && !deliveryId.isEmpty())
                 ? deliveryId
@@ -294,6 +413,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             if (nm != null) {
                 nm.notify(notificationId, builder.build());
                 Log.d(TAG, "Notificação da central disparada para deliveryId=" + deliveryId);
+            }
+
+            // Toca o som oficial ring.mp3
+            try {
+                NativeSoundPlayer.playDeliveryAlert(this);
+            } catch (Exception eAudio) {
+                Log.w(TAG, "Falha ao acionar NativeSoundPlayer: " + eAudio.getMessage());
             }
 
             // Exibe o Card Flutuante Branco sobre outros apps (Overlay)

@@ -630,7 +630,7 @@ export function useDeliveryTracking(orderId?: string | null) {
 export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: string; vehicle?: string; service_types?: string[] } | null) {
   let { data, error } = await supabase
     .from("deliveries")
-    .select("*, companies(name, phone), regions(id, name, price)")
+    .select("*, companies(name, phone)")
     .order("created_at", { ascending: false });
 
   if (error || !data || data.length === 0) {

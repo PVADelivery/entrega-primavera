@@ -1,6 +1,8 @@
 -- ==============================================================================
 -- TRIGGER SQL OFICIAL PARA O BANCO DO PRIMAVERA (owlbzwsdcognrgolvnzg)
--- IDÊNTICO AO SISTEMA DO É PRA JÁ COM URL E CHAVE DO PROJETO PRIMAVERA
+-- Remove bloqueio no INSERT para que o push chegue ao app do entregador
+-- em segundo plano (com agendamento silencioso nativo de 2 minutos).
+-- Atualiza cálculo dos ganhos do motoboy para 75% do valor da entrega.
 -- ==============================================================================
 
 CREATE OR REPLACE FUNCTION public.trigger_send_push_on_delivery()
@@ -14,6 +16,7 @@ DECLARE
   v_pickup_addr TEXT := 'Retirada na Loja';
   v_dropoff_addr TEXT := 'Endereço do Cliente';
   v_delivery_fee NUMERIC := 0;
+  v_driver_fee NUMERIC := 0;
   v_order RECORD;
   v_company RECORD;
   v_details TEXT;
@@ -21,11 +24,6 @@ DECLARE
 BEGIN
   -- Só executa se o status for 'pending' ou 'broadcasted'
   IF NEW.status <> 'pending' AND NEW.status <> 'broadcasted' THEN
-    RETURN NEW;
-  END IF;
-
-  -- Se for INSERT e ainda estiver pendente sem entregador (Janela de 2 min do Admin), não envia push agora!
-  IF TG_OP = 'INSERT' AND NEW.driver_id IS NULL AND NEW.status = 'pending' THEN
     RETURN NEW;
   END IF;
 
@@ -89,11 +87,17 @@ BEGIN
   IF COALESCE(NEW.delivery_fee, 0) > 0 THEN v_delivery_fee := NEW.delivery_fee; END IF;
   IF COALESCE(NEW.value, 0) > 0 THEN v_delivery_fee := NEW.value; END IF;
 
+  -- Ganhos do motoboy: 75% do valor da entrega
+  v_driver_fee := v_delivery_fee * 0.75;
+  IF v_driver_fee <= 0 THEN
+    v_driver_fee := v_delivery_fee;
+  END IF;
+
   -- Formata a mensagem completa de 4 linhas
   v_details := '🏬 Loja: ' || v_company_name || chr(10) ||
                '📍 Coleta: ' || v_pickup_addr || chr(10) ||
                '🏁 Entrega: ' || v_dropoff_addr || chr(10) ||
-               '💰 Ganhos: R$ ' || REPLACE(TO_CHAR(v_delivery_fee, 'FM9990.00'), '.', ',');
+               '💰 Ganhos: R$ ' || REPLACE(TO_CHAR(v_driver_fee, 'FM9990.00'), '.', ',');
 
   -- Constrói o JSON com todos os dados explicitados
   v_payload := jsonb_build_object(

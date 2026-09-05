@@ -117,7 +117,32 @@ function DriverHome() {
       }
     },
     enabled: mode === "delivery",
+    refetchInterval: 4000,
+    refetchOnWindowFocus: true,
   });
+
+  useEffect(() => {
+    let sub: any;
+    if (Capacitor.isNativePlatform()) {
+      import("@capacitor/app").then(({ App }) => {
+        App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) {
+            available.refetch();
+          }
+        }).then((handle) => { sub = handle; });
+      }).catch(() => {});
+    }
+
+    const onFocus = () => {
+      available.refetch();
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      if (sub && typeof sub.remove === "function") sub.remove();
+    };
+  }, [available]);
 
   // Agrupamento de entregas pendentes por batch_id
   const groupedAvailable = useMemo(() => {

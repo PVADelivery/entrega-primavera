@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
@@ -86,6 +87,16 @@ export const acceptDeliveryLocally = (deliveryId: string) => {
 export function useDriverNotifications() {
   const { user } = useAuth();
   const { playAlert, stopAlert, unlockAudio } = useAudioAlert();
+  const qc = useQueryClient();
+
+  const invalidateDeliveries = () => {
+    try {
+      qc.invalidateQueries({ queryKey: ["deliveries"] });
+      qc.refetchQueries({ queryKey: ["deliveries"] });
+    } catch (e) {
+      console.warn("[Notify] erro ao invalidar queries:", e);
+    }
+  };
 
   const permissionRef = useRef<NotificationPermission>(
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "default"
@@ -215,6 +226,7 @@ export function useDriverNotifications() {
       const { deliveryId } = e.detail || {};
       if (deliveryId) {
         activeAlertsRef.current.delete(deliveryId);
+        invalidateDeliveries();
         if (activeAlertsRef.current.size === 0) {
           stopAlert();
           DeliveryOverlay.dismissIncomingCall().catch(() => {});
@@ -233,6 +245,7 @@ export function useDriverNotifications() {
       const { id } = e.detail || {};
       if (id) {
         activeAlertsRef.current.delete(id);
+        invalidateDeliveries();
         if (activeAlertsRef.current.size === 0) {
           stopAlert();
           DeliveryOverlay.dismissIncomingCall().catch(() => {});
@@ -270,6 +283,7 @@ export function useDriverNotifications() {
             if (!scheduledDeliveriesRef.current.has(rawDelivery.id)) {
               const timer = setTimeout(async () => {
                 scheduledDeliveriesRef.current.delete(rawDelivery.id);
+                invalidateDeliveries();
                 try {
                   const { data: latest } = await supabase
                     .from("deliveries")
@@ -290,6 +304,7 @@ export function useDriverNotifications() {
 
       seenIdsRef.current.add(rawDelivery.id);
       activeAlertsRef.current.add(rawDelivery.id);
+      invalidateDeliveries();
 
       // Dispara o alerta sonoro e vibração
       try {
@@ -567,7 +582,10 @@ export function useDriverNotifications() {
 
       if (Capacitor.isNativePlatform()) {
         appStateListener = await App.addListener("appStateChange", ({ isActive }) => {
-          if (isActive && isOnlineRef.current) pollDeliveries();
+          if (isActive && isOnlineRef.current) {
+            invalidateDeliveries();
+            pollDeliveries();
+          }
         });
       }
 
@@ -578,6 +596,7 @@ export function useDriverNotifications() {
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "deliveries" },
           (payload) => {
+            invalidateDeliveries();
             const d = payload.new as any;
             if (isOnlineRef.current && (d?.status === "pending" || d?.status === "broadcasted") && !d?.driver_id) {
               notifyNewDelivery(d);
@@ -588,6 +607,7 @@ export function useDriverNotifications() {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "deliveries" },
           (payload) => {
+            invalidateDeliveries();
             const d = payload.new as any;
             const o = payload.old as any;
 

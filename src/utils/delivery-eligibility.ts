@@ -39,12 +39,13 @@ export function isDeliveryEligibleForDriver(
     return true;
   }
 
-  // 4. Se o status não for 'pending', não oferece para entregadores gerais
-  if (status !== "pending") {
+  // 4. Se o status não for pendente/aberto, não oferece para entregadores gerais
+  const validPendingStatuses = ["pending", "pending_assignment", "created", "open", "em_aberto", "pendente"];
+  if (!validPendingStatuses.includes(status)) {
     return false;
   }
 
-  // 5. Para status 'pending' sem entregador atribuído:
+  // 5. Para status pendente sem entregador atribuído:
   // REGRA DOS 2 MINUTOS: OBRIGATÓRIO ter timestamp e ter se passado no mínimo 120 segundos
   if (!delivery.created_at) {
     return false; // Sem data de criação confiável, BLOQUEADO por segurança
