@@ -10,6 +10,7 @@ import android.provider.Settings;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    public static volatile boolean isForeground = false;
     private boolean requestedOverlayOnLaunch = false;
 
     @Override
@@ -24,11 +25,22 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        isForeground = true;
+        // DENTRO DO APP: O motoboy aceita/recusa pela própria tela do app. O popup flutuante deve permanecer fechado.
+        if (OverlayService.instance != null) {
+            OverlayService.instance.hideDeliveryCard(null);
+        }
         // Solicita permissão de aparecer sobre outros apps na abertura do app se ainda não tiver
         if (!requestedOverlayOnLaunch) {
             requestedOverlayOnLaunch = true;
             new Handler(Looper.getMainLooper()).postDelayed(this::checkAndPromptOverlayPermission, 1200);
         }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        isForeground = false;
     }
 
     public void checkAndPromptOverlayPermission() {

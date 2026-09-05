@@ -422,26 +422,30 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 Log.w(TAG, "Falha ao acionar NativeSoundPlayer: " + eAudio.getMessage());
             }
 
-            // Exibe o Card Flutuante Branco sobre outros apps (Overlay)
-            try {
-                if (OverlayService.instance != null) {
-                    OverlayService.instance.showDeliveryCard(deliveryId, finalStoreName, pickup, dropoff, fee);
-                } else {
-                    Intent overlayIntent = new Intent(this, OverlayService.class);
-                    overlayIntent.setAction(OverlayService.ACTION_SHOW_DELIVERY);
-                    overlayIntent.putExtra("deliveryId", deliveryId);
-                    overlayIntent.putExtra("storeName", finalStoreName);
-                    overlayIntent.putExtra("pickup", pickup);
-                    overlayIntent.putExtra("dropoff", dropoff);
-                    overlayIntent.putExtra("fee", fee);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(overlayIntent);
+            // Exibe o Card Flutuante Branco sobre outros apps (Overlay) APENAS SE o app NÃO estiver em primeiro plano
+            if (!MainActivity.isForeground) {
+                try {
+                    if (OverlayService.instance != null) {
+                        OverlayService.instance.showDeliveryCard(deliveryId, finalStoreName, pickup, dropoff, fee);
                     } else {
-                        startService(overlayIntent);
+                        Intent overlayIntent = new Intent(this, OverlayService.class);
+                        overlayIntent.setAction(OverlayService.ACTION_SHOW_DELIVERY);
+                        overlayIntent.putExtra("deliveryId", deliveryId);
+                        overlayIntent.putExtra("storeName", finalStoreName);
+                        overlayIntent.putExtra("pickup", pickup);
+                        overlayIntent.putExtra("dropoff", dropoff);
+                        overlayIntent.putExtra("fee", fee);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(overlayIntent);
+                        } else {
+                            startService(overlayIntent);
+                        }
                     }
+                } catch (Exception eOverlay) {
+                    Log.w(TAG, "Falha ao acionar overlay flutuante: " + eOverlay.getMessage());
                 }
-            } catch (Exception eOverlay) {
-                Log.w(TAG, "Falha ao acionar overlay flutuante: " + eOverlay.getMessage());
+            } else {
+                Log.d(TAG, "App em primeiro plano: popup flutuante suprimido para o entregador aceitar na lista do app.");
             }
         } catch (Exception e) {
             Log.e(TAG, "Erro na notificação: " + e.getMessage());

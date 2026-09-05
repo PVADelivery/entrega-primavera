@@ -355,16 +355,8 @@ export function useDriverNotifications() {
         description: `🏁 ${dropoff}${feeText ? ` • 💰 Ganhos: ${feeText}` : ""}`,
       });
 
-      // Dispara ÚNICA E EXCLUSIVAMENTE o Card Flutuante Oficial do MT 24 Horas Express
+      // DENTRO DO APP: NUNCA abrir popup/card flutuante! O entregador aceita/recusa diretamente pelos botões da entrega dentro do app.
       if (Capacitor.isNativePlatform()) {
-        DeliveryOverlay.showDeliveryCard({
-          deliveryId: delivery.id,
-          storeName,
-          pickup,
-          dropoff,
-          fee: feeText,
-        }).catch(console.warn);
-
         LocalNotifications.schedule({
           notifications: [
             {

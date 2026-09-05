@@ -154,9 +154,14 @@ public class OverlayService extends Service {
                                     return true;
                                 case MotionEvent.ACTION_UP:
                                     if (isClick) {
-                                        Intent i = new Intent(OverlayService.this, MainActivity.class);
-                                        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                                        startActivity(i);
+                                        View cardContainer = floatingView != null ? floatingView.findViewById(R.id.deliveryCardContainer) : null;
+                                        if (cardContainer != null && currentDeliveryId != null && cardContainer.getVisibility() != View.VISIBLE && !MainActivity.isForeground) {
+                                            cardContainer.setVisibility(View.VISIBLE);
+                                        } else {
+                                            Intent i = new Intent(OverlayService.this, MainActivity.class);
+                                            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                                            startActivity(i);
+                                        }
                                     }
                                     return true;
                             }
@@ -205,6 +210,12 @@ public class OverlayService extends Service {
 
     public void showDeliveryCard(final String deliveryId, final String storeName, final String pickup, final String dropoff, final String fee) {
         mainHandler.post(() -> {
+            // DENTRO DO APP: NUNCA exibir popup flutuante! O entregador aceita/recusa diretamente pelos botões na tela do app.
+            if (MainActivity.isForeground) {
+                Log.d(TAG, "MainActivity está em primeiro plano — popup flutuante suprimido.");
+                return;
+            }
+
             ensureOverlayView();
             if (floatingView == null) return;
 
