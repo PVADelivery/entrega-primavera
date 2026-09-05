@@ -5,12 +5,13 @@ const config: CapacitorConfig = {
   appName: 'MT 24 Horas Express - Entregador',
   webDir: 'dist/client',
   server: {
-    url: 'https://entregador.mt24horasexpress.com',
-    cleartext: true,
+    url: 'https://entregador.mt24horasexpress.com/driver',
+    errorPath: 'error.html',
+    cleartext: false,
     androidScheme: 'https'
   },
   android: {
-    allowMixedContent: true
+    allowMixedContent: false
   },
   plugins: {
     PushNotifications: {

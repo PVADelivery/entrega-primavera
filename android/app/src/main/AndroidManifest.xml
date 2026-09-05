@@ -29,7 +29,14 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-        <service android:name=".OverlayService" android:exported="false" android:foregroundServiceType="specialUse" />
+        <service
+            android:name=".OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Alerta sonoro e visual em segundo plano para novos pedidos recebidos pelos entregadores parceiros." />
+        </service>
         <activity
             android:name=".IncomingCallActivity"
             android:theme="@style/Theme.IncomingCallDialog"
@@ -40,7 +47,7 @@
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
             android:taskAffinity="com.mt24horasexpress.entregador.incoming"
-            android:exported="true"
+            android:exported="false"
         />
 
         <!-- Firebase Cloud Messaging: recebe push em background e com app fechado -->
@@ -107,5 +114,5 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 </manifest>
