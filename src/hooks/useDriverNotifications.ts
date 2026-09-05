@@ -348,12 +348,9 @@ export function useDriverNotifications() {
       const description = `${storeName} • Retirada: ${pickup} → Entrega: ${dropoff}${feeText ? ` • Ganho: ${feeText}` : ""}`;
       const title = `🏬 ${storeName}${feeText ? ` — ${feeText}` : ""}`;
 
-      toast(`🏬 ${storeName}`, {
-        description: `🏁 ${dropoff}${feeText ? ` • 💰 Ganhos: ${feeText}` : ""}`,
-      });
-
-      // DENTRO DO APP: NUNCA abrir popup/card flutuante! O entregador aceita/recusa diretamente pelos botões da entrega dentro do app.
+      // DENTRO DO APP: NUNCA abrir popup/card flutuante e NUNCA exibir toast branco. O entregador vê a corrida diretamente no feed.
       if (Capacitor.isNativePlatform()) {
+        DeliveryOverlay.playNativeAudio().catch(() => {});
         LocalNotifications.schedule({
           notifications: [
             {

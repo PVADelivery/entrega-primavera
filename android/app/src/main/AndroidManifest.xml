@@ -29,7 +29,11 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-
+        <!-- Foreground Service contínuo para manter a conexão WebSocket e notificações ativas em segundo plano sem popup -->
+        <service
+            android:name=".OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- Firebase Cloud Messaging: recebe push em background e com app fechado -->
         <service
