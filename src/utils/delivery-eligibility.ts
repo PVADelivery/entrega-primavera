@@ -1,15 +1,9 @@
 import { getElapsedSeconds } from "./time";
 
-export const ADMIN_WINDOW_SECONDS = 120; // 2 minutos estipulados pelo Admin
+export const ADMIN_WINDOW_SECONDS = 0; // Notificação imediata sem espera
 
 /**
- * Regra Obrigatória e Rígida:
- * NÃO É PARA NOTIFICAR NEM SOM, NEM POP NEM NADA ATÉ DAR OS 2 MINUTOS (120s)
- * 
- * Uma entrega só pode notificar, abrir popup ou tocar áudio para o entregador se:
- * 1. Foi explicitamente atribuída ao entregador logado (driver_id === currentDriverId); OU
- * 2. Foi transmitida manualmente para todos pelo Admin (status === "broadcasted"); OU
- * 3. Se for 'pending', JÁ SE PASSARAM PELO MENOS 120 SEGUNDOS (2 minutos) desde created_at.
+ * Notifica a corrida instantaneamente para o entregador assim que for criada
  */
 export function isDeliveryEligibleForDriver(
   delivery: any,
@@ -39,18 +33,11 @@ export function isDeliveryEligibleForDriver(
     return true;
   }
 
-  // 4. Se o status não for pendente/aberto, não oferece para entregadores gerais
+  // 4. Se for corrida pendente/aberta: NOTIFICA IMEDIATAMENTE!
   const validPendingStatuses = ["pending", "pending_assignment", "created", "open", "em_aberto", "pendente"];
-  if (!validPendingStatuses.includes(status)) {
-    return false;
+  if (validPendingStatuses.includes(status)) {
+    return true;
   }
 
-  // 5. Para status pendente sem entregador atribuído:
-  // REGRA DOS 2 MINUTOS: OBRIGATÓRIO ter timestamp e ter se passado no mínimo 120 segundos
-  if (!delivery.created_at) {
-    return false; // Sem data de criação confiável, BLOQUEADO por segurança
-  }
-
-  const elapsedSeconds = getElapsedSeconds(delivery.created_at);
-  return elapsedSeconds >= ADMIN_WINDOW_SECONDS;
+  return false;
 }

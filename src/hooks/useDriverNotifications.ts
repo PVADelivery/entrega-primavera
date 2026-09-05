@@ -53,12 +53,6 @@ export const declineDeliveryLocally = (deliveryId: string) => {
   } catch (e) {
     console.error("[Notify] erro ao declinar localmente:", e);
   }
-const ensureRealtimeConnected = () => {
-  try {
-    if (supabase.realtime) {
-      supabase.realtime.connect();
-    }
-  } catch (e) {}
 };
 
 export const getAcceptedDeliveries = (): Set<string> => {

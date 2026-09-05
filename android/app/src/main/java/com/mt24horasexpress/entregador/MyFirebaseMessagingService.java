@@ -311,43 +311,25 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             details = details.replace("Veja no app", "Retirada na Loja");
         }
 
-        // ── REGRA DOS 2 MINUTOS DO ADMIN / ATRIBUIÇÃO DIRETA ────────────────
+        // ── NOTIFICAÇÃO IMEDIATA DA CORRIDA (Sem atrasos) ────────────────
         String status = data.get("status");
         if (status == null || status.isEmpty()) status = "pending";
         String driverIdInPayload = data.get("driver_id");
-        String createdAt = data.get("created_at");
 
         String myDriverId = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
                 .getString("driver_id", "");
 
-        // 1. Se atribuída diretamente a outro entregador, ignora
+        // Se atribuída diretamente a outro entregador especifico, ignora
         if (driverIdInPayload != null && !driverIdInPayload.isEmpty() && !"none".equalsIgnoreCase(driverIdInPayload) && !"00000000-0000-0000-0000-000000000000".equals(driverIdInPayload)) {
             if (myDriverId != null && !myDriverId.isEmpty() && !myDriverId.equalsIgnoreCase(driverIdInPayload)) {
                 Log.d(TAG, "Corrida atribuída a outro motorista (" + driverIdInPayload + "). Ignorando.");
                 return;
             }
-            // Atribuída a mim diretamente: alerta IMEDIATAMENTE!
-            triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
-            return;
         }
 
-        // 2. Se transmitida para todos pelo Admin ('broadcasted'): alerta IMEDIATAMENTE!
-        if ("broadcasted".equalsIgnoreCase(status)) {
-            triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
-            return;
-        }
-
-        // 3. Status pending sem atribuição direta: REGRA RIGOROSA DOS 2 MINUTOS!
-        long createdAtMs = parseIsoDate(createdAt);
-        long elapsed = System.currentTimeMillis() - createdAtMs;
-        if (elapsed >= 120_000) {
-            Log.d(TAG, "Corrida já completou os 2 minutos (" + (elapsed / 1000) + "s decorridos). Alertando agora!");
-            triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
-        } else {
-            long remainingMs = Math.max(1000, 120_000 - elapsed);
-            Log.d(TAG, "Corrida pending na janela inicial (" + (elapsed / 1000) + "s decorridos). Agendando AlarmManager para despertar em " + (remainingMs / 1000) + "s.");
-            scheduleAlarmManager(this, deliveryId, storeName, pickup, dropoff, fee, details, remainingMs);
-        }
+        // Notifica o entregador IMEDIATAMENTE ao receber o Push FCM em segundo plano/app fechado
+        Log.d(TAG, "Notificando entregador IMEDIATAMENTE para a corrida: " + deliveryId);
+        triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
     }
 
     public static void triggerDeliveryAlertFromAlarm(Context context, String deliveryId, String storeName, String pickup, String dropoff, String fee, String details) {
