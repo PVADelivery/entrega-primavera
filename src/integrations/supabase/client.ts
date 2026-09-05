@@ -24,11 +24,46 @@ function createSupabaseClient() {
       storage: brokeredPreviewStorage(),
       persistSession: true,
       autoRefreshToken: true,
-    }
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+    },
   });
 }
 
 let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
+
+export function ensureRealtimeConnected() {
+  try {
+    if (_supabase && (_supabase as any).realtime) {
+      const rt = (_supabase as any).realtime;
+      const status = typeof rt.isConnected === "function" ? rt.isConnected() : true;
+      if (!status) {
+        console.log("[Supabase Realtime] Reconectando canal após suspensão do app...");
+        try { rt.disconnect(); } catch (e) {}
+        rt.connect();
+      }
+    }
+  } catch (e) {
+    console.warn("[Supabase Realtime] Falha ao reconectar:", e);
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("pageshow", () => {
+    ensureRealtimeConnected();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      ensureRealtimeConnected();
+    }
+  });
+  window.addEventListener("online", () => {
+    ensureRealtimeConnected();
+  });
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

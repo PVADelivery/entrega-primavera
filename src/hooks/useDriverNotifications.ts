@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, ensureRealtimeConnected } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
@@ -580,14 +580,25 @@ export function useDriverNotifications() {
 
       const intervalId = setInterval(pollDeliveries, 5000);
 
+      const handleAppWakeup = () => {
+        ensureRealtimeConnected();
+        invalidateDeliveries();
+        if (isOnlineRef.current) {
+          pollDeliveries();
+        }
+      };
+
       if (Capacitor.isNativePlatform()) {
         appStateListener = await App.addListener("appStateChange", ({ isActive }) => {
-          if (isActive && isOnlineRef.current) {
-            invalidateDeliveries();
-            pollDeliveries();
+          if (isActive) {
+            handleAppWakeup();
           }
         });
       }
+
+      window.addEventListener("pageshow", handleAppWakeup);
+      window.addEventListener("focus", handleAppWakeup);
+      window.addEventListener("online", handleAppWakeup);
 
       // Realtime — novas entregas e mudanças de status
       const broadcastChannel = supabase
@@ -638,6 +649,9 @@ export function useDriverNotifications() {
 
       return () => {
         clearInterval(intervalId);
+        window.removeEventListener("pageshow", handleAppWakeup);
+        window.removeEventListener("focus", handleAppWakeup);
+        window.removeEventListener("online", handleAppWakeup);
       };
     };
 
