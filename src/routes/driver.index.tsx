@@ -27,6 +27,7 @@ import { TrendingUp, Package2, CalendarDays, Sparkles, Navigation, User, MapPin,
 import { useWorkMode } from "@/hooks/useWorkMode";
 import { WorkModeSwitch } from "@/components/driver/WorkModeSwitch";
 import { useDriverNotifications } from "@/hooks/useDriverNotifications";
+import { getElapsedSeconds } from "@/utils/time";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
@@ -252,7 +253,13 @@ function DriverHome() {
           const isUnassigned = !r.driver_id || String(r.driver_id).trim() === "" || r.driver_id === "none" || r.driver_id === "00000000-0000-0000-0000-000000000000";
           if (!isUnassigned) return false;
 
-          // 2. Verificar compatibilidade com serviços/veículo do motorista
+          // 2. REGRA DOS 2 MINUTOS DO ADMIN: se criada a menos de 120s e não transmitida pelo admin, fica na janela exclusiva do admin
+          if (r.created_at && statusLower !== "broadcasted") {
+            const elapsed = getElapsedSeconds(r.created_at);
+            if (elapsed < 120) return false;
+          }
+
+          // 3. Verificar compatibilidade com serviços/veículo do motorista
           const driverVeh = driverInfo?.vehicle_type || driverInfo?.vehicle || "moto";
           const isCompatible = isRideVehicleCompatible(r.vehicle_type, driverServiceTypes, driverVeh);
           return isCompatible;

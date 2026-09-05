@@ -271,9 +271,11 @@ export function useDriverNotifications() {
       const isEligible = isDeliveryEligibleForDriver(rawDelivery, currentDriverId);
 
       if (!isEligible) {
-        // Se for uma entrega pendente na janela de 2 min do Admin,
-        // agenda a notificação para quando completar os 120 segundos
-        if (rawDelivery.status === "pending" && !rawDelivery.driver_id && rawDelivery.created_at) {
+        const validPendingStatuses = ["pending", "pending_assignment", "created", "open", "em_aberto", "pendente"];
+        const isPendingLike = validPendingStatuses.includes(String(rawDelivery.status || "").toLowerCase());
+        const isUnassigned = !rawDelivery.driver_id || String(rawDelivery.driver_id).trim() === "" || rawDelivery.driver_id === "none" || rawDelivery.driver_id === "00000000-0000-0000-0000-000000000000";
+
+        if (isPendingLike && isUnassigned && rawDelivery.created_at) {
           const elapsed = getElapsedSeconds(rawDelivery.created_at);
           if (elapsed < ADMIN_WINDOW_SECONDS) {
             const delayMs = Math.max(500, (ADMIN_WINDOW_SECONDS - elapsed) * 1000 + 500);
