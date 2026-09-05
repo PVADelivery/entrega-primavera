@@ -213,34 +213,40 @@ async function resolveDeliveryCompanies(rows: any[]) {
       if (matched) regionId = matched.region_id;
     }
 
-    // 1. Verificar tabela personalizada vinculada à loja (pricingTableId)
-    let matchedCompanyFee = 0;
-    if (pricingTableId && allPricingRules.length > 0) {
-      const tableRules = allPricingRules.filter((r: any) => r.pricing_table_id === pricingTableId && Number(r.base_value) > 0);
-      if (tableRules.length > 0) {
-        const regIdStr = String(regionId || "").toLowerCase().trim();
-        const regRule = tableRules.find((r: any) => {
-          const orig = String(r.origin_region_id || "").toLowerCase().trim();
-          const dest = String(r.destination_region_id || "").toLowerCase().trim();
-          const gen = String(r.region_id || "").toLowerCase().trim();
-          return (orig && orig === regIdStr) || (dest && dest === regIdStr) || (gen && gen === regIdStr);
-        });
-        const generalRule = tableRules.find((r: any) => !r.origin_region_id && !r.destination_region_id && !r.region_id);
-        const selectedRule = regRule || generalRule || tableRules[0];
-        if (selectedRule && Number(selectedRule.base_value) > 0) {
-          matchedCompanyFee = Number(selectedRule.base_value);
+    // 1. Verificar se a entrega já possui valor gravado no banco (FONTE DE VERDADE ABSOLUTA)
+    const dbValue = Number(row.delivery_fee && Number(row.delivery_fee) > 0 ? row.delivery_fee : (row.value && Number(row.value) > 0 ? row.value : (row.price && Number(row.price) > 0 ? row.price : 0)));
+
+    let calculatedFee = dbValue;
+
+    // 2. Se e SOMENTE SE o valor no banco estiver zerado ou ausente, calcula pelas regras
+    if (calculatedFee <= 0) {
+      let matchedCompanyFee = 0;
+      if (pricingTableId && allPricingRules.length > 0) {
+        const tableRules = allPricingRules.filter((r: any) => r.pricing_table_id === pricingTableId && Number(r.base_value) > 0);
+        if (tableRules.length > 0) {
+          const regIdStr = String(regionId || "").toLowerCase().trim();
+          const regRule = tableRules.find((r: any) => {
+            const orig = String(r.origin_region_id || "").toLowerCase().trim();
+            const dest = String(r.destination_region_id || "").toLowerCase().trim();
+            const gen = String(r.region_id || "").toLowerCase().trim();
+            return (orig && orig === regIdStr) || (dest && dest === regIdStr) || (gen && gen === regIdStr);
+          });
+          const generalRule = tableRules.find((r: any) => !r.origin_region_id && !r.destination_region_id && !r.region_id);
+          const selectedRule = regRule || generalRule;
+          if (selectedRule && Number(selectedRule.base_value) > 0) {
+            matchedCompanyFee = Number(selectedRule.base_value);
+          }
         }
       }
-    }
 
-    const dbValue = Number(row.value && Number(row.value) > 0 ? row.value : (row.delivery_fee && Number(row.delivery_fee) > 0 ? row.delivery_fee : 0));
-    let calculatedFee = matchedCompanyFee > 0 ? matchedCompanyFee : dbValue;
-
-    // 2. Se ainda não achou, busca na tabela padrão de regiões do Admin
-    if (calculatedFee <= 0 && regionId && allRegions.length > 0) {
-      const reg = allRegions.find((r: any) => String(r.id).toLowerCase() === String(regionId).toLowerCase());
-      if (reg && Number(reg.price ?? reg.delivery_fee) > 0) {
-        calculatedFee = Number(reg.price ?? reg.delivery_fee);
+      if (matchedCompanyFee > 0) {
+        calculatedFee = matchedCompanyFee;
+      } else if (regionId && allRegions.length > 0) {
+        // Tabela padrão de regiões do Admin
+        const reg = allRegions.find((r: any) => String(r.id).toLowerCase() === String(regionId).toLowerCase());
+        if (reg && Number(reg.price ?? reg.delivery_fee) > 0) {
+          calculatedFee = Number(reg.price ?? reg.delivery_fee);
+        }
       }
     }
 
@@ -1019,35 +1025,31 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
 export function extractDeliveryFee(row: any): number {
   if (!row) return 0;
 
-  const candidates: number[] = [];
-
+  // 1. O valor oficial gravado no banco na criação da entrega é a fonte de verdade canônica
   if (row.delivery_fee != null && Number(row.delivery_fee) > 0) {
-    candidates.push(Number(row.delivery_fee));
+    return Number(row.delivery_fee);
   }
   if (row.value != null && Number(row.value) > 0) {
-    candidates.push(Number(row.value));
+    return Number(row.value);
   }
   if (row.price != null && Number(row.price) > 0) {
-    candidates.push(Number(row.price));
+    return Number(row.price);
   }
   if (row.commission != null && Number(row.commission) > 0) {
-    candidates.push(Number(row.commission));
+    return Number(row.commission);
   }
 
-  // Se o objeto region veio na query
+  // 2. Se e somente se o valor não estiver gravado no registro, busca na região vinculada
   if (row.regions) {
     const isCar = ["carro", "car", "carro_aberto", "frete"].includes(String(row.vehicle_type || "").toLowerCase());
     const regPrice = isCar
       ? Number(row.regions.delivery_fee && Number(row.regions.delivery_fee) > 0 ? row.regions.delivery_fee : Number(row.regions.price) * 1.5)
       : Number(row.regions.price || row.regions.delivery_fee || 0);
     if (regPrice > 0) {
-      candidates.push(regPrice);
+      return regPrice;
     }
   }
 
-  if (candidates.length > 0) {
-    return Math.max(...candidates);
-  }
   return 10.0;
 }
 
