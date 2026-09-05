@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Wallet, ArrowRight, Eye, Phone, MessageSquare, AlertCircle } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { formatDateTime } from "@/lib/utils";
-import { extractDeliveryFee, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
+import { extractDeliveryFee, cleanAddressForDriver, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
 
 interface Props {
   delivery: Delivery;
@@ -93,7 +93,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
               <div className="space-y-1 mt-1.5 bg-purple-500/5 p-2 rounded-xl border border-purple-500/20">
                 <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-                  <span className="line-clamp-2"><strong className="text-amber-300 font-bold">1º Buscar em (Cliente):</strong> <span>{delivery.address}</span></span>
+                  <span className="line-clamp-2"><strong className="text-amber-300 font-bold">1º Buscar em (Cliente):</strong> <span>{cleanAddressForDriver(delivery.address)}</span></span>
                 </p>
                 <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
@@ -108,30 +108,14 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
                 </p>
                 <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                  <span className="line-clamp-2"><strong className="text-foreground">Entrega (Cliente):</strong> <span>{delivery.address}</span></span>
+                  <span className="line-clamp-2"><strong className="text-foreground">Entrega (Cliente):</strong> <span>{cleanAddressForDriver(delivery.address)}</span></span>
                 </p>
               </div>
             ) : (
               <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
-                <span className="line-clamp-2">{delivery.address}</span>
+                <span className="line-clamp-2">{cleanAddressForDriver(delivery.address)}</span>
               </p>
-            )}
-
-            {/* Região e Bairro definidos pelo Admin / Lojista */}
-            {Boolean(delivery.regions?.name || delivery.region_name || delivery.customer_neighborhood) && (
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {Boolean(delivery.regions?.name || delivery.region_name) && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-black text-[11px] uppercase tracking-wide border border-primary/20">
-                    <MapPin className="h-3 w-3" /> <span>{delivery.regions?.name || delivery.region_name}</span>
-                  </span>
-                )}
-                {Boolean(delivery.customer_neighborhood && delivery.customer_neighborhood !== (delivery.regions?.name || delivery.region_name)) && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary text-secondary-foreground font-bold text-[11px] border border-border/50">
-                    <span>Região: </span><span>{delivery.customer_neighborhood}</span>
-                  </span>
-                )}
-              </div>
             )}
 
             {/* Observações preenchidas pelo lojista */}

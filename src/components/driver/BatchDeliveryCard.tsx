@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { MapPin, PackageCheck, Layers, Sparkles, CheckCircle2 } from "lucide-react";
 import type { DeliveryWithRelations as Delivery } from "@/services/deliveries";
 
+import { cleanAddressForDriver } from "@/services/deliveries";
+
 interface Props {
   batchId: string;
   deliveries: Delivery[];
@@ -95,7 +97,7 @@ export function BatchDeliveryCard({ batchId, deliveries, onAcceptBatch, pending 
                       )}
                     </div>
                     <p className="mt-0.5 pl-5.5 text-[11px] text-muted-foreground truncate">
-                      📍 {regionName} {item.address ? `• ${item.address}` : ""}
+                      📍 {cleanAddressForDriver(item.address)}
                     </p>
                   </div>
 

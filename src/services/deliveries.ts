@@ -7,6 +7,15 @@ import { getCompanyNames } from "@/lib/companies.functions";
 import { updateDriverDelivery } from "@/lib/driver-deliveries.functions";
 import type { DeliveryStatus } from "@/types/models";
 
+export function cleanAddressForDriver(address: string | null | undefined): string {
+  if (!address) return "Endereço não informado";
+  let cleaned = String(address)
+    .replace(/\s*-\s*(\*|Região:)[^\n]+/gi, "")
+    .replace(/\s*-\s*\*[^\n]+/g, "")
+    .trim();
+  return cleaned || "Endereço não informado";
+}
+
 function toDbStatus(status: string) {
   // O enum do banco é: pending, broadcasted, accepted, collecting, in_transit, delivered, cancelled, returned
   if (status === "in_route") return "in_transit";
@@ -715,7 +724,7 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
         status: toAppStatus(d.status),
         customer_name: resolvedCustomerName,
         customer_phone: d.customer_phone || null,
-        address: resolvedAddress,
+        address: cleanAddressForDriver(resolvedAddress),
         customer_neighborhood: d.customer_neighborhood || null,
       };
     });
@@ -754,12 +763,20 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
       const resolvedFallbackData = await resolveDeliveryCompanies(fallbackData);
       return resolvedFallbackData
         .filter((d: any) => ["completed", "delivered", "cancelled", "returned"].includes(d.status))
-        .map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+        .map((d: any) => ({
+          ...d,
+          status: toAppStatus(d.status),
+          address: cleanAddressForDriver(d.address || d.dropoff_address || d.delivery_address),
+        }));
     }
   }
 
   const resolvedHistory = await resolveDeliveryCompanies(historyDeliveries);
-  return resolvedHistory.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
+  return resolvedHistory.map((d: any) => ({
+    ...d,
+    status: toAppStatus(d.status),
+    address: cleanAddressForDriver(d.address || d.dropoff_address || d.delivery_address),
+  }));
 }
 
 // Deduplicação de chamadas concorrentes: o mesmo deliveryId em voo reaproveita
