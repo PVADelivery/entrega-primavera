@@ -40,7 +40,27 @@ public class MainActivity extends BridgeActivity {
         // Monitor de conectividade: recarrega automaticamente se estava na tela de erro e a internet voltou
         registerNetworkAutoRecovery();
 
+        // Solicita desativar restrições de bateria para que o app continue notificando em segundo plano
+        requestIgnoreBatteryOptimization();
+
         handleIntent(getIntent());
+    }
+
+    private void requestIgnoreBatteryOptimization() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+                String pkg = getPackageName();
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(pkg)) {
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + pkg));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.w("MainActivity", "Erro ao solicitar isenção de otimização de bateria: " + e.getMessage());
+        }
     }
 
     private void registerNetworkAutoRecovery() {
@@ -73,6 +93,19 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         isForeground = true;
+
+        try {
+            boolean isOnline = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+                    .getBoolean("is_online", false);
+            if (isOnline && OverlayService.instance == null) {
+                Intent intent = new Intent(this, OverlayService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent);
+                } else {
+                    startService(intent);
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     @Override

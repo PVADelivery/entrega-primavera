@@ -279,6 +279,19 @@ public class DeliveryOverlayPlugin extends Plugin {
                 .edit()
                 .putBoolean("is_online", Boolean.TRUE.equals(isOnline))
                 .apply();
+
+        if (Boolean.TRUE.equals(isOnline)) {
+            try {
+                Intent intent = new Intent(getContext(), OverlayService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    getContext().startForegroundService(intent);
+                } else {
+                    getContext().startService(intent);
+                }
+            } catch (Exception e) {
+                android.util.Log.w("DeliveryOverlayPlugin", "Erro ao iniciar OverlayService: " + e.getMessage());
+            }
+        }
         call.resolve();
     }
 

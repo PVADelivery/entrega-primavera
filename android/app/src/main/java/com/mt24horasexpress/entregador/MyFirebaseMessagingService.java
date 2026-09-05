@@ -29,9 +29,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "MyFirebaseMsgService";
 
-    // ── Deduplicação anti-rajada rápida apenas (3 segundos) ─────────────────
-    private static final long DEDUP_WINDOW_MS = 3_000;
-    private static final int MAX_TRACKED_ALERTS = 50;
+    // ── Deduplicação por corrida (30 minutos) para não repetir alerta em segundo plano ──────
+    private static final long DEDUP_WINDOW_MS = 30 * 60 * 1000L;
+    private static final int MAX_TRACKED_ALERTS = 200;
     private static final Map<String, Long> recentAlerts = Collections.synchronizedMap(
             new LinkedHashMap<String, Long>(32, 0.75f, true) {
                 @Override

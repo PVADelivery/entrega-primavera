@@ -30,6 +30,21 @@ import android.widget.TextView;
 
 import androidx.core.app.NotificationCompat;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 public class OverlayService extends Service {
 
     private static final String TAG = "OverlayService";
@@ -53,6 +68,178 @@ public class OverlayService extends Service {
 
     private String currentDeliveryId;
 
+    private static final String SUPABASE_URL = "https://owlbzwsdcognrgolvnzg.supabase.co";
+    private static final String SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bGJ6d3NkY29nbnJnb2x2bnpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTQ1NTMsImV4cCI6MjA5NTU3MDU1M30.R6-FUqubIr3uABzv1CS7jiS5cwygrNiIqk4oNbq7O44";
+
+    private ScheduledExecutorService pollingExecutor;
+
+    private static long parseIsoDate(String dateStr) {
+        if (dateStr == null || dateStr.trim().isEmpty()) return System.currentTimeMillis();
+        try {
+            String s = dateStr.trim().replace(" ", "T");
+            boolean hasTz = s.endsWith("Z") || s.contains("+") || (s.length() > 6 && (s.charAt(s.length() - 6) == '-' || s.charAt(s.length() - 3) == '-'));
+            if (hasTz) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    return java.time.Instant.parse(s).toEpochMilli();
+                } else {
+                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+                    sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                    return sdf.parse(s.substring(0, Math.min(19, s.length()))).getTime();
+                }
+            } else {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+                return sdf.parse(s.substring(0, Math.min(19, s.length()))).getTime();
+            }
+        } catch (Exception e) {
+            return System.currentTimeMillis();
+        }
+    }
+
+    private void startBackgroundPolling() {
+        if (pollingExecutor != null && !pollingExecutor.isShutdown()) return;
+        pollingExecutor = Executors.newSingleThreadScheduledExecutor();
+        pollingExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                pollSupabaseDeliveries();
+            } catch (Exception e) {
+                Log.w(TAG, "Erro no polling nativo de segundo plano: " + e.getMessage());
+            }
+        }, 2, 5, TimeUnit.SECONDS);
+        Log.i(TAG, "Polling nativo continuo iniciado (5s).");
+    }
+
+    private void stopBackgroundPolling() {
+        if (pollingExecutor != null) {
+            try {
+                pollingExecutor.shutdownNow();
+            } catch (Exception ignored) {}
+            pollingExecutor = null;
+        }
+    }
+
+    private void pollSupabaseDeliveries() {
+        boolean driverOnline = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean("is_online", true);
+        if (!driverOnline) return;
+
+        String userToken = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+                .getString("user_token", "");
+        String myDriverId = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+                .getString("driver_id", "");
+
+        HttpURLConnection conn = null;
+        try {
+            String endpoint = SUPABASE_URL + "/rest/v1/deliveries"
+                    + "?select=id,short_id,customer_name,address,delivery_address,pickup_address,value,price,delivery_fee,commission,status,driver_id,created_at,company_name,companies(name,address)"
+                    + "&status=in.(pending,broadcasted)"
+                    + "&order=created_at.desc"
+                    + "&limit=10";
+
+            URL url = new URL(endpoint);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("apikey", SUPABASE_ANON_KEY);
+            conn.setRequestProperty("Authorization", "Bearer " + (userToken != null && !userToken.isEmpty() ? userToken : SUPABASE_ANON_KEY));
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setConnectTimeout(6000);
+            conn.setReadTimeout(6000);
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode != 200) {
+                return;
+            }
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = in.readLine()) != null) {
+                sb.append(line);
+            }
+            in.close();
+
+            JSONArray array = new JSONArray(sb.toString());
+
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject item = array.getJSONObject(i);
+                String id = item.optString("id", "");
+                if (id.isEmpty()) continue;
+
+                String status = item.optString("status", "").toLowerCase();
+                String driverId = item.optString("driver_id", "");
+                String createdAt = item.optString("created_at", "");
+
+                // Se atribuida a outro entregador, ignora
+                if (!driverId.isEmpty() && !"none".equalsIgnoreCase(driverId) && !"00000000-0000-0000-0000-000000000000".equals(driverId)) {
+                    if (!myDriverId.isEmpty() && !myDriverId.equalsIgnoreCase(driverId)) {
+                        continue;
+                    }
+                }
+
+                String storeName = "";
+                JSONObject compObj = item.optJSONObject("companies");
+                if (compObj != null) {
+                    storeName = compObj.optString("name", "");
+                }
+                if (storeName.isEmpty()) storeName = item.optString("company_name", "");
+                if (storeName.isEmpty()) storeName = "MT 24 Horas Express";
+
+                String pickup = item.optString("pickup_address", "");
+                if (pickup.isEmpty()) pickup = "Retirada na Loja";
+
+                String dropoff = item.optString("delivery_address", "");
+                if (dropoff.isEmpty()) dropoff = item.optString("address", "Endereço do cliente");
+
+                String rawFee = item.optString("commission", "");
+                if (rawFee.isEmpty() || "0".equals(rawFee)) rawFee = item.optString("delivery_fee", "");
+                if (rawFee.isEmpty() || "0".equals(rawFee)) rawFee = item.optString("price", "");
+                if (rawFee.isEmpty() || "0".equals(rawFee)) rawFee = item.optString("value", "10");
+
+                String feeFormatted = "R$ " + rawFee;
+                try {
+                    double val = Double.parseDouble(rawFee.replace(",", "."));
+                    if (item.isNull("commission") || item.optDouble("commission", 0) <= 0) {
+                        val = val * 0.75;
+                    }
+                    feeFormatted = String.format(Locale.US, "R$ %.2f", val).replace(".", ",");
+                } catch (Exception ignored) {}
+
+                String details = "🏬 Loja: " + storeName
+                        + "\n📍 Coleta: " + pickup
+                        + "\n🏁 Entrega: " + dropoff
+                        + "\n💰 Ganhos: " + feeFormatted;
+
+                // 1. Se atribuida diretamente para mim: alerta IMEDIATO
+                boolean isAssignedToMe = !driverId.isEmpty() && !myDriverId.isEmpty() && myDriverId.equalsIgnoreCase(driverId);
+                if (isAssignedToMe) {
+                    MyFirebaseMessagingService.postDeliveryNotification(OverlayService.this, id, storeName, pickup, dropoff, feeFormatted, details);
+                    continue;
+                }
+
+                // 2. Se transmitida para todos pelo Admin ('broadcasted'): alerta IMEDIATO
+                if ("broadcasted".equals(status)) {
+                    MyFirebaseMessagingService.postDeliveryNotification(OverlayService.this, id, storeName, pickup, dropoff, feeFormatted, details);
+                    continue;
+                }
+
+                // 3. Status pending sem atribuicao direta: REGRA DOS 2 MINUTOS DO ADMIN
+                long createdAtMs = parseIsoDate(createdAt);
+                long elapsed = System.currentTimeMillis() - createdAtMs;
+                if (elapsed >= 120_000) {
+                    MyFirebaseMessagingService.postDeliveryNotification(OverlayService.this, id, storeName, pickup, dropoff, feeFormatted, details);
+                } else {
+                    long remainingMs = Math.max(1000, 120_000 - elapsed);
+                    MyFirebaseMessagingService.scheduleAlarmManager(OverlayService.this, id, storeName, pickup, dropoff, feeFormatted, details, remainingMs);
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Polling nativo falhou: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                try { conn.disconnect(); } catch (Exception ignored) {}
+            }
+        }
+    }
+
     @Override
     public IBinder onBind(Intent intent) {
         return null;
@@ -64,12 +251,15 @@ public class OverlayService extends Service {
         instance = this;
         startForegroundNotification();
         acquireKeepAliveLocks();
+        startBackgroundPolling();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         instance = this;
         startForegroundNotification();
+        acquireKeepAliveLocks();
+        startBackgroundPolling();
         ensureOverlayView();
 
         if (intent != null) {
@@ -351,6 +541,7 @@ public class OverlayService extends Service {
     public void onDestroy() {
         super.onDestroy();
         instance = null;
+        stopBackgroundPolling();
 
         // Libera WakeLock
         try {
@@ -387,5 +578,19 @@ public class OverlayService extends Service {
             } catch (Exception e) { /* ignore */ }
             floatingView = null;
         }
+
+        // Se o entregador ainda estiver marcado como online, reativa o serviço imediatamente
+        try {
+            boolean isOnline = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+                    .getBoolean("is_online", false);
+            if (isOnline) {
+                Intent restartIntent = new Intent(getApplicationContext(), OverlayService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    getApplicationContext().startForegroundService(restartIntent);
+                } else {
+                    getApplicationContext().startService(restartIntent);
+                }
+            }
+        } catch (Exception ignored) {}
     }
 }
