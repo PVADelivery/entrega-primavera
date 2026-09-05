@@ -219,10 +219,16 @@ serve(async (req) => {
           apns: {
             headers: {
               "apns-priority": "10",
-              "apns-push-type": "background"
+              "apns-push-type": "alert"
             },
             payload: {
               aps: {
+                alert: {
+                  title: pushTitle,
+                  body: `${dropoffAddr}\nGanhos: ${feeText}`
+                },
+                sound: "ring.wav",
+                badge: 1,
                 "content-available": 1
               }
             }

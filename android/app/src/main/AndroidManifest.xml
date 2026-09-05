@@ -29,26 +29,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-        <service
-            android:name=".OverlayService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Alerta sonoro e visual em segundo plano para novos pedidos recebidos pelos entregadores parceiros." />
-        </service>
-        <activity
-            android:name=".IncomingCallActivity"
-            android:theme="@style/Theme.IncomingCallDialog"
-            android:showOnLockScreen="true"
-            android:turnScreenOn="true"
-            android:showWhenLocked="true"
-            android:screenOrientation="portrait"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTask"
-            android:taskAffinity="com.mt24horasexpress.entregador.incoming"
-            android:exported="false"
-        />
+
 
         <!-- Firebase Cloud Messaging: recebe push em background e com app fechado -->
         <service
@@ -104,11 +85,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

@@ -73,10 +73,6 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         isForeground = true;
-        // DENTRO DO APP: O motoboy aceita/recusa pela própria tela do app. O popup flutuante deve permanecer fechado.
-        if (OverlayService.instance != null) {
-            OverlayService.instance.hideDeliveryCard(null);
-        }
     }
 
     @Override

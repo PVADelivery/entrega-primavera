@@ -121,11 +121,8 @@ export function DriverHeader() {
         Notification.requestPermission().catch(() => {});
       }
       startLocationTracking();
-      DeliveryOverlay.requestOverlayPermission().catch(() => {});
-      DeliveryOverlay.startOverlay().catch(() => {});
     } else {
       stopLocationTracking();
-      DeliveryOverlay.stopOverlay().catch(() => {});
     }
     setOnline(value);
     if (typeof window !== "undefined") {

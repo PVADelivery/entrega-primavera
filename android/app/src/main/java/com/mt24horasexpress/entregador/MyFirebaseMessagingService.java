@@ -77,12 +77,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
         NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.cancel(hashId(deliveryId));
-        if (OverlayService.instance != null) {
-            OverlayService.instance.hideDeliveryCard(deliveryId);
-        }
-        if (IncomingCallActivity.instance != null) {
-            IncomingCallActivity.instance.runOnUiThread(() -> IncomingCallActivity.instance.finish());
-        }
+
     }
 
     /**
@@ -103,12 +98,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
         NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.cancel(hashId(deliveryId));
-        if (OverlayService.instance != null) {
-            OverlayService.instance.hideDeliveryCard(deliveryId);
-        }
-        if (IncomingCallActivity.instance != null) {
-            IncomingCallActivity.instance.runOnUiThread(() -> IncomingCallActivity.instance.finish());
-        }
+
     }
 
     private static int hashId(String str) {
@@ -310,7 +300,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                         Log.d(TAG, "Alerta agendado cancelado: motorista offline.");
                         return;
                     }
-                    Log.d(TAG, "Janela de 2 min do Admin concluída para " + fDeliveryId + ". Disparando alerta e card flutuante!");
+                    Log.d(TAG, "Janela de 2 min do Admin concluída para " + fDeliveryId + ". Disparando alerta na central!");
                     triggerDeliveryAlert(fDeliveryId, fStoreName, fPickup, fDropoff, fFee, fDetails);
                 }
             };
@@ -422,31 +412,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 Log.w(TAG, "Falha ao acionar NativeSoundPlayer: " + eAudio.getMessage());
             }
 
-            // Exibe o Card Flutuante Branco sobre outros apps (Overlay) APENAS SE o app NÃO estiver em primeiro plano
-            if (!MainActivity.isForeground) {
-                try {
-                    if (OverlayService.instance != null) {
-                        OverlayService.instance.showDeliveryCard(deliveryId, finalStoreName, pickup, dropoff, fee);
-                    } else {
-                        Intent overlayIntent = new Intent(this, OverlayService.class);
-                        overlayIntent.setAction(OverlayService.ACTION_SHOW_DELIVERY);
-                        overlayIntent.putExtra("deliveryId", deliveryId);
-                        overlayIntent.putExtra("storeName", finalStoreName);
-                        overlayIntent.putExtra("pickup", pickup);
-                        overlayIntent.putExtra("dropoff", dropoff);
-                        overlayIntent.putExtra("fee", fee);
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            startForegroundService(overlayIntent);
-                        } else {
-                            startService(overlayIntent);
-                        }
-                    }
-                } catch (Exception eOverlay) {
-                    Log.w(TAG, "Falha ao acionar overlay flutuante: " + eOverlay.getMessage());
-                }
-            } else {
-                Log.d(TAG, "App em primeiro plano: popup flutuante suprimido para o entregador aceitar na lista do app.");
-            }
+
         } catch (Exception e) {
             Log.e(TAG, "Erro na notificação: " + e.getMessage());
         }

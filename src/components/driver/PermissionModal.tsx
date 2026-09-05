@@ -1,17 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Bell, Layers, CheckCircle, BatteryCharging } from "lucide-react";
+import { Bell, CheckCircle } from "lucide-react";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
-import { Capacitor } from "@capacitor/core";
-import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function PermissionModal() {
   const { user, loading } = useAuth();
   const [open, setOpen] = useState(false);
-  const [needsOverlay, setNeedsOverlay] = useState(false);
-  const [needsNotification, setNeedsNotification] = useState(false);
 
   const checkPermissions = useCallback(async () => {
     // SOMENTE após login confirmado
@@ -22,49 +18,29 @@ export function PermissionModal() {
 
     const dismissedKey = `mt24_permissions_dismissed_${user.id}`;
     if (typeof window !== "undefined" && localStorage.getItem(dismissedKey) === "true") {
+      setOpen(false);
       return;
     }
 
-    let overlayMissing = false;
+    // Checagem de notificações na central
     let notifMissing = false;
-
-    // Checagem em ambiente nativo Android (Capacitor)
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const { granted } = await DeliveryOverlay.checkOverlayPermission();
-        overlayMissing = !granted;
-      } catch (e) {
-        console.warn("[PermissionModal] Erro ao verificar overlay:", e);
-      }
-    }
-
-    // Checagem de notificações
     if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission !== "granted") {
         notifMissing = true;
       }
     }
 
-    setNeedsOverlay(overlayMissing);
-    setNeedsNotification(notifMissing);
-
-    // Abre apenas se houver pelo menos uma permissão pendente
-    if (overlayMissing || notifMissing) {
-      setOpen(true);
-    } else {
-      setOpen(false);
-    }
+    // Abre apenas se a notificação na central não estiver concedida
+    setOpen(notifMissing);
   }, [user, loading]);
 
   useEffect(() => {
-    // Aguarda o entregador carregar o painel após o login antes de avaliar permissões
     if (!user || loading) return;
 
     const timer = setTimeout(() => {
       checkPermissions();
     }, 1200);
 
-    // Re-avalia quando o motoboy volta das configurações do Android
     const onWindowFocus = () => {
       checkPermissions();
     };
@@ -84,17 +60,6 @@ export function PermissionModal() {
   };
 
   const handleGrantPermissions = async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        // Solicita permissão para desenhar sobre outros apps (Waze/Maps)
-        await DeliveryOverlay.requestOverlayPermission();
-        // Solicita isenção de otimização de bateria
-        await DeliveryOverlay.requestBatteryOptimizationExemption({ prompt: true });
-      } catch (e) {
-        console.warn("[PermissionModal] Erro ao solicitar permissões nativas:", e);
-      }
-    }
-
     try {
       if ("Notification" in window && Notification.permission !== "granted") {
         await Notification.requestPermission();
@@ -109,8 +74,7 @@ export function PermissionModal() {
     setOpen(false);
   };
 
-  // Se o entregador não estiver logado, não renderiza absolutamente nada
-  if (!user || loading) {
+  if (!user || loading || !open) {
     return null;
   }
 
@@ -122,55 +86,22 @@ export function PermissionModal() {
             <img src={iconPrimavera} alt="MT 24 Horas Express" className="h-10 w-10 object-contain" />
           </div>
           <DialogTitle className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            Configurar Alertas de Corridas
+            Notificações de Corridas
           </DialogTitle>
           <DialogDescription className="text-xs text-slate-400 mt-1">
-            Para receber chamadas com som alto e botões de Aceitar/Recusar enquanto utiliza outros apps, ative os recursos abaixo:
+            Ative as notificações para ser alertado na central do aparelho com som alto e opções de Aceitar/Recusar quando surgirem novas entregas.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3.5 my-3">
-          {/* Card 1: Aparecer sobre Outros Apps */}
-          <div className={`flex items-start gap-3 p-3.5 rounded-2xl border ${needsOverlay ? 'bg-blue-500/10 border-blue-500/30' : 'bg-slate-900/60 border-slate-800 opacity-75'}`}>
-            <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 shrink-0 mt-0.5">
-              <Layers className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-blue-300">Aparecer Sobre Outros Apps</h4>
-                {!needsOverlay && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">Ativo</span>}
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed mt-0.5">
-                Exibe o alerta flutuante da corrida por cima do Waze, Google Maps ou tela bloqueada.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 2: Alertas Sonoros e Notificações */}
-          <div className={`flex items-start gap-3 p-3.5 rounded-2xl border ${needsNotification ? 'bg-amber-500/10 border-amber-500/30' : 'bg-slate-900/60 border-slate-800 opacity-75'}`}>
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl border bg-amber-500/10 border-amber-500/30">
             <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
               <Bell className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-bold text-amber-300">Alertas Sonoros</h4>
-                {!needsNotification && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">Ativo</span>}
-              </div>
+              <h4 className="text-sm font-bold text-amber-300">Alertas na Central do Aparelho</h4>
               <p className="text-xs text-slate-400 leading-relaxed mt-0.5">
-                Emite o som contínuo para você ser avisado imediatamente quando entrar uma nova corrida.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 3: Otimização de Bateria */}
-          <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-900/40 border border-slate-800/80">
-            <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 shrink-0 mt-0.5">
-              <BatteryCharging className="h-4 w-4" />
-            </div>
-            <div>
-              <h4 className="text-xs font-semibold text-slate-300">Manter Alertas Ativos em 2º Plano</h4>
-              <p className="text-[11px] text-slate-400 leading-snug mt-0.5">
-                Evita que o sistema Android suspenda o aplicativo enquanto a tela estiver desligada.
+                Receba chamadas com som e botões de Aceitar/Recusar diretamente na barra de notificações e na tela de bloqueio.
               </p>
             </div>
           </div>
@@ -181,7 +112,7 @@ export function PermissionModal() {
             onClick={handleGrantPermissions}
             className="w-full h-14 rounded-2xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-[0_0_25px_rgba(234,179,8,0.4)] transition-all active:scale-[0.98]"
           >
-            <CheckCircle className="h-5 w-5 mr-2" /> Ativar Permissões Agora
+            <CheckCircle className="h-5 w-5 mr-2" /> Ativar Notificações
           </Button>
           <Button
             variant="ghost"

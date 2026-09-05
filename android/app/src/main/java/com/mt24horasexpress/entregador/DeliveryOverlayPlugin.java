@@ -114,30 +114,13 @@ public class DeliveryOverlayPlugin extends Plugin {
 
     @PluginMethod
     public void requestOverlayPermission(PluginCall call) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(getContext())) {
-            try {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:" + getContext().getPackageName()));
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                if (getActivity() != null) {
-                    getActivity().startActivity(intent);
-                } else {
-                    getContext().startActivity(intent);
-                }
-            } catch (Exception e) {
-                android.util.Log.e("DeliveryOverlayPlugin", "Erro ao abrir tela de permissao: " + e.getMessage());
-            }
-            call.resolve();
-        } else {
-            call.resolve();
-        }
+        call.resolve();
     }
 
     @PluginMethod
     public void checkOverlayPermission(PluginCall call) {
-        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(getContext());
         JSObject ret = new JSObject();
-        ret.put("granted", granted);
+        ret.put("granted", true);
         call.resolve(ret);
     }
 
@@ -170,26 +153,13 @@ public class DeliveryOverlayPlugin extends Plugin {
 
     @PluginMethod
     public void startOverlay(PluginCall call) {
-        Intent intent = new Intent(getContext(), OverlayService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getContext().startForegroundService(intent);
-        } else {
-            getContext().startService(intent);
-        }
         JSObject ret = new JSObject();
-        boolean canOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
-                || Settings.canDrawOverlays(getContext());
         ret.put("success", true);
-        if (!canOverlay) {
-            ret.put("reason", "Permissão de sobreposição não concedida (serviço ativo mesmo assim).");
-        }
         call.resolve(ret);
     }
 
     @PluginMethod
     public void stopOverlay(PluginCall call) {
-        Intent intent = new Intent(getContext(), OverlayService.class);
-        getContext().stopService(intent);
         call.resolve();
     }
 
@@ -280,37 +250,11 @@ public class DeliveryOverlayPlugin extends Plugin {
 
     @PluginMethod
     public void showDeliveryCard(PluginCall call) {
-        String deliveryId = call.getString("deliveryId", "");
-        String storeName  = call.getString("storeName", "Nova Corrida");
-        String pickup     = call.getString("pickup", "Retirada na Loja");
-        String dropoff    = call.getString("dropoff", "Endereço do cliente");
-        String fee        = call.getString("fee", "");
-
-        if (OverlayService.instance != null) {
-            OverlayService.instance.showDeliveryCard(deliveryId, storeName, pickup, dropoff, fee);
-        } else {
-            Intent intent = new Intent(getContext(), OverlayService.class);
-            intent.setAction(OverlayService.ACTION_SHOW_DELIVERY);
-            intent.putExtra("deliveryId", deliveryId);
-            intent.putExtra("storeName", storeName);
-            intent.putExtra("pickup", pickup);
-            intent.putExtra("dropoff", dropoff);
-            intent.putExtra("fee", fee);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                getContext().startForegroundService(intent);
-            } else {
-                getContext().startService(intent);
-            }
-        }
         call.resolve();
     }
 
     @PluginMethod
     public void hideDeliveryCard(PluginCall call) {
-        String deliveryId = call.getString("deliveryId", "");
-        if (OverlayService.instance != null) {
-            OverlayService.instance.hideDeliveryCard(deliveryId);
-        }
         call.resolve();
     }
 
