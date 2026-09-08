@@ -76,9 +76,8 @@ function DeliveriesPage() {
         const { data, error } = await (supabase as any)
           .from("ride_requests")
           .select("*")
-          .not("status", "in", '("completed","cancelled","concluida","cancelada","finished")')
           .order("created_at", { ascending: false })
-          .limit(20);
+          .limit(50);
         if (error) return [];
         const rides = (data ?? []) as any[];
 

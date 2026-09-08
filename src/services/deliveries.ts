@@ -714,22 +714,21 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
   const ids = Array.from(new Set([driverId, userId].filter(Boolean))) as string[];
   if (ids.length === 0) return [];
 
-  const activeStatuses = ["accepted", "collecting", "in_transit", "in_route", "picked_up"];
+  const finishedStatuses = ["completed", "delivered", "cancelled", "returned", "concluida", "cancelada", "finished"];
 
   const { data, error } = await supabase
     .from("deliveries")
     .select("*")
     .in("driver_id", ids)
-    .in("status", activeStatuses)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(30);
 
   if (error) throw error;
 
   const resolvedData = await resolveDeliveryCompanies(data ?? []);
 
   return resolvedData
-    .filter((d: any) => !["completed", "delivered", "cancelled", "returned"].includes(d.status))
+    .filter((d: any) => !finishedStatuses.includes(String(d.status || "").toLowerCase()))
     .map((d: any) => {
       // Resolve nome do cliente se estiver mascarado
       const isMasked = !d.customer_name || d.customer_name === "Cliente" || d.customer_name === "XXXXXXXX" || /^X+$/.test(d.customer_name);
@@ -749,6 +748,7 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
       };
     });
 }
+
 
 
 export async function fetchMyHistory(driverId?: string | null, userId?: string | null) {

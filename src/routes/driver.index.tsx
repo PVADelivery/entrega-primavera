@@ -235,9 +235,8 @@ function DriverHome() {
         const { data, error } = await (supabase as any)
           .from("ride_requests")
           .select("*")
-          .not("status", "in", '("completed","cancelled","concluida","cancelada","finished")')
           .order("created_at", { ascending: false })
-          .limit(30);
+          .limit(50);
 
         if (error) {
           console.error("[availableRides] Erro ao buscar corridas:", error);
@@ -285,9 +284,8 @@ function DriverHome() {
         const { data, error } = await (supabase as any)
           .from("ride_requests")
           .select("*")
-          .not("status", "in", '("completed","cancelled","concluida","cancelada","finished")')
           .order("created_at", { ascending: false })
-          .limit(20);
+          .limit(50);
 
         if (error) {
           console.error("[activeRides] Erro ao buscar corridas atribuídas:", error);
