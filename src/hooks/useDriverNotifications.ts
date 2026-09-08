@@ -537,7 +537,8 @@ export function useDriverNotifications() {
         }
       }
 
-      // Polling a cada 5s
+      // Polling contínuo removido: o aplicativo já conta com Supabase Realtime (WebSockets)
+      // para entrega instantânea e handleAppWakeup para reconexão ao voltar para o app.
       const pollDeliveries = async () => {
         const isNowOnline = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
         if (cancelled || !isNowOnline) return;
@@ -546,7 +547,8 @@ export function useDriverNotifications() {
             .from("deliveries")
             .select("*, companies(name, address)")
             .in("status", ["pending", "broadcasted"])
-            .is("driver_id", null);
+            .is("driver_id", null)
+            .limit(20);
           if (data && !cancelled) {
             const freshIds = new Set(data.map((d: any) => d.id));
             data.forEach((d: any) => notifyNewDelivery(d));
@@ -579,8 +581,6 @@ export function useDriverNotifications() {
           console.warn("[Notify] polling falhou:", e);
         }
       };
-
-      const intervalId = setInterval(pollDeliveries, 5000);
 
       const handleAppWakeup = () => {
         ensureRealtimeConnected();
@@ -650,7 +650,6 @@ export function useDriverNotifications() {
       channelsRef.current.push(broadcastChannel);
 
       return () => {
-        clearInterval(intervalId);
         window.removeEventListener("pageshow", handleAppWakeup);
         window.removeEventListener("focus", handleAppWakeup);
         window.removeEventListener("online", handleAppWakeup);

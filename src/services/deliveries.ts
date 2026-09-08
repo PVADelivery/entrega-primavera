@@ -90,6 +90,35 @@ export interface DeliveryWithRelations {
   [key: string]: any;
 }
 
+let cachedPricingData: { rules: any[]; regions: any[]; hoods: any[]; timestamp: number } | null = null;
+const PRICING_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos de cache em memória
+
+async function getCachedPricingData() {
+  const now = Date.now();
+  if (cachedPricingData && (now - cachedPricingData.timestamp < PRICING_CACHE_TTL_MS)) {
+    return cachedPricingData;
+  }
+  try {
+    const [rulesRes, regsRes, hoodsRes] = await Promise.all([
+      supabase.from("pricing_rules").select("*"),
+      supabase.from("regions").select("id, name, price, delivery_fee"),
+      supabase.from("region_neighborhoods").select("*"),
+    ]);
+    cachedPricingData = {
+      rules: rulesRes.data || [],
+      regions: regsRes.data || [],
+      hoods: hoodsRes.data || [],
+      timestamp: now,
+    };
+  } catch (e) {
+    console.warn("[deliveries] Falha ao carregar regras de preços:", e);
+    if (!cachedPricingData) {
+      cachedPricingData = { rules: [], regions: [], hoods: [], timestamp: now };
+    }
+  }
+  return cachedPricingData;
+}
+
 async function resolveDeliveryCompanies(rows: any[]) {
   if (rows.length === 0) return rows;
 
@@ -180,22 +209,8 @@ async function resolveDeliveryCompanies(rows: any[]) {
     }
   }
 
-  // Carregar regras de preços oficiais do Admin para fallback se valor estiver ausente no banco
-  let allPricingRules: any[] = [];
-  let allRegions: any[] = [];
-  let allHoods: any[] = [];
-  try {
-    const [rulesRes, regsRes, hoodsRes] = await Promise.all([
-      supabase.from("pricing_rules").select("*"),
-      supabase.from("regions").select("id, name, price, delivery_fee"),
-      supabase.from("region_neighborhoods").select("*"),
-    ]);
-    if (rulesRes.data) allPricingRules = rulesRes.data;
-    if (regsRes.data) allRegions = regsRes.data;
-    if (hoodsRes.data) allHoods = hoodsRes.data;
-  } catch (e) {
-    console.warn("[deliveries] Falha ao carregar regras de preços:", e);
-  }
+  // Carregar regras de preços do cache
+  const { rules: allPricingRules, regions: allRegions, hoods: allHoods } = await getCachedPricingData();
 
   return rows.map((row) => {
     const orderDetail = row.order_id ? orderDetails.get(row.order_id) : null;
@@ -643,29 +658,30 @@ export function useDeliveryTracking(orderId?: string | null) {
 }
 
 export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: string; vehicle?: string; service_types?: string[] } | null) {
+  // Filtragem direta no Postgres para evitar carregar todo o histórico do banco
+  const pendingStatuses = ["pending", "broadcasted", "pending_assignment", "created", "open", "em_aberto", "Pendente"];
+
   let { data, error } = await supabase
     .from("deliveries")
     .select("*, companies(name, phone)")
-    .order("created_at", { ascending: false });
+    .in("status", pendingStatuses)
+    .order("created_at", { ascending: false })
+    .limit(40);
 
   if (error || !data || data.length === 0) {
     const fb = await supabase
       .from("deliveries")
       .select("*")
-      .order("created_at", { ascending: false });
+      .in("status", pendingStatuses)
+      .order("created_at", { ascending: false })
+      .limit(40);
     if (!fb.error && fb.data) {
       data = fb.data;
     }
   }
 
-  // Filtragem flexível de status e entregador não atribuído (null, vazio ou 'none')
-  const validStatuses = ["pending", "broadcasted", "pending_assignment", "created", "open", "em_aberto", "Pendente"];
-
+  // Filtragem flexível de entregador não atribuído (null, vazio ou 'none')
   let list = (data ?? []).filter((d: any) => {
-    const st = String(d.status || "").toLowerCase();
-    const isValidStatus = validStatuses.includes(st) || validStatuses.includes(d.status);
-    if (!isValidStatus) return false;
-
     const isUnassigned = !d.driver_id || String(d.driver_id).trim() === "" || d.driver_id === "none" || d.driver_id === "00000000-0000-0000-0000-000000000000";
     if (!isUnassigned) return false;
 
@@ -698,11 +714,15 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
   const ids = Array.from(new Set([driverId, userId].filter(Boolean))) as string[];
   if (ids.length === 0) return [];
 
+  const activeStatuses = ["accepted", "collecting", "in_transit", "in_route", "picked_up"];
+
   const { data, error } = await supabase
     .from("deliveries")
     .select("*")
     .in("driver_id", ids)
-    .order("created_at", { ascending: false });
+    .in("status", activeStatuses)
+    .order("created_at", { ascending: false })
+    .limit(20);
 
   if (error) throw error;
 

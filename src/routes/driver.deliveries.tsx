@@ -76,7 +76,9 @@ function DeliveriesPage() {
         const { data, error } = await (supabase as any)
           .from("ride_requests")
           .select("*")
-          .order("created_at", { ascending: false });
+          .not("status", "in", '("completed","cancelled","concluida","cancelada","finished")')
+          .order("created_at", { ascending: false })
+          .limit(20);
         if (error) return [];
         const rides = (data ?? []) as any[];
 
@@ -92,8 +94,7 @@ function DeliveriesPage() {
       }
     },
     enabled: true,
-    refetchInterval: 2000,
-    staleTime: 500,
+    staleTime: 5000,
   });
 
   const history = useQuery({
@@ -110,7 +111,9 @@ function DeliveriesPage() {
         const { data, error } = await (supabase as any)
           .from("ride_requests")
           .select("*")
-          .order("created_at", { ascending: false });
+          .in("status", ["completed", "cancelled", "concluida", "cancelada", "finished"])
+          .order("created_at", { ascending: false })
+          .limit(40);
         if (error) return [];
         const rides = (data ?? []) as any[];
 
