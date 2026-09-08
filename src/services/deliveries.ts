@@ -658,30 +658,38 @@ export function useDeliveryTracking(orderId?: string | null) {
 }
 
 export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: string; vehicle?: string; service_types?: string[] } | null) {
-  // Filtragem direta no Postgres para evitar carregar todo o histórico do banco
-  const pendingStatuses = ["pending", "broadcasted", "pending_assignment", "created", "open", "em_aberto", "Pendente"];
+  const pendingStatuses = ["pending", "broadcasted", "pending_assignment", "created", "open", "em_aberto", "pendente"];
 
-  let { data, error } = await supabase
+  // Busca sem filtro de status no banco (evita HTTP 400 por incompatibilidade de tipo)
+  // Filtragem feita em JavaScript depois
+  let data: any[] | null = null;
+
+  const q1 = await supabase
     .from("deliveries")
     .select("*, companies(name, phone)")
-    .in("status", pendingStatuses)
     .order("created_at", { ascending: false })
-    .limit(40);
+    .limit(60);
 
-  if (error || !data || data.length === 0) {
-    const fb = await supabase
+  if (!q1.error && q1.data && q1.data.length > 0) {
+    data = q1.data;
+  } else {
+    const q2 = await supabase
       .from("deliveries")
       .select("*")
-      .in("status", pendingStatuses)
       .order("created_at", { ascending: false })
-      .limit(40);
-    if (!fb.error && fb.data) {
-      data = fb.data;
+      .limit(60);
+    if (!q2.error && q2.data) {
+      data = q2.data;
     }
   }
 
+  // Filtra status pendentes em JS
+  const pending = (data ?? []).filter((d: any) =>
+    pendingStatuses.includes(String(d.status || "").toLowerCase())
+  );
+
   // Filtragem flexível de entregador não atribuído (null, vazio ou 'none')
-  let list = (data ?? []).filter((d: any) => {
+  let list = pending.filter((d: any) => {
     const isUnassigned = !d.driver_id || String(d.driver_id).trim() === "" || d.driver_id === "none" || d.driver_id === "00000000-0000-0000-0000-000000000000";
     if (!isUnassigned) return false;
 
@@ -709,6 +717,7 @@ export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: str
   const resolved = await resolveDeliveryCompanies(list);
   return resolved.map((d: any) => ({ ...d, status: toAppStatus(d.status) }));
 }
+
 
 export async function fetchMyActiveDeliveries(driverId?: string | null, userId?: string | null) {
   const ids = Array.from(new Set([driverId, userId].filter(Boolean))) as string[];
