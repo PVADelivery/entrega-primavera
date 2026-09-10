@@ -1130,14 +1130,18 @@ export async function fetchEarnings(driverId: string) {
   const { data: rides, error: ridesError } = await supabase
     .from("ride_requests")
     .select("price, created_at, updated_at")
-    .eq("driver_id", driverId)
+    .in("driver_id", ids)
     .eq("status", "completed");
 
   const now = new Date();
   const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const startWeek = startDay - now.getDay() * 86400000;
   const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  let day = 0, week = 0, month = 0, total = 0, count = 0;
+  let day = 0, week = 0, month = 0, total = 0;
+  let count = 0; // Entregas/corridas do dia
+  let totalCount = 0;
+  let weekCount = 0;
+  let monthCount = 0;
 
   // Processa Entregas (deliveries)
   for (const r of deliveries ?? []) {
@@ -1150,10 +1154,19 @@ export async function fetchEarnings(driverId: string) {
     const c = fee * 0.75;
     
     total += c;
-    count += 1;
-    if (t >= startMonth) month += c;
-    if (t >= startWeek) week += c;
-    if (t >= startDay) day += c;
+    totalCount += 1;
+    if (t >= startMonth) {
+      month += c;
+      monthCount += 1;
+    }
+    if (t >= startWeek) {
+      week += c;
+      weekCount += 1;
+    }
+    if (t >= startDay) {
+      day += c;
+      count += 1; // Contabiliza apenas as entregas do dia
+    }
   }
 
   // Processa Corridas de Táxi/Moto Táxi (se existirem)
@@ -1167,13 +1180,32 @@ export async function fetchEarnings(driverId: string) {
       const c = fee * 0.75; // 75% do valor da corrida
       
       total += c;
-      count += 1;
-      if (t >= startMonth) month += c;
-      if (t >= startWeek) week += c;
-      if (t >= startDay) day += c;
+      totalCount += 1;
+      if (t >= startMonth) {
+        month += c;
+        monthCount += 1;
+      }
+      if (t >= startWeek) {
+        week += c;
+        weekCount += 1;
+      }
+      if (t >= startDay) {
+        day += c;
+        count += 1; // Contabiliza apenas as corridas do dia
+      }
     }
   }
 
-  const result = { day, week, month, total, count };
+  const result = {
+    day,
+    week,
+    month,
+    total,
+    count, // Entregas do dia
+    dayCount: count,
+    weekCount,
+    monthCount,
+    totalCount,
+  };
   return result;
 }
