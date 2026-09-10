@@ -20,11 +20,7 @@ public class BootReceiver extends BroadcastReceiver {
                     .getBoolean("is_online", false);
             if (isOnline) {
                 Intent serviceIntent = new Intent(context, OverlayService.class);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(serviceIntent);
-                } else {
-                    context.startService(serviceIntent);
-                }
+                context.startService(serviceIntent);
                 Log.d(TAG, "OverlayService iniciado com sucesso no BootReceiver.");
             }
         } catch (Exception e) {

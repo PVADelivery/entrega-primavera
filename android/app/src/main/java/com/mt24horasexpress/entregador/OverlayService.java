@@ -249,7 +249,8 @@ public class OverlayService extends Service {
     public void onCreate() {
         super.onCreate();
         instance = this;
-        startForegroundNotification();
+        // Dispara notificação regular informativa (sem foreground service para o Play Console)
+        startBackgroundNotification();
         acquireKeepAliveLocks();
         startBackgroundPolling();
     }
@@ -257,7 +258,7 @@ public class OverlayService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         instance = this;
-        startForegroundNotification();
+        startBackgroundNotification();
         acquireKeepAliveLocks();
         startBackgroundPolling();
         ensureOverlayView();
@@ -424,7 +425,7 @@ public class OverlayService extends Service {
         });
     }
 
-    private void startForegroundNotification() {
+    private void startBackgroundNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (nm != null) {
@@ -460,7 +461,12 @@ public class OverlayService extends Service {
                 .setDefaults(0)
                 .build();
 
-        startForeground(FG_NOTIF_ID, notification);
+        // Posta como notificação regular (sem foreground service)
+        // FCM via MyFirebaseMessagingService é o mecanismo principal para entregas em background
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (nm != null) {
+            nm.notify(FG_NOTIF_ID, notification);
+        }
     }
 
     private void acquireKeepAliveLocks() {
@@ -527,8 +533,6 @@ public class OverlayService extends Service {
             Intent restart = new Intent(getApplicationContext(), OverlayService.class);
             restart.setAction(ACTION_KEEP_ALIVE);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                getApplicationContext().startForegroundService(restart);
-            } else {
                 getApplicationContext().startService(restart);
             }
         } catch (Exception e) {
@@ -586,8 +590,6 @@ public class OverlayService extends Service {
             if (isOnline) {
                 Intent restartIntent = new Intent(getApplicationContext(), OverlayService.class);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    getApplicationContext().startForegroundService(restartIntent);
-                } else {
                     getApplicationContext().startService(restartIntent);
                 }
             }

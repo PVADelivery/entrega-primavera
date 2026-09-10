@@ -99,11 +99,7 @@ public class MainActivity extends BridgeActivity {
                     .getBoolean("is_online", false);
             if (isOnline && OverlayService.instance == null) {
                 Intent intent = new Intent(this, OverlayService.class);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(intent);
-                } else {
-                    startService(intent);
-                }
+                startService(intent);
             }
         } catch (Exception ignored) {}
     }

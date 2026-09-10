@@ -155,11 +155,7 @@ public class DeliveryOverlayPlugin extends Plugin {
     public void startOverlay(PluginCall call) {
         try {
             Intent intent = new Intent(getContext(), OverlayService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                getContext().startForegroundService(intent);
-            } else {
-                getContext().startService(intent);
-            }
+            getContext().startService(intent);
         } catch (Exception e) {
             android.util.Log.w("DeliveryOverlayPlugin", "Erro ao iniciar serviço em segundo plano: " + e.getMessage());
         }
@@ -283,11 +279,7 @@ public class DeliveryOverlayPlugin extends Plugin {
         if (Boolean.TRUE.equals(isOnline)) {
             try {
                 Intent intent = new Intent(getContext(), OverlayService.class);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    getContext().startForegroundService(intent);
-                } else {
-                    getContext().startService(intent);
-                }
+                getContext().startService(intent);
             } catch (Exception e) {
                 android.util.Log.w("DeliveryOverlayPlugin", "Erro ao iniciar OverlayService: " + e.getMessage());
             }
