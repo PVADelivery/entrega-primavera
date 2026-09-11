@@ -6,6 +6,11 @@ const config: CapacitorConfig = {
   webDir: 'dist/client',
   server: {
     url: 'https://entregador.mt24horasexpress.com/driver',
+    allowNavigation: [
+      'mt24horasexpress.com',
+      '*.mt24horasexpress.com',
+      'owlbzwsdcognrgolvnzg.supabase.co'
+    ],
     errorPath: 'error.html',
     cleartext: false,
     androidScheme: 'https'
