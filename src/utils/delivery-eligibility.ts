@@ -11,7 +11,8 @@ export const ADMIN_WINDOW_SECONDS = 0; // Notificação e disponibilização IME
  */
 export function isDeliveryEligibleForDriver(
   delivery: any,
-  currentDriverId?: string | null
+  currentDriverId?: string | null,
+  currentUserId?: string | null
 ): boolean {
   if (!delivery) return false;
 
@@ -22,13 +23,20 @@ export function isDeliveryEligibleForDriver(
     return false;
   }
 
+  const assignedId = delivery.driver_id ? String(delivery.driver_id).toLowerCase().trim() : "";
+  const isAssigned = Boolean(assignedId && assignedId !== "none" && assignedId !== "00000000-0000-0000-0000-000000000000");
+
+  const myIds = [currentDriverId, currentUserId]
+    .filter(Boolean)
+    .map((id) => String(id).toLowerCase().trim());
+
   // 1. Se atribuída para outro entregador específico, não oferece
-  if (delivery.driver_id && currentDriverId && String(delivery.driver_id).toLowerCase() !== String(currentDriverId).toLowerCase() && delivery.driver_id !== "none" && delivery.driver_id !== "00000000-0000-0000-0000-000000000000") {
+  if (isAssigned && myIds.length > 0 && !myIds.includes(assignedId)) {
     return false;
   }
 
   // 2. Se atribuída diretamente para o motorista logado pelo Admin: DISPONÍVEL E NOTIFICA IMEDIATAMENTE!
-  if (delivery.driver_id && currentDriverId && String(delivery.driver_id).toLowerCase() === String(currentDriverId).toLowerCase()) {
+  if (isAssigned && myIds.includes(assignedId)) {
     return true;
   }
 

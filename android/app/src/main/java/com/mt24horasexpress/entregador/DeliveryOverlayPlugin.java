@@ -186,12 +186,26 @@ public class DeliveryOverlayPlugin extends Plugin {
     @PluginMethod
     public void saveDriverContext(PluginCall call) {
         String driverId = call.getString("driverId", "");
+        String userId = call.getString("userId", "");
         String userToken = call.getString("userToken", "");
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit()
                 .putString("driver_id", driverId)
+                .putString("user_id", userId)
                 .putString("user_token", userToken)
                 .apply();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void postNotification(PluginCall call) {
+        String deliveryId = call.getString("deliveryId", "");
+        String storeName = call.getString("storeName", "");
+        String pickup = call.getString("pickup", "");
+        String dropoff = call.getString("dropoff", "");
+        String fee = call.getString("fee", "");
+        String details = call.getString("details", "");
+        MyFirebaseMessagingService.postDeliveryNotification(getContext(), deliveryId, storeName, pickup, dropoff, fee, details);
         call.resolve();
     }
 

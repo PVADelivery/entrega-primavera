@@ -19,7 +19,8 @@ export interface DeliveryOverlayPlugin {
   testIncomingCall(options: IncomingCallOptions): Promise<void>;
   updateIncomingCall(options: IncomingCallOptions): Promise<void>;
   reportCallResult(options: { success: boolean; message?: string }): Promise<void>;
-  saveDriverContext(options: { driverId: string; userToken: string }): Promise<void>;
+  saveDriverContext(options: { driverId: string; userId?: string; userToken: string }): Promise<void>;
+  postNotification(options: { deliveryId: string; storeName?: string; pickup?: string; dropoff?: string; fee?: string; details?: string }): Promise<void>;
   getPendingAcceptedDelivery(): Promise<{ deliveryId: string }>;
   getPendingFcmToken(): Promise<{ token: string }>;
   cancelDeliveryNotification(options: { deliveryId: string }): Promise<void>;
@@ -51,6 +52,7 @@ export const DeliveryOverlay: DeliveryOverlayPlugin = Capacitor.getPlatform() ==
       updateIncomingCall: async () => {},
       reportCallResult: async () => {},
       saveDriverContext: async () => {},
+      postNotification: async () => {},
       getPendingAcceptedDelivery: async () => ({ deliveryId: "" }),
       getPendingFcmToken: async () => ({ token: "" }),
       cancelDeliveryNotification: async () => {},

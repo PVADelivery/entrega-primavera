@@ -107,6 +107,7 @@ export function useDriverNotifications() {
   const activeAlertsRef = useRef<Set<string>>(new Set());
   const driverVehicleInfoRef = useRef<{ vehicle_type?: string; vehicle?: string; service_types?: string[] } | null>(null);
   const scheduledDeliveriesRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const driverRowRef = useRef<any>(null);
 
   // ── Permissões e registro FCM
   useEffect(() => {
@@ -126,6 +127,16 @@ export function useDriverNotifications() {
       try {
         LocalNotifications.requestPermissions().then((res) => {
           permissionRef.current = res.display === "granted" ? "granted" : "denied";
+        }).catch(() => {});
+
+        LocalNotifications.createChannel({
+          id: NOTIFICATION_CHANNEL_ID,
+          name: "Novas Corridas MT 24 Horas",
+          description: "Alerta de novas corridas disponíveis para entregadores MT 24 Horas",
+          sound: "ring.wav",
+          importance: 5,
+          visibility: 1,
+          vibration: true,
         }).catch(() => {});
       } catch (err) {
         console.warn("[LocalNotifications] Não suportado:", err);
@@ -167,6 +178,24 @@ export function useDriverNotifications() {
           PushNotifications.addListener("registrationError", (error: any) => {
             console.warn("[FCM] Erro no register:", error);
           }).then((handle) => { errListener = handle; }).catch(() => {});
+
+          PushNotifications.addListener("pushNotificationReceived", (notification) => {
+            console.log("[FCM] Push recebido em primeiro plano:", notification);
+            const d = notification?.data;
+            const deliveryId = d?.deliveryId || d?.delivery_id || d?.id;
+            if (deliveryId) {
+              seenIdsRef.current.delete(deliveryId);
+              notifyNewDelivery({
+                id: deliveryId,
+                status: d?.status || "pending",
+                company_name: d?.storeName || d?.company_name,
+                pickup_address: d?.pickup || d?.pickup_address,
+                delivery_address: d?.dropoff || d?.delivery_address,
+                delivery_fee: d?.fee,
+                driver_id: d?.driver_id,
+              });
+            }
+          }).then((handle) => { notifListener = handle; }).catch(() => {});
 
           PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
             console.log("[FCM] Push action performed:", action);
@@ -266,8 +295,9 @@ export function useDriverNotifications() {
       if (seenIdsRef.current.has(rawDelivery.id)) return;
 
       // Verifica se a corrida é elegível para o entregador (notificação imediata)
-      const currentDriverId = user?.id;
-      const isEligible = isDeliveryEligibleForDriver(rawDelivery, currentDriverId);
+      const currentDriverId = driverRowRef.current?.id || user?.id;
+      const currentUserId = user?.id;
+      const isEligible = isDeliveryEligibleForDriver(rawDelivery, currentDriverId, currentUserId);
       if (!isEligible) return;
 
       seenIdsRef.current.add(rawDelivery.id);
@@ -319,9 +349,21 @@ export function useDriverNotifications() {
       const description = `${storeName} • Retirada: ${pickup} → Entrega: ${dropoff}${feeText ? ` • Ganho: ${feeText}` : ""}`;
       const title = `🏬 ${storeName}${feeText ? ` — ${feeText}` : ""}`;
 
-      // DENTRO DO APP: NUNCA abrir popup/card flutuante e NUNCA exibir toast branco. O entregador vê a corrida diretamente no feed.
       if (Capacitor.isNativePlatform()) {
         DeliveryOverlay.playNativeAudio().catch(() => {});
+        // Posta na central de notificações nativa do Android
+        DeliveryOverlay.postNotification({
+          deliveryId: delivery.id,
+          storeName: storeName,
+          pickup: pickup,
+          dropoff: dropoff,
+          fee: feeText,
+          status: delivery.status || "pending",
+          driverId: delivery.driver_id || "",
+        }).catch((e) => {
+          console.warn("[DeliveryOverlay] postNotification erro:", e);
+        });
+
         LocalNotifications.schedule({
           notifications: [
             {
@@ -368,6 +410,7 @@ export function useDriverNotifications() {
       }
 
       if (cancelled) return;
+      driverRowRef.current = driverRow;
       const driverId = driverRow?.id || user.id;
       isOnlineRef.current = typeof driverRow?.is_online === "boolean" ? driverRow.is_online : localOnline;
       if (driverRow) {
@@ -383,7 +426,7 @@ export function useDriverNotifications() {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           const userToken = session?.access_token ?? "";
-          DeliveryOverlay.saveDriverContext({ driverId, userToken }).catch(() => {});
+          DeliveryOverlay.saveDriverContext({ driverId, userId: user.id, userToken }).catch(() => {});
           DeliveryOverlay.setDriverOnlineStatus({ isOnline: isOnlineRef.current }).catch(() => {});
         } catch (e) {}
 
@@ -452,7 +495,7 @@ export function useDriverNotifications() {
                 .update({ status: "accepted", driver_id: driverId })
                 .eq("id", deliveryId)
                 .in("status", ["pending", "broadcasted"])
-                .is("driver_id", null)
+                .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`)
                 .select("id");
 
               if (!error && data && data.length > 0) {
@@ -479,7 +522,7 @@ export function useDriverNotifications() {
             .from("deliveries")
             .select("*, companies(name, address)")
             .in("status", ["pending", "broadcasted"])
-            .is("driver_id", null);
+            .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`);
           if (initial && !cancelled) {
             initial.forEach((d: any) => notifyNewDelivery(d));
           }
@@ -488,8 +531,7 @@ export function useDriverNotifications() {
         }
       }
 
-      // Polling contínuo removido: o aplicativo já conta com Supabase Realtime (WebSockets)
-      // para entrega instantânea e handleAppWakeup para reconexão ao voltar para o app.
+      // Polling contínuo para manter sincronizado com o banco
       const pollDeliveries = async () => {
         const isNowOnline = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
         if (cancelled || !isNowOnline) return;
@@ -498,13 +540,13 @@ export function useDriverNotifications() {
             .from("deliveries")
             .select("*, companies(name, address)")
             .in("status", ["pending", "broadcasted"])
-            .is("driver_id", null)
+            .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`)
             .limit(20);
           if (data && !cancelled) {
             const freshIds = new Set(data.map((d: any) => d.id));
             data.forEach((d: any) => notifyNewDelivery(d));
 
-            // Limpa timers agendados de corridas que não estão mais pendentes (ex: canceladas pelo lojista)
+            // Limpa timers agendados de corridas que não estão mais pendentes
             scheduledDeliveriesRef.current.forEach((timer, id) => {
               if (!freshIds.has(id)) {
                 clearTimeout(timer);
@@ -562,7 +604,7 @@ export function useDriverNotifications() {
           (payload) => {
             invalidateDeliveries();
             const d = payload.new as any;
-            if (isOnlineRef.current && (d?.status === "pending" || d?.status === "broadcasted") && !d?.driver_id) {
+            if (isOnlineRef.current && (d?.status === "pending" || d?.status === "broadcasted")) {
               notifyNewDelivery(d);
             }
           }
@@ -579,14 +621,14 @@ export function useDriverNotifications() {
               stopRingingFor(d.id);
             }
 
-            if ((d?.status === "pending" || d?.status === "broadcasted") && !d?.driver_id) {
+            if (d?.status === "pending" || d?.status === "broadcasted") {
               if (isOnlineRef.current) {
                 seenIdsRef.current.delete(d.id);
                 notifyNewDelivery(d);
               }
             }
 
-            if (d?.driver_id === driverId && o?.status !== d?.status && d?.status === "accepted") {
+            if ((d?.driver_id === driverId || d?.driver_id === user.id) && o?.status !== d?.status && d?.status === "accepted") {
               toast("✅ Corrida confirmada!", { description: "Vá até o ponto de retirada." });
               activeAlertsRef.current.delete(d.id);
               if (activeAlertsRef.current.size === 0) {

@@ -7,6 +7,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
@@ -317,12 +318,15 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
         // ── REGRA DE ATRIBUIÇÃO DIRETA & ALERTA IMEDIATO (SEM ATRASO) ──────────────
         String driverIdInPayload = data.get("driver_id");
-        String myDriverId = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
-                .getString("driver_id", "");
+        SharedPreferences prefs = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE);
+        String myDriverId = prefs.getString("driver_id", "");
+        String myUserId = prefs.getString("user_id", "");
 
         // 1. Se atribuída diretamente a outro entregador específico, ignora
         if (driverIdInPayload != null && !driverIdInPayload.isEmpty() && !"none".equalsIgnoreCase(driverIdInPayload) && !"00000000-0000-0000-0000-000000000000".equals(driverIdInPayload)) {
-            if (myDriverId != null && !myDriverId.isEmpty() && !myDriverId.equalsIgnoreCase(driverIdInPayload)) {
+            boolean isForMe = (myDriverId != null && !myDriverId.isEmpty() && myDriverId.equalsIgnoreCase(driverIdInPayload))
+                    || (myUserId != null && !myUserId.isEmpty() && myUserId.equalsIgnoreCase(driverIdInPayload));
+            if (!isForMe && (!myDriverId.isEmpty() || !myUserId.isEmpty())) {
                 Log.d(TAG, "Corrida atribuída a outro motorista (" + driverIdInPayload + "). Ignorando.");
                 return;
             }
