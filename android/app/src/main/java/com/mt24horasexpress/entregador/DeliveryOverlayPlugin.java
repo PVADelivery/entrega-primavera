@@ -127,38 +127,12 @@ public class DeliveryOverlayPlugin extends Plugin {
     @PluginMethod
     public void requestBatteryOptimizationExemption(PluginCall call) {
         JSObject ret = new JSObject();
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                android.os.PowerManager pm = (android.os.PowerManager) getContext()
-                        .getSystemService(Context.POWER_SERVICE);
-                String pkg = getContext().getPackageName();
-                boolean ignoring = pm != null && pm.isIgnoringBatteryOptimizations(pkg);
-                ret.put("ignoring", ignoring);
-                Boolean prompt = call.getBoolean("prompt", false);
-                if (!ignoring && Boolean.TRUE.equals(prompt)) {
-                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                            Uri.parse("package:" + pkg));
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    getContext().startActivity(intent);
-                }
-            } else {
-                ret.put("ignoring", true);
-            }
-        } catch (Exception e) {
-            ret.put("ignoring", false);
-            ret.put("error", e.getMessage());
-        }
+        ret.put("ignoring", true);
         call.resolve(ret);
     }
 
     @PluginMethod
     public void startOverlay(PluginCall call) {
-        try {
-            Intent intent = new Intent(getContext(), OverlayService.class);
-            getContext().startService(intent);
-        } catch (Exception e) {
-            android.util.Log.w("DeliveryOverlayPlugin", "Erro ao iniciar serviço em segundo plano: " + e.getMessage());
-        }
         JSObject ret = new JSObject();
         ret.put("success", true);
         call.resolve(ret);
@@ -166,10 +140,6 @@ public class DeliveryOverlayPlugin extends Plugin {
 
     @PluginMethod
     public void stopOverlay(PluginCall call) {
-        try {
-            Intent intent = new Intent(getContext(), OverlayService.class);
-            getContext().stopService(intent);
-        } catch (Exception ignored) {}
         call.resolve();
     }
 
@@ -275,15 +245,6 @@ public class DeliveryOverlayPlugin extends Plugin {
                 .edit()
                 .putBoolean("is_online", Boolean.TRUE.equals(isOnline))
                 .apply();
-
-        if (Boolean.TRUE.equals(isOnline)) {
-            try {
-                Intent intent = new Intent(getContext(), OverlayService.class);
-                getContext().startService(intent);
-            } catch (Exception e) {
-                android.util.Log.w("DeliveryOverlayPlugin", "Erro ao iniciar OverlayService: " + e.getMessage());
-            }
-        }
         call.resolve();
     }
 

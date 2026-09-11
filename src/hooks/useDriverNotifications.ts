@@ -385,20 +385,7 @@ export function useDriverNotifications() {
           const userToken = session?.access_token ?? "";
           DeliveryOverlay.saveDriverContext({ driverId, userToken }).catch(() => {});
           DeliveryOverlay.setDriverOnlineStatus({ isOnline: isOnlineRef.current }).catch(() => {});
-          DeliveryOverlay.requestBatteryOptimizationExemption({ prompt: true }).catch(() => {});
         } catch (e) {}
-
-        if (isOnlineRef.current) {
-          DeliveryOverlay.startOverlay().catch(() => {});
-        } else {
-          DeliveryOverlay.stopOverlay().catch(() => {});
-        }
-
-        if (typeof navigator !== "undefined" && "wakeLock" in navigator && isOnlineRef.current) {
-          try {
-            (navigator as any).wakeLock.request("screen").catch(() => {});
-          } catch {}
-        }
 
         // Verifica se houve aceite pendente feito nativamente na tela de chamada
         DeliveryOverlay.getPendingAcceptedDelivery().then(({ deliveryId }) => {
@@ -442,12 +429,7 @@ export function useDriverNotifications() {
                 activeAlertsRef.current.clear();
                 stopAlert();
                 if (Capacitor.isNativePlatform()) {
-                  DeliveryOverlay.stopOverlay().catch(() => {});
                   DeliveryOverlay.stopNativeAudio().catch(() => {});
-                }
-              } else if (updated.is_online && !wasOnline) {
-                if (Capacitor.isNativePlatform()) {
-                  DeliveryOverlay.startOverlay().catch(() => {});
                 }
               }
             }

@@ -13,18 +13,5 @@ public class BootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent != null ? intent.getAction() : "null";
         Log.d(TAG, "BootReceiver recebido: " + action);
-        if (context == null) return;
-
-        try {
-            boolean isOnline = context.getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
-                    .getBoolean("is_online", false);
-            if (isOnline) {
-                Intent serviceIntent = new Intent(context, OverlayService.class);
-                context.startService(serviceIntent);
-                Log.d(TAG, "OverlayService iniciado com sucesso no BootReceiver.");
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Falha ao iniciar OverlayService no BootReceiver: " + e.getMessage());
-        }
     }
 }

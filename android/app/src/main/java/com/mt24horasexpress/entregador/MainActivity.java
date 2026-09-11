@@ -93,15 +93,6 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         isForeground = true;
-
-        try {
-            boolean isOnline = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
-                    .getBoolean("is_online", false);
-            if (isOnline && OverlayService.instance == null) {
-                Intent intent = new Intent(this, OverlayService.class);
-                startService(intent);
-            }
-        } catch (Exception ignored) {}
     }
 
     @Override

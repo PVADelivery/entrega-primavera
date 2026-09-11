@@ -444,7 +444,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                             PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
                             "mt24:DeliveryWakeLock"
                     );
-                    wl.acquire(10000);
+                    wl.acquire(3000);
                 }
             } catch (Exception eWl) {
                 Log.w(TAG, "Falha ao acionar WakeLock: " + eWl.getMessage());
