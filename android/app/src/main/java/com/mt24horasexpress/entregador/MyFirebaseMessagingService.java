@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -314,12 +315,8 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             details = details.replace("Veja no app", "Retirada na Loja");
         }
 
-        // ── REGRA DOS 2 MINUTOS DO ADMIN / ATRIBUIÇÃO DIRETA ────────────────
-        String status = data.get("status");
-        if (status == null || status.isEmpty()) status = "pending";
+        // ── REGRA DE ATRIBUIÇÃO DIRETA & ALERTA IMEDIATO (SEM ATRASO) ──────────────
         String driverIdInPayload = data.get("driver_id");
-        String createdAt = data.get("created_at");
-
         String myDriverId = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE)
                 .getString("driver_id", "");
 
@@ -329,28 +326,11 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 Log.d(TAG, "Corrida atribuída a outro motorista (" + driverIdInPayload + "). Ignorando.");
                 return;
             }
-            // Atribuída a mim diretamente pelo Admin: alerta IMEDIATAMENTE!
-            triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
-            return;
         }
 
-        // 2. Se transmitida para todos pelo Admin ('broadcasted'): alerta IMEDIATAMENTE!
-        if ("broadcasted".equalsIgnoreCase(status)) {
-            triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
-            return;
-        }
-
-        // 3. Status pending sem atribuição direta: REGRA RIGOROSA DOS 2 MINUTOS!
-        long createdAtMs = parseIsoDate(createdAt);
-        long elapsed = System.currentTimeMillis() - createdAtMs;
-        if (elapsed >= 120_000) {
-            Log.d(TAG, "Corrida já completou os 2 minutos (" + (elapsed / 1000) + "s decorridos). Alertando agora!");
-            triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
-        } else {
-            long remainingMs = Math.max(1000, 120_000 - elapsed);
-            Log.d(TAG, "Corrida pending na janela inicial (" + (elapsed / 1000) + "s decorridos). Agendando AlarmManager para despertar em " + (remainingMs / 1000) + "s.");
-            scheduleAlarmManager(this, deliveryId, storeName, pickup, dropoff, fee, details, remainingMs);
-        }
+        // 2. Notifica o entregador IMEDIATAMENTE ao receber o Push FCM em segundo plano/app fechado
+        Log.d(TAG, "Notificando entregador IMEDIATAMENTE para a corrida: " + deliveryId);
+        triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
     }
 
     public static void triggerDeliveryAlertFromAlarm(Context context, String deliveryId, String storeName, String pickup, String dropoff, String fee, String details) {
@@ -454,6 +434,20 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             if (nm != null) {
                 nm.notify(notificationId, builder.build());
                 Log.d(TAG, "Notificação da central disparada para deliveryId=" + deliveryId);
+            }
+
+            // Acorda a tela brevemente caso o aparelho esteja bloqueado ou desligado
+            try {
+                PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    PowerManager.WakeLock wl = pm.newWakeLock(
+                            PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
+                            "mt24:DeliveryWakeLock"
+                    );
+                    wl.acquire(10000);
+                }
+            } catch (Exception eWl) {
+                Log.w(TAG, "Falha ao acionar WakeLock: " + eWl.getMessage());
             }
 
             // Toca o som oficial ring.mp3

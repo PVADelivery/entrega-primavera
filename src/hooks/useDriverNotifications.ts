@@ -265,41 +265,10 @@ export function useDriverNotifications() {
       if (declined.has(rawDelivery.id)) return;
       if (seenIdsRef.current.has(rawDelivery.id)) return;
 
-      // ── REGRA RÍGIDA DOS 2 MINUTOS DO ADMIN ──
-      // Se não for elegível (ex: está na janela de 2 min do Admin), NUNCA notifica nem toca som!
+      // Verifica se a corrida é elegível para o entregador (notificação imediata)
       const currentDriverId = user?.id;
       const isEligible = isDeliveryEligibleForDriver(rawDelivery, currentDriverId);
-
-      if (!isEligible) {
-        const validPendingStatuses = ["pending", "pending_assignment", "created", "open", "em_aberto", "pendente"];
-        const isPendingLike = validPendingStatuses.includes(String(rawDelivery.status || "").toLowerCase());
-        const isUnassigned = !rawDelivery.driver_id || String(rawDelivery.driver_id).trim() === "" || rawDelivery.driver_id === "none" || rawDelivery.driver_id === "00000000-0000-0000-0000-000000000000";
-
-        if (isPendingLike && isUnassigned && rawDelivery.created_at) {
-          const elapsed = getElapsedSeconds(rawDelivery.created_at);
-          if (elapsed < ADMIN_WINDOW_SECONDS) {
-            const delayMs = Math.max(500, (ADMIN_WINDOW_SECONDS - elapsed) * 1000 + 500);
-            if (!scheduledDeliveriesRef.current.has(rawDelivery.id)) {
-              const timer = setTimeout(async () => {
-                scheduledDeliveriesRef.current.delete(rawDelivery.id);
-                invalidateDeliveries();
-                try {
-                  const { data: latest } = await supabase
-                    .from("deliveries")
-                    .select("*, companies(name, address)")
-                    .eq("id", rawDelivery.id)
-                    .maybeSingle();
-                  if (latest) {
-                    notifyNewDelivery(latest);
-                  }
-                } catch (e) {}
-              }, delayMs);
-              scheduledDeliveriesRef.current.set(rawDelivery.id, timer);
-            }
-          }
-        }
-        return;
-      }
+      if (!isEligible) return;
 
       seenIdsRef.current.add(rawDelivery.id);
       activeAlertsRef.current.add(rawDelivery.id);

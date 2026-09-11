@@ -208,28 +208,15 @@ public class OverlayService extends Service {
                         + "\n🏁 Entrega: " + dropoff
                         + "\n💰 Ganhos: " + feeFormatted;
 
-                // 1. Se atribuida diretamente para mim: alerta IMEDIATO
-                boolean isAssignedToMe = !driverId.isEmpty() && !myDriverId.isEmpty() && myDriverId.equalsIgnoreCase(driverId);
-                if (isAssignedToMe) {
-                    MyFirebaseMessagingService.postDeliveryNotification(OverlayService.this, id, storeName, pickup, dropoff, feeFormatted, details);
-                    continue;
+                // 1. Se atribuida diretamente para outro entregador, ignora
+                if (!driverId.isEmpty() && !"none".equalsIgnoreCase(driverId) && !"00000000-0000-0000-0000-000000000000".equals(driverId)) {
+                    if (!myDriverId.isEmpty() && !myDriverId.equalsIgnoreCase(driverId)) {
+                        continue;
+                    }
                 }
 
-                // 2. Se transmitida para todos pelo Admin ('broadcasted'): alerta IMEDIATO
-                if ("broadcasted".equals(status)) {
-                    MyFirebaseMessagingService.postDeliveryNotification(OverlayService.this, id, storeName, pickup, dropoff, feeFormatted, details);
-                    continue;
-                }
-
-                // 3. Status pending sem atribuicao direta: REGRA DOS 2 MINUTOS DO ADMIN
-                long createdAtMs = parseIsoDate(createdAt);
-                long elapsed = System.currentTimeMillis() - createdAtMs;
-                if (elapsed >= 120_000) {
-                    MyFirebaseMessagingService.postDeliveryNotification(OverlayService.this, id, storeName, pickup, dropoff, feeFormatted, details);
-                } else {
-                    long remainingMs = Math.max(1000, 120_000 - elapsed);
-                    MyFirebaseMessagingService.scheduleAlarmManager(OverlayService.this, id, storeName, pickup, dropoff, feeFormatted, details, remainingMs);
-                }
+                // 2. Alerta IMEDIATAMENTE (sem atraso de 2 minutos)
+                MyFirebaseMessagingService.postDeliveryNotification(OverlayService.this, id, storeName, pickup, dropoff, feeFormatted, details);
             }
         } catch (Exception e) {
             Log.w(TAG, "Polling nativo falhou: " + e.getMessage());

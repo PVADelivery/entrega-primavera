@@ -1,15 +1,13 @@
 import { getElapsedSeconds } from "./time";
 
-export const ADMIN_WINDOW_SECONDS = 120; // 2 minutos estipulados pelo Admin (Janela exclusiva do Admin)
+export const ADMIN_WINDOW_SECONDS = 0; // Notificação e disponibilização IMEDIATA para os entregadores
 
 /**
- * Regra Obrigatória e Rígida:
- * NÃO É PARA NOTIFICAR NEM SOM, NEM POPUP, NEM MOSTRAR NA LISTA ATÉ DAR OS 2 MINUTOS (120s)
- * 
- * Uma entrega só pode notificar, abrir popup ou aparecer para o entregador se:
- * 1. Foi explicitamente atribuída ao entregador logado (driver_id === currentDriverId); OU
- * 2. Foi transmitida manualmente para todos pelo Admin (status === "broadcasted"); OU
- * 3. Se for 'pending', JÁ SE PASSARAM PELO MENOS 120 SEGUNDOS (2 minutos) desde created_at.
+ * Regra de Elegibilidade de Entregas:
+ * 1. Não elegível se já finalizada/cancelada.
+ * 2. Se atribuída a outro entregador específico, ignora.
+ * 3. Se atribuída ao entregador logado, ou transmitida (broadcasted), ou pendente geral:
+ *    DISPONÍVEL E NOTIFICA IMEDIATAMENTE (sem janela de espera artificial).
  */
 export function isDeliveryEligibleForDriver(
   delivery: any,
@@ -24,8 +22,8 @@ export function isDeliveryEligibleForDriver(
     return false;
   }
 
-  // 1. Se atribuída para outro entregador, nunca oferece
-  if (delivery.driver_id && currentDriverId && String(delivery.driver_id).toLowerCase() !== String(currentDriverId).toLowerCase()) {
+  // 1. Se atribuída para outro entregador específico, não oferece
+  if (delivery.driver_id && currentDriverId && String(delivery.driver_id).toLowerCase() !== String(currentDriverId).toLowerCase() && delivery.driver_id !== "none" && delivery.driver_id !== "00000000-0000-0000-0000-000000000000") {
     return false;
   }
 
@@ -39,18 +37,11 @@ export function isDeliveryEligibleForDriver(
     return true;
   }
 
-  // 4. Se o status não for pendente/aberto, não oferece para entregadores gerais
+  // 4. Se o status for pendente/aberto, oferece IMEDIATAMENTE para todos os entregadores online
   const validPendingStatuses = ["pending", "pending_assignment", "created", "open", "em_aberto", "pendente"];
-  if (!validPendingStatuses.includes(status)) {
-    return false;
+  if (validPendingStatuses.includes(status)) {
+    return true;
   }
 
-  // 5. Para status pendente sem entregador atribuído:
-  // REGRA DOS 2 MINUTOS DO ADMIN: OBRIGATÓRIO ter timestamp e ter se passado no mínimo 120 segundos
-  if (!delivery.created_at) {
-    return false; // Sem data de criação confiável, BLOQUEADO por segurança
-  }
-
-  const elapsedSeconds = getElapsedSeconds(delivery.created_at);
-  return elapsedSeconds >= ADMIN_WINDOW_SECONDS;
+  return false;
 }
