@@ -34,18 +34,29 @@ function createSupabaseClient() {
 }
 
 let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
+let lastReconnectTime = 0;
 
 export function ensureRealtimeConnected() {
   try {
-    if (_supabase && (_supabase as any).realtime) {
-      const rt = (_supabase as any).realtime;
-      const status = typeof rt.isConnected === "function" ? rt.isConnected() : true;
-      if (!status) {
-        console.log("[Supabase Realtime] Reconectando canal após suspensão do app...");
-        try { rt.disconnect(); } catch (e) {}
-        rt.connect();
-      }
+    if (!_supabase || !(_supabase as any).realtime) return;
+    const rt = (_supabase as any).realtime;
+
+    // Se já estiver conectado ou em processo de conexão, não interrompe
+    const isConn = typeof rt.isConnected === "function" ? rt.isConnected() : false;
+    const state = typeof rt.connectionState === "function" ? rt.connectionState() : null;
+    if (isConn || state === "open" || state === "connecting") {
+      return;
     }
+
+    // Cooldown de 3s para evitar disparos simultâneos (pageshow + visibilitychange + appStateChange)
+    const now = Date.now();
+    if (now - lastReconnectTime < 3000) {
+      return;
+    }
+    lastReconnectTime = now;
+
+    console.log("[Supabase Realtime] Reconectando canal após suspensão do app...");
+    rt.connect();
   } catch (e) {
     console.warn("[Supabase Realtime] Falha ao reconectar:", e);
   }
