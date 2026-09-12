@@ -1,5 +1,6 @@
 package com.mt24horasexpress.entregador;
 
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -7,10 +8,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -36,15 +43,16 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Serviço em primeiro plano (Foreground Service) oficial do MT 24 Horas Express.
- * Garante que o app NUNCA seja suspenso ou desligado pelo Android quando o entregador
- * estiver fora dele (segundo plano, tela apagada, outros apps abertos).
- * Monitora e notifica na CENTRAL DO APARELHO instantaneamente com som e botões de ação.
+ * Mantém WakeLock e WifiLock ativos para que o aparelho NUNCA durma ou congele o monitoramento
+ * quando a tela estiver apagada ou o app estiver em segundo plano.
+ * Agenda alarmes exatos no AlarmManager aos 2 minutos para despertar o aparelho mesmo em Doze Mode.
  */
 public class DeliveryBackgroundService extends Service {
 
     private static final String TAG = "DeliveryBgService";
     private static final int FOREGROUND_NOTIFICATION_ID = 88888;
-    private static final long POLL_INTERVAL_MS = 2500L;
+    private static final long POLL_INTERVAL_MS = 3000L;
+    public static final String ACTION_HEARTBEAT = "com.mt24horasexpress.entregador.HEARTBEAT";
 
     private static final String SUPABASE_URL = "https://owlbzwsdcognrgolvnzg.supabase.co";
     private static final String SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bGJ6d3NkY29nbnJnb2x2bnpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTQ1NTMsImV4cCI6MjA5NTU3MDU1M30.R6-FUqubIr3uABzv1CS7jiS5cwygrNiIqk4oNbq7O44";
@@ -52,7 +60,13 @@ public class DeliveryBackgroundService extends Service {
     public static volatile boolean isRunning = false;
     private ScheduledExecutorService executorService;
     private final Set<String> alertedDeliveries = Collections.synchronizedSet(new HashSet<>());
+    private final Set<String> scheduledDeliveries = Collections.synchronizedSet(new HashSet<>());
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    // Keep-alive locks
+    private PowerManager.WakeLock wakeLock;
+    private WifiManager.WifiLock wifiLock;
+    private ConnectivityManager.NetworkCallback networkCallback;
 
     public static void startService(Context context) {
         if (context == null) return;
@@ -82,11 +96,99 @@ public class DeliveryBackgroundService extends Service {
     public void onCreate() {
         super.onCreate();
         isRunning = true;
-        Log.i(TAG, "DeliveryBackgroundService criado. Iniciando Foreground...");
+        Log.i(TAG, "DeliveryBackgroundService criado. Iniciando Foreground e Locks...");
 
         NotificationChannels.ensureIncomingChannel(this);
         startAsForeground();
+        acquireKeepAliveLocks();
         startPolling();
+        scheduleWatchdogHeartbeat();
+    }
+
+    private void acquireKeepAliveLocks() {
+        // 1. PARTIAL_WAKE_LOCK: Garante que a CPU continue rodando o polling mesmo com tela desligada
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null && (wakeLock == null || !wakeLock.isHeld())) {
+                wakeLock = pm.newWakeLock(
+                        PowerManager.PARTIAL_WAKE_LOCK,
+                        "MT24Horas::DeliveryServiceWakeLock"
+                );
+                wakeLock.setReferenceCounted(false);
+                wakeLock.acquire();
+                Log.i(TAG, "WakeLock adquirido — CPU permanecerá ativa em segundo plano.");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Erro ao adquirir WakeLock: " + e.getMessage());
+        }
+
+        // 2. WIFI_MODE_FULL_HIGH_PERF: Garante que a conexão Wi-Fi não caia em modo de economia
+        try {
+            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm != null && (wifiLock == null || !wifiLock.isHeld())) {
+                wifiLock = wm.createWifiLock(
+                        WifiManager.WIFI_MODE_FULL_HIGH_PERF,
+                        "MT24Horas::DeliveryServiceWifiLock"
+                );
+                wifiLock.setReferenceCounted(false);
+                wifiLock.acquire();
+                Log.i(TAG, "WifiLock adquirido — Wi-Fi ativo em segundo plano.");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Erro ao adquirir WifiLock: " + e.getMessage());
+        }
+
+        // 3. NetworkCallback: Garante que o Android mantenha rotas de rede abertas
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm != null && networkCallback == null) {
+                NetworkRequest request = new NetworkRequest.Builder()
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .build();
+                networkCallback = new ConnectivityManager.NetworkCallback() {
+                    @Override
+                    public void onAvailable(Network network) {
+                        Log.d(TAG, "Rede disponível no background service.");
+                    }
+
+                    @Override
+                    public void onLost(Network network) {
+                        Log.w(TAG, "Rede perdida no background service.");
+                    }
+                };
+                cm.registerNetworkCallback(request, networkCallback);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Erro ao registrar NetworkCallback: " + e.getMessage());
+        }
+    }
+
+    private void releaseKeepAliveLocks() {
+        try {
+            if (wakeLock != null && wakeLock.isHeld()) {
+                wakeLock.release();
+                Log.d(TAG, "WakeLock liberado.");
+            }
+        } catch (Exception ignored) {}
+        wakeLock = null;
+
+        try {
+            if (wifiLock != null && wifiLock.isHeld()) {
+                wifiLock.release();
+                Log.d(TAG, "WifiLock liberado.");
+            }
+        } catch (Exception ignored) {}
+        wifiLock = null;
+
+        try {
+            if (networkCallback != null) {
+                ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (cm != null) {
+                    cm.unregisterNetworkCallback(networkCallback);
+                }
+            }
+        } catch (Exception ignored) {}
+        networkCallback = null;
     }
 
     private void startAsForeground() {
@@ -125,6 +227,30 @@ public class DeliveryBackgroundService extends Service {
         }
         executorService = Executors.newSingleThreadScheduledExecutor();
         executorService.scheduleWithFixedDelay(this::pollDeliveries, 1000L, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private void scheduleWatchdogHeartbeat() {
+        try {
+            AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            if (am == null) return;
+
+            Intent intent = new Intent(this, DeliveryBackgroundService.class);
+            intent.setAction(ACTION_HEARTBEAT);
+            int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                piFlags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+            PendingIntent pi = PendingIntent.getService(this, 99991, intent, piFlags);
+            long triggerAt = System.currentTimeMillis() + 30_000L;
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+            } else {
+                am.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Erro ao agendar watchdog: " + e.getMessage());
+        }
     }
 
     private String refreshAccessToken(String refreshToken) {
@@ -170,7 +296,7 @@ public class DeliveryBackgroundService extends Service {
                             .putString("user_token", newAccessToken)
                             .putString("refresh_token", newRefreshToken)
                             .apply();
-                    Log.i(TAG, "Token de sessão do entregador renovado com sucesso pelo background service!");
+                    Log.i(TAG, "Token de sessão do entregador renovado com sucesso!");
                     return newAccessToken;
                 }
             } else {
@@ -195,11 +321,19 @@ public class DeliveryBackgroundService extends Service {
             String userToken = prefs.getString("user_token", "");
             String refreshToken = prefs.getString("refresh_token", "");
 
+            // Se o userToken estiver vazio mas temos refreshToken, renova de imediato
+            if ((userToken == null || userToken.isEmpty()) && refreshToken != null && !refreshToken.isEmpty()) {
+                String refreshed = refreshAccessToken(refreshToken);
+                if (refreshed != null && !refreshed.isEmpty()) {
+                    userToken = refreshed;
+                }
+            }
+
             String authHeader = (userToken != null && !userToken.isEmpty())
                     ? "Bearer " + userToken
                     : "Bearer " + SUPABASE_ANON_KEY;
 
-            // Usa apenas colunas reais existentes na tabela deliveries + join seguro de companies
+            // Busca corridas com status pending ou broadcasted
             String endpoint = SUPABASE_URL + "/rest/v1/deliveries"
                     + "?status=in.(pending,broadcasted)"
                     + "&select=id,status,pickup_address,delivery_address,address,dropoff_address,value,commission,created_at,company_id,driver_id,companies(name)"
@@ -272,24 +406,6 @@ public class DeliveryBackgroundService extends Service {
                 String status = obj.optString("status", "pending");
                 boolean isBroadcasted = "broadcasted".equalsIgnoreCase(status);
 
-                // REGRA DOS 2 MINUTOS DO ADMIN (120 SEGUNDOS):
-                // Se a corrida NÃO foi atribuída diretamente a mim E NÃO foi transmitida pelo admin:
-                // Ela fica na janela exclusiva do Admin por 120 segundos. NÃO notifica os entregadores gerais!
-                if (!isForMe && !isBroadcasted) {
-                    String createdAt = obj.optString("created_at", "");
-                    long elapsedSeconds = getElapsedSeconds(createdAt);
-                    if (elapsedSeconds < 120) {
-                        // Ainda aguardando o direcionamento manual do Admin (janela de 2 minutos)
-                        continue;
-                    }
-                }
-
-                if (alertedDeliveries.contains(id)) {
-                    continue;
-                }
-
-                alertedDeliveries.add(id);
-
                 JSONObject compObj = obj.optJSONObject("companies");
                 String rawStore = compObj != null ? compObj.optString("name", "") : "";
                 final String finalStore = (!rawStore.isEmpty() && !"null".equalsIgnoreCase(rawStore))
@@ -320,7 +436,43 @@ public class DeliveryBackgroundService extends Service {
 
                 final String finalId = id;
 
-                Log.i(TAG, "NOVA CORRIDA DETECTADA EM SEGUNDO PLANO! ID: " + finalId + " - Notificando na central...");
+                // REGRA DOS 2 MINUTOS DO ADMIN (120 SEGUNDOS):
+                // Se a corrida NÃO foi atribuída diretamente a mim E NÃO foi transmitida pelo admin:
+                // Agenda alarme exato no AlarmManager para despertar o aparelho aos 120s!
+                if (!isForMe && !isBroadcasted) {
+                    String createdAt = obj.optString("created_at", "");
+                    long elapsedSeconds = getElapsedSeconds(createdAt);
+                    if (elapsedSeconds < 120) {
+                        long remainingSeconds = 120 - elapsedSeconds;
+                        long delayMs = Math.max(1000L, remainingSeconds * 1000L);
+
+                        if (!scheduledDeliveries.contains(finalId)) {
+                            scheduledDeliveries.add(finalId);
+                            Log.i(TAG, "Janela Admin: Corrida " + finalId + " criada há " + elapsedSeconds + "s. Agendando alarme nativo para " + remainingSeconds + "s...");
+                            MyFirebaseMessagingService.scheduleAlarmManager(
+                                    getApplicationContext(),
+                                    finalId,
+                                    finalStore,
+                                    finalPickup,
+                                    finalDropoff,
+                                    finalFee,
+                                    finalDetails,
+                                    delayMs
+                            );
+                        }
+                        continue;
+                    }
+                }
+
+                // Corrida pronta para alertar na central (atribuída, transmitida ou decorridos 120s)
+                if (alertedDeliveries.contains(finalId)) {
+                    continue;
+                }
+
+                alertedDeliveries.add(finalId);
+                scheduledDeliveries.remove(finalId);
+
+                Log.i(TAG, "NOVA CORRIDA DISPONÍVEL! ID: " + finalId + " - Notificando com som oficial na central...");
 
                 mainHandler.post(() -> {
                     MyFirebaseMessagingService.postDeliveryNotification(
@@ -335,6 +487,14 @@ public class DeliveryBackgroundService extends Service {
                 });
             }
 
+            // Cancela alarmes e limpa registros de corridas que já foram aceitas ou canceladas
+            for (String scheduledId : new HashSet<>(scheduledDeliveries)) {
+                if (!currentPendingIds.contains(scheduledId)) {
+                    MyFirebaseMessagingService.cancelAlarmManager(getApplicationContext(), scheduledId);
+                    scheduledDeliveries.remove(scheduledId);
+                }
+            }
+
             alertedDeliveries.retainAll(currentPendingIds);
 
         } catch (Exception e) {
@@ -345,8 +505,32 @@ public class DeliveryBackgroundService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         startAsForeground();
+        acquireKeepAliveLocks();
         startPolling();
+
+        if (intent != null && ACTION_HEARTBEAT.equals(intent.getAction())) {
+            Log.d(TAG, "Watchdog heartbeat disparado. Executando verificação de entregas...");
+            pollDeliveries();
+            scheduleWatchdogHeartbeat();
+        }
+
         return START_STICKY;
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        Log.i(TAG, "App removido dos recentes. Reiniciando DeliveryBackgroundService imediatamente...");
+        try {
+            Intent restart = new Intent(getApplicationContext(), DeliveryBackgroundService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getApplicationContext().startForegroundService(restart);
+            } else {
+                getApplicationContext().startService(restart);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Falha ao reiniciar DeliveryBackgroundService após task removida: " + e.getMessage());
+        }
+        super.onTaskRemoved(rootIntent);
     }
 
     @Override
@@ -354,6 +538,7 @@ public class DeliveryBackgroundService extends Service {
         super.onDestroy();
         isRunning = false;
         Log.i(TAG, "DeliveryBackgroundService destruído.");
+        releaseKeepAliveLocks();
         if (executorService != null) {
             executorService.shutdownNow();
             executorService = null;
