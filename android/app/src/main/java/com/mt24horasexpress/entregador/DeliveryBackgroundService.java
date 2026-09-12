@@ -22,6 +22,7 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -126,6 +127,61 @@ public class DeliveryBackgroundService extends Service {
         executorService.scheduleWithFixedDelay(this::pollDeliveries, 1000L, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
+    private String refreshAccessToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isEmpty()) return null;
+        try {
+            URL url = new URL(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(4000);
+            conn.setRequestProperty("apikey", SUPABASE_ANON_KEY);
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setDoOutput(true);
+
+            JSONObject body = new JSONObject();
+            body.put("refresh_token", refreshToken);
+
+            byte[] out = body.toString().getBytes(StandardCharsets.UTF_8);
+            conn.setFixedLengthStreamingMode(out.length);
+            OutputStream os = conn.getOutputStream();
+            os.write(out);
+            os.flush();
+            os.close();
+
+            int code = conn.getResponseCode();
+            if (code == 200) {
+                InputStream is = conn.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) sb.append(line);
+                reader.close();
+                conn.disconnect();
+
+                JSONObject resObj = new JSONObject(sb.toString());
+                String newAccessToken = resObj.optString("access_token", null);
+                String newRefreshToken = resObj.optString("refresh_token", refreshToken);
+
+                if (newAccessToken != null && !newAccessToken.isEmpty()) {
+                    SharedPreferences prefs = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE);
+                    prefs.edit()
+                            .putString("user_token", newAccessToken)
+                            .putString("refresh_token", newRefreshToken)
+                            .apply();
+                    Log.i(TAG, "Token de sessão do entregador renovado com sucesso pelo background service!");
+                    return newAccessToken;
+                }
+            } else {
+                conn.disconnect();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Erro ao renovar token no background service: " + e.getMessage());
+        }
+        return null;
+    }
+
     private void pollDeliveries() {
         try {
             SharedPreferences prefs = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE);
@@ -137,16 +193,18 @@ public class DeliveryBackgroundService extends Service {
             String myDriverId = prefs.getString("driver_id", "");
             String myUserId = prefs.getString("user_id", "");
             String userToken = prefs.getString("user_token", "");
+            String refreshToken = prefs.getString("refresh_token", "");
 
             String authHeader = (userToken != null && !userToken.isEmpty())
                     ? "Bearer " + userToken
                     : "Bearer " + SUPABASE_ANON_KEY;
 
+            // Usa apenas colunas reais existentes na tabela deliveries + join seguro de companies
             String endpoint = SUPABASE_URL + "/rest/v1/deliveries"
                     + "?status=in.(pending,broadcasted)"
-                    + "&select=id,status,pickup_address,delivery_address,value,price,delivery_fee,driver_fee,created_at,company_name,store_name,driver_id"
+                    + "&select=id,status,pickup_address,delivery_address,address,dropoff_address,value,commission,created_at,company_id,driver_id,companies(name)"
                     + "&order=created_at.desc"
-                    + "&limit=5";
+                    + "&limit=8";
 
             URL url = new URL(endpoint);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -158,6 +216,24 @@ public class DeliveryBackgroundService extends Service {
             conn.setRequestProperty("Accept", "application/json");
 
             int responseCode = conn.getResponseCode();
+
+            // Se o token expirou (401), tenta renovar usando o refresh_token salvo
+            if (responseCode == 401 && refreshToken != null && !refreshToken.isEmpty()) {
+                conn.disconnect();
+                String newToken = refreshAccessToken(refreshToken);
+                if (newToken != null && !newToken.isEmpty()) {
+                    authHeader = "Bearer " + newToken;
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setConnectTimeout(4000);
+                    conn.setReadTimeout(4000);
+                    conn.setRequestProperty("apikey", SUPABASE_ANON_KEY);
+                    conn.setRequestProperty("Authorization", authHeader);
+                    conn.setRequestProperty("Accept", "application/json");
+                    responseCode = conn.getResponseCode();
+                }
+            }
+
             if (responseCode != 200) {
                 conn.disconnect();
                 return;
@@ -214,18 +290,23 @@ public class DeliveryBackgroundService extends Service {
 
                 alertedDeliveries.add(id);
 
-                String rawStore = obj.optString("store_name", "");
+                JSONObject compObj = obj.optJSONObject("companies");
+                String rawStore = compObj != null ? compObj.optString("name", "") : "";
                 final String finalStore = (!rawStore.isEmpty() && !"null".equalsIgnoreCase(rawStore))
                         ? rawStore
-                        : obj.optString("company_name", "MT 24 Horas Express");
+                        : "MT 24 Horas Express";
 
-                final String finalPickup = obj.optString("pickup_address", "Retirada na Loja");
-                final String finalDropoff = obj.optString("delivery_address", "Endereço do cliente");
+                String pickup = obj.optString("pickup_address", "");
+                if (pickup.isEmpty() || "null".equalsIgnoreCase(pickup)) pickup = "Retirada na Loja";
+                final String finalPickup = pickup;
+
+                String dropoff = obj.optString("delivery_address", "");
+                if (dropoff.isEmpty() || "null".equalsIgnoreCase(dropoff)) dropoff = obj.optString("dropoff_address", "");
+                if (dropoff.isEmpty() || "null".equalsIgnoreCase(dropoff)) dropoff = obj.optString("address", "Endereço do cliente");
+                final String finalDropoff = dropoff;
 
                 double val = obj.optDouble("value", 0.0);
-                if (val <= 0) val = obj.optDouble("price", 0.0);
-                if (val <= 0) val = obj.optDouble("delivery_fee", 0.0);
-                if (val <= 0) val = obj.optDouble("driver_fee", 0.0);
+                if (val <= 0) val = obj.optDouble("commission", 0.0);
 
                 double driverFee = val > 0 ? val * 0.75 : 0.0;
                 final String finalFee = driverFee > 0
@@ -257,7 +338,7 @@ public class DeliveryBackgroundService extends Service {
             alertedDeliveries.retainAll(currentPendingIds);
 
         } catch (Exception e) {
-            // Falha de rede momentânea
+            Log.w(TAG, "Exceção em pollDeliveries: " + e.getMessage());
         }
     }
 
@@ -284,17 +365,15 @@ public class DeliveryBackgroundService extends Service {
         try {
             String s = dateStr.trim().replace(" ", "T");
             long timeMs;
-            boolean hasTz = s.endsWith("Z") || s.contains("+") || (s.length() > 6 && (s.charAt(s.length() - 6) == '-' || s.charAt(s.length() - 3) == '-'));
-            if (hasTz) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    timeMs = java.time.Instant.parse(s).toEpochMilli();
-                } else {
-                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
-                    sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-                    timeMs = sdf.parse(s.substring(0, Math.min(19, s.length()))).getTime();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    timeMs = java.time.OffsetDateTime.parse(s).toInstant().toEpochMilli();
+                } catch (Exception ex) {
+                    timeMs = java.time.Instant.parse(s.endsWith("Z") ? s : s + "Z").toEpochMilli();
                 }
             } else {
-                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+                sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
                 timeMs = sdf.parse(s.substring(0, Math.min(19, s.length()))).getTime();
             }
             long diffMs = System.currentTimeMillis() - timeMs;

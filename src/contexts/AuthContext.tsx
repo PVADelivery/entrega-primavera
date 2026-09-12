@@ -1,6 +1,18 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { Capacitor } from "@capacitor/core";
+import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
+
+function syncNativeDriverSession(s: Session | null) {
+  if (typeof window === "undefined" || !Capacitor.isNativePlatform() || !s?.user) return;
+  DeliveryOverlay.saveDriverContext({
+    driverId: s.user.id,
+    userId: s.user.id,
+    userToken: s.access_token,
+    refreshToken: s.refresh_token,
+  }).catch(() => {});
+}
 
 type Role = "admin" | "company" | "driver" | "customer";
 
@@ -48,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(newSession);
         setUser(newSession.user);
         loadRoles(newSession.user.id);
+        syncNativeDriverSession(newSession);
         setLoading(false);
       }
     });
@@ -58,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (s) {
           setSession(s);
           setUser(s.user);
+          syncNativeDriverSession(s);
           await loadRoles(s.user.id);
         } else {
           // Se getSession inicial vier nulo, tenta refreshSession antes de considerar deslogado
@@ -66,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (refData?.session && isMounted) {
               setSession(refData.session);
               setUser(refData.session.user);
+              syncNativeDriverSession(refData.session);
               await loadRoles(refData.session.user.id);
             }
           } catch {}

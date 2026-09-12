@@ -19,7 +19,7 @@ export interface DeliveryOverlayPlugin {
   testIncomingCall(options: IncomingCallOptions): Promise<void>;
   updateIncomingCall(options: IncomingCallOptions): Promise<void>;
   reportCallResult(options: { success: boolean; message?: string }): Promise<void>;
-  saveDriverContext(options: { driverId: string; userId?: string; userToken: string }): Promise<void>;
+  saveDriverContext(options: { driverId: string; userId?: string; userToken: string; refreshToken?: string }): Promise<void>;
   postNotification(options: { deliveryId: string; storeName?: string; pickup?: string; dropoff?: string; fee?: string; details?: string }): Promise<void>;
   getPendingAcceptedDelivery(): Promise<{ deliveryId: string }>;
   getPendingFcmToken(): Promise<{ token: string }>;

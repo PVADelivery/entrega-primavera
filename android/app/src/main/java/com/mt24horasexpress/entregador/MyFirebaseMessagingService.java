@@ -178,17 +178,15 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if (dateStr == null || dateStr.trim().isEmpty()) return System.currentTimeMillis();
         try {
             String s = dateStr.trim().replace(" ", "T");
-            boolean hasTz = s.endsWith("Z") || s.contains("+") || (s.length() > 6 && (s.charAt(s.length() - 6) == '-' || s.charAt(s.length() - 3) == '-'));
-            if (hasTz) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    return java.time.Instant.parse(s).toEpochMilli();
-                } else {
-                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
-                    sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-                    return sdf.parse(s.substring(0, Math.min(19, s.length()))).getTime();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    return java.time.OffsetDateTime.parse(s).toInstant().toEpochMilli();
+                } catch (Exception ex) {
+                    return java.time.Instant.parse(s.endsWith("Z") ? s : s + "Z").toEpochMilli();
                 }
             } else {
-                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+                sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
                 return sdf.parse(s.substring(0, Math.min(19, s.length()))).getTime();
             }
         } catch (Exception e) {

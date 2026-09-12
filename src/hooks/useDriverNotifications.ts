@@ -419,7 +419,8 @@ export function useDriverNotifications() {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           const userToken = session?.access_token ?? "";
-          DeliveryOverlay.saveDriverContext({ driverId, userId: user.id, userToken }).catch(() => {});
+          const refreshToken = session?.refresh_token ?? "";
+          DeliveryOverlay.saveDriverContext({ driverId, userId: user.id, userToken, refreshToken }).catch(() => {});
           DeliveryOverlay.setDriverOnlineStatus({ isOnline: isOnlineRef.current }).catch(() => {});
         } catch (e) {}
 

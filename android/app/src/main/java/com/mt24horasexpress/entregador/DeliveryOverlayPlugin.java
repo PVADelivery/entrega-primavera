@@ -188,11 +188,13 @@ public class DeliveryOverlayPlugin extends Plugin {
         String driverId = call.getString("driverId", "");
         String userId = call.getString("userId", "");
         String userToken = call.getString("userToken", "");
+        String refreshToken = call.getString("refreshToken", "");
         SharedPreferences prefs = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit()
                 .putString("driver_id", driverId)
                 .putString("user_id", userId)
                 .putString("user_token", userToken)
+                .putString("refresh_token", refreshToken)
                 .apply();
         call.resolve();
     }
