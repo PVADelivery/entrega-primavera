@@ -209,7 +209,10 @@ export function initializeGlobalErrorHandlers(appName: string) {
             msgStr.includes("DELIVERY_NOT_AVAILABLE") ||
             msgStr.includes("Row level security") ||
             msgStr.includes("blocked the action") ||
-            msgStr.includes("not found");
+            msgStr.includes("not found") ||
+            lower.includes("failed to fetch") ||
+            lower.includes("networkerror") ||
+            lower.includes("network request failed");
 
           if (typeof msgStr === "string" && !isRaceCondition) {
             reportErrorToTelegram({

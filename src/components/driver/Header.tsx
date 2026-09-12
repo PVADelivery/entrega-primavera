@@ -151,24 +151,40 @@ export function DriverHeader() {
       localStorage.setItem(`driver_is_online_${user.id}`, String(value));
     }
 
-    const { error } = await supabase
-      .from("delivery_drivers")
-      .update({ is_online: value } as any)
-      .eq("user_id", user.id);
+    try {
+      const p1 = supabase
+        .from("delivery_drivers")
+        .update({ is_online: value } as any)
+        .eq("user_id", user.id);
+      const p2 = supabase
+        .from("delivery_drivers")
+        .update({ is_online: value } as any)
+        .eq("id", user.id);
 
-    if (error) {
+      const [r1, r2] = await Promise.allSettled([p1, p2]);
+      const err = (r1.status === "fulfilled" ? r1.value.error : null) && (r2.status === "fulfilled" ? r2.value.error : null);
+
+      if (err) {
+        throw err;
+      }
+      toast.success(value ? "Você está online" : "Você está offline");
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      console.warn("Status update network warning:", msg);
+      if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("network")) {
+        // Mantém o estado online no aparelho em caso de oscilação momentânea de 4G
+        toast.info(value ? "Você está online (aguardando conexão com servidor)" : "Você está offline");
+        return;
+      }
       if (value) {
         stopLocationTracking();
         DeliveryOverlay.stopOverlay().catch(() => {});
       }
-      console.error("Status update error:", error);
-      toast.error("Erro: " + error.message);
+      toast.error("Não foi possível sincronizar o status. Tente novamente.");
       setOnline(!value);
       if (typeof window !== "undefined") {
         localStorage.setItem(`driver_is_online_${user.id}`, String(!value));
       }
-    } else {
-      toast.success(value ? "Você está online" : "Você está offline");
     }
   }
 
