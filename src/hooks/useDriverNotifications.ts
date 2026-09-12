@@ -86,7 +86,7 @@ export const acceptDeliveryLocally = (deliveryId: string) => {
 
 export function useDriverNotifications() {
   const { user } = useAuth();
-  const { playAlert, stopAlert, unlockAudio } = useAudioAlert();
+  const { playAlert, startLoop, stopLoop, stopAlert, unlockAudio } = useAudioAlert();
   const qc = useQueryClient();
 
   const invalidateDeliveries = () => {
@@ -297,10 +297,10 @@ export function useDriverNotifications() {
       activeAlertsRef.current.add(rawDelivery.id);
       invalidateDeliveries();
 
-      // Dispara o alerta sonoro e vibração
+      // Dispara o alerta sonoro em loop e vibração contínua até o entregador aceitar ou recusar
       try {
         unlockAudio();
-        playAlert(false);
+        startLoop();
       } catch (e) {
         console.warn("[Notify] som falhou:", e);
       }

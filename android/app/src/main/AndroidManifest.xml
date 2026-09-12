@@ -29,81 +29,20 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-
-        <!-- Firebase Cloud Messaging: recebe push em background e com app fechado -->
-        <service
-            android:name=".MyFirebaseMessagingService"
-            android:directBootAware="true"
-            android:exported="false">
-            <intent-filter android:priority="9999">
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-
-        <!-- Define o canal oficial com som ring.mp3 como padrão para o Firebase SDK -->
+        <!-- Define o canal oficial como padrão para o Firebase SDK -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="mt24_delivery_alerts_v35" />
 
-        <!-- Remove o serviço padrão do plugin Capacitor PushNotifications para evitar conflito e garantir que o MyFirebaseMessagingService receba 100% dos eventos em background -->
-        <service
-            android:name="com.capacitorjs.plugins.pushnotifications.MessagingService"
-            tools:node="remove" />
-
-        <!-- Receptor de ações de notificação (Aceitar / Rejeitar) -->
-        <receiver
-            android:name=".NotificationActionReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="ACTION_DECLINE" />
-                <action android:name="ACTION_ACCEPT" />
-                <action android:name="com.mt24horasexpress.entregador.ACTION_ACCEPT" />
-                <action android:name="com.mt24horasexpress.entregador.ACTION_REJECT" />
-                <action android:name="com.mt24horasexpress.entregador.ACTION_DECLINE" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
-            android:name=".BootReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
-            android:name=".DeliveryAlarmReceiver"
-            android:enabled="true"
-            android:exported="false" />
-
-        <service
-            android:name=".DeliveryBackgroundService"
-            android:enabled="true"
-            android:exported="false"
-            android:stopWithTask="false"
-            android:foregroundServiceType="dataSync" />
-
     </application>
 
     <!-- Permissions -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" tools:node="remove" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 </manifest>

@@ -1,199 +1,298 @@
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
+import { PushNotifications } from "@capacitor/push-notifications";
 
-const ALERT_SOUND_URL = "/ring.mp3";
+// Singleton instances to be used globally outside React lifecycle
+const ALERT_SOUND_URL = "/notification_sound.mp3";
 
 let globalAudio: HTMLAudioElement | null = null;
-let audioCtx: AudioContext | null = null;
-let isAlertActiveGlobal = false;
-let hasUnlockedAudio = false;
+let isUnlocked = false;
+let vibrationInterval: any = null;
+let activeNotification: Notification | null = null;
+let lastPlayPromise: Promise<void> | null = null;
 
-const getAudioContext = (): AudioContext | null => {
-  if (typeof window === "undefined") return null;
+if (typeof window !== "undefined") {
+  globalAudio = new Audio();
+  globalAudio.src = ALERT_SOUND_URL + "?v=" + Date.now();
+  globalAudio.load();
 
-  // Só cria ou despausa o AudioContext se o usuário já tiver interagido com a página
-  const hasUserGesture = typeof navigator !== "undefined" && (navigator as any).userActivation
-    ? (navigator as any).userActivation.hasBeenActive
-    : false;
+  let isUnlocking = false;
+  const unlockGlobalAudio = () => {
+    if (isUnlocked || isUnlocking || !globalAudio) return;
+    isUnlocking = true;
+    globalAudio.muted = true;
+    globalAudio.volume = 0;
+    const playPromise = globalAudio.play();
+    lastPlayPromise = playPromise;
+    playPromise
+      .then(() => {
+        try {
+          globalAudio!.pause();
+          globalAudio!.currentTime = 0;
+        } catch {}
+        globalAudio!.muted = false;
+        isUnlocked = true;
+        isUnlocking = false;
+        if (lastPlayPromise === playPromise) {
+          lastPlayPromise = null;
+        }
+        window.removeEventListener("click", unlockGlobalAudio);
+        window.removeEventListener("touchstart", unlockGlobalAudio);
+        window.removeEventListener("keydown", unlockGlobalAudio);
+      })
+      .catch(() => {
+        if (globalAudio) globalAudio.muted = false;
+        if (lastPlayPromise === playPromise) {
+          lastPlayPromise = null;
+        }
+        isUnlocking = false;
+      });
+  };
 
-  if (!hasUserGesture && !audioCtx) {
-    return null; // Evita o aviso do Chrome "The AudioContext was not allowed to start" no carregamento inicial
+  window.addEventListener("click", unlockGlobalAudio);
+  window.addEventListener("touchstart", unlockGlobalAudio);
+  window.addEventListener("keydown", unlockGlobalAudio);
+}
+
+/**
+ * Dispara vibração física no dispositivo do usuário (Haptics)
+ */
+export function triggerDeviceVibration(pattern: number[] = [500, 200, 500, 200, 800]) {
+  const canVibrate = Capacitor.isNativePlatform() || isUnlocked;
+  if (canVibrate && typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate(pattern);
+    } catch (e) {
+      console.warn("[Vibration] Vibração não suportada:", e);
+    }
   }
+}
 
-  if (!audioCtx) {
-    const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioCtxClass) {
-      try {
-        audioCtx = new AudioCtxClass();
-      } catch (e) {
-        console.warn("[AudioAlert] Erro ao instanciar AudioContext:", e);
+/**
+ * Solicita a permissão do sistema para Notificações Nativas do Aparelho (Central de Notificações do Celular/PC)
+ */
+export function requestNotificationPermission() {
+  if (Capacitor.isNativePlatform()) {
+    PushNotifications.requestPermissions().then((perm) => {
+      if (perm.receive === "granted" || (perm as any).display === "granted") {
+        PushNotifications.register().catch(() => {});
       }
+    }).catch(() => {});
+
+    LocalNotifications.requestPermissions().then((res) => {
+      if (res.display === "granted") {
+        LocalNotifications.deleteChannel({ id: "default" }).catch(() => {});
+        LocalNotifications.createChannel({
+          id: "mt24_delivery_alerts_v35",
+          name: "Novas Corridas MT 24 Horas",
+          description: "Alerta de novas corridas disponíveis para entregadores MT 24 Horas",
+          importance: 5,
+          visibility: 1,
+          vibration: true,
+          sound: "notification_sound.mp3",
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  }
+  if (typeof window !== "undefined" && "Notification" in window) {
+    if (Notification.permission === "default") {
+      Notification.requestPermission()
+        .then((perm) => {
+          console.log("[Notification] Permissão de notificação nativa:", perm);
+        })
+        .catch((e) => {
+          console.warn("[Notification] Erro ao solicitar permissão de notificação:", e);
+        });
+    }
+  }
+}
+
+/**
+ * Envia uma notificação nativa diretamente na barra/central de notificações do sistema operacional do celular ou desktop
+ */
+export function sendNativeDeviceNotification(
+  title: string,
+  options?: { body?: string; tag?: string; icon?: string }
+) {
+  // 1. Aciona vibração no dispositivo
+  triggerDeviceVibration();
+
+  // 2. Aciona Notificação Nativa do Celular (Android / iOS)
+  if (Capacitor.isNativePlatform()) {
+    try {
+      LocalNotifications.schedule({
+        notifications: [
+          {
+            title: title || "Nova Corrida Disponível!",
+            body: options?.body || "Acesse o app para aceitar a corrida",
+            id: Math.floor(Math.random() * 100000),
+            channelId: "mt24_delivery_alerts_v35",
+            sound: "notification_sound.mp3",
+            extra: {
+              tag: options?.tag || "mt24-delivery-new"
+            }
+          }
+        ]
+      }).catch((e) => {
+        console.warn("[LocalNotifications] Erro ao agendar notificação nativa:", e);
+      });
+    } catch (e) {
+      console.warn("[LocalNotifications] Erro nativo:", e);
     }
   }
 
-  if (audioCtx && audioCtx.state === "suspended" && hasUserGesture) {
-    audioCtx.resume().catch(() => {});
-  }
-
-  return audioCtx;
-};
-
-const canUseBrowserVibration = () =>
-  Capacitor.isNativePlatform() || (typeof navigator !== "undefined" && (navigator as any).userActivation?.hasBeenActive === true);
-
-if (typeof window !== "undefined") {
-  try {
-    globalAudio = new Audio(ALERT_SOUND_URL);
-    globalAudio.preload = "auto";
-    globalAudio.load();
-  } catch (e) {
-    console.warn("[AudioAlert] Erro ao instanciar HTMLAudioElement:", e);
-  }
-
-  const unlockOnUserGesture = () => {
-    try {
-      const ctx = getAudioContext();
-      if (ctx && ctx.state === "suspended") {
-        ctx.resume().catch(() => {});
-      }
-      if (hasUnlockedAudio) return;
-      if (isAlertActiveGlobal) return;
-
-      if (globalAudio && globalAudio.paused && (navigator as any).userActivation?.hasBeenActive) {
-        hasUnlockedAudio = true;
-        const origVol = globalAudio.volume;
-        globalAudio.volume = 0.001;
-        const p = globalAudio.play();
-        if (p !== undefined) {
-          p.then(() => {
-            if (!isAlertActiveGlobal && globalAudio) {
-              globalAudio.pause();
-              globalAudio.currentTime = 0;
-              globalAudio.volume = origVol || 1.0;
-            }
-          }).catch(() => {});
+  // 3. Aciona Notificação Nativa do Navegador (Desktop / PWA)
+  if (typeof window !== "undefined" && "Notification" in window) {
+    if (Notification.permission === "granted") {
+      try {
+        if (activeNotification) {
+          activeNotification.close();
         }
-      }
-    } catch {}
-  };
+        activeNotification = new Notification(title, {
+          body: options?.body || "Acesse o app para aceitar a corrida",
+          icon: options?.icon || "/favicon-v3.png",
+          badge: "/favicon-v3.png",
+          tag: options?.tag || "mt24-delivery-new",
+          requireInteraction: true,
+        });
 
-  window.addEventListener("touchstart", unlockOnUserGesture, { capture: true, passive: true });
-  window.addEventListener("pointerdown", unlockOnUserGesture, { capture: true, passive: true });
-  window.addEventListener("click", unlockOnUserGesture, { capture: true });
-  window.addEventListener("keydown", unlockOnUserGesture, { capture: true });
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") unlockOnUserGesture();
-  });
+        activeNotification.onclick = () => {
+          try {
+            window.focus();
+          } catch {}
+          activeNotification?.close();
+          activeNotification = null;
+        };
+      } catch (e) {
+        console.warn("[Notification] Erro ao instanciar notificação nativa:", e);
+      }
+    } else if (Notification.permission === "default") {
+      Notification.requestPermission().then((perm) => {
+        if (perm === "granted") {
+          sendNativeDeviceNotification(title, options);
+        }
+      });
+    }
+  }
 }
 
 export function useAudioAlert() {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const playingRef = useRef(false);
-  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const unlockAudio = useCallback(() => {
-    const ctx = getAudioContext();
-    if (ctx && ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
-    }
-    if (globalAudio && isAlertActiveGlobal && globalAudio.paused) {
-      try {
-        globalAudio.volume = 1.0;
-        globalAudio.loop = false;
-        globalAudio.play().catch((e) => {
-          if (e?.name !== "AbortError" && e?.name !== "NotAllowedError") {
-            console.warn("[AudioAlert] unlockAudio play erro:", e);
+    requestNotificationPermission();
+    if (isUnlocked || !globalAudio) return;
+    globalAudio.muted = true;
+    globalAudio.volume = 0; // Silent playback to unlock context
+    const playPromise = globalAudio.play();
+    lastPlayPromise = playPromise;
+    playPromise
+      .then(() => {
+        try {
+          globalAudio!.pause();
+          globalAudio!.currentTime = 0;
+        } catch {}
+        globalAudio!.muted = false;
+        isUnlocked = true;
+        if (lastPlayPromise === playPromise) {
+          lastPlayPromise = null;
+        }
+      })
+      .catch((e) => {
+        if (globalAudio) globalAudio.muted = false;
+        if (lastPlayPromise === playPromise) {
+          lastPlayPromise = null;
+        }
+        if (import.meta.env.DEV) console.warn("[AudioAlert] Falha ao destravar áudio:", e);
+      });
+  }, []);
+
+  const playAlert = useCallback(() => {
+    if (globalAudio) {
+      globalAudio.currentTime = 0;
+      globalAudio.volume = 1.0;
+      const playPromise = globalAudio.play();
+      lastPlayPromise = playPromise;
+      playPromise
+        .then(() => {
+          if (lastPlayPromise === playPromise) {
+            lastPlayPromise = null;
           }
+        })
+        .catch((e) => {
+          if (lastPlayPromise === playPromise) {
+            lastPlayPromise = null;
+          }
+          console.warn("[AudioAlert] Falha ao tocar alerta sonoro:", e);
         });
-      } catch (e) {}
     }
+    triggerDeviceVibration();
   }, []);
 
-  const stopAlert = useCallback(() => {
-    isAlertActiveGlobal = false;
-    playingRef.current = false;
-    setIsPlaying(false);
-
+  const startLoop = useCallback(() => {
     if (globalAudio) {
-      try {
-        globalAudio.pause();
-        globalAudio.currentTime = 0;
-        globalAudio.loop = false;
-      } catch (e) {
-        console.warn("[AudioAlert] Falha ao parar áudio:", e);
-      }
-    }
-
-    if (timeoutIdRef.current) {
-      clearTimeout(timeoutIdRef.current);
-      timeoutIdRef.current = null;
-    }
-
-    if (typeof navigator !== "undefined" && "vibrate" in navigator && canUseBrowserVibration()) {
-      try {
-        navigator.vibrate(0);
-      } catch {}
-    }
-  }, []);
-
-  const playAlert = useCallback((loop = false) => {
-    isAlertActiveGlobal = true;
-    playingRef.current = true;
-    setIsPlaying(true);
-
-    const ctx = getAudioContext();
-    if (ctx && ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
-    }
-
-    if (globalAudio) {
-      try {
-        globalAudio.volume = 1.0;
-        globalAudio.loop = loop;
-        globalAudio.onended = () => {
-          if (!loop) {
-            stopAlert();
+      globalAudio.loop = true;
+      globalAudio.volume = 1.0;
+      const playPromise = globalAudio.play();
+      lastPlayPromise = playPromise;
+      playPromise
+        .then(() => {
+          if (lastPlayPromise === playPromise) {
+            lastPlayPromise = null;
           }
-        };
-
-        // Se já estiver tocando e não estiver pausado, garante que continua tocando o áudio completo!
-        if (!globalAudio.paused && globalAudio.currentTime > 0) {
-          return;
-        }
-
-        globalAudio.currentTime = 0;
-        const p = globalAudio.play();
-        if (p !== undefined) {
-          p.catch((err) => {
-            if (err?.name !== "NotAllowedError" && err?.name !== "AbortError") {
-              console.warn("[AudioAlert] Falha ao tocar áudio MP3:", err);
-            }
-          });
-        }
-      } catch (e) {
-        console.warn("[AudioAlert] Erro ao disparar áudio MP3:", e);
-      }
+        })
+        .catch((e) => {
+          if (lastPlayPromise === playPromise) {
+            lastPlayPromise = null;
+          }
+          console.warn("[AudioAlert] Falha ao tocar alerta sonoro em loop:", e);
+        });
     }
 
-    if (typeof navigator !== "undefined" && "vibrate" in navigator && canUseBrowserVibration()) {
-      try {
-        navigator.vibrate([500, 200, 500, 200, 500]);
-      } catch {}
+    if (!vibrationInterval) {
+      triggerDeviceVibration();
+      vibrationInterval = setInterval(() => {
+        triggerDeviceVibration();
+      }, 3500);
     }
-
-    if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
-    timeoutIdRef.current = setTimeout(() => {
-      stopAlert();
-    }, loop ? 30_000 : 25_000);
-  }, [stopAlert]);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutIdRef.current) {
-        clearTimeout(timeoutIdRef.current);
-      }
-    };
   }, []);
 
-  return { unlockAudio, playAlert, stopAlert, isPlaying };
+  const stopLoop = useCallback(() => {
+    if (globalAudio) {
+      const performPause = () => {
+        try {
+          globalAudio!.pause();
+          globalAudio!.currentTime = 0;
+          globalAudio!.loop = false;
+        } catch (e) {
+          console.warn("[AudioAlert] Falha ao parar áudio:", e);
+        }
+      };
+
+      if (lastPlayPromise) {
+        lastPlayPromise.then(performPause).catch(performPause);
+        lastPlayPromise = null;
+      } else {
+        performPause();
+      }
+    }
+
+    if (vibrationInterval) {
+      clearInterval(vibrationInterval);
+      vibrationInterval = null;
+    }
+
+    if (activeNotification) {
+      activeNotification.close();
+      activeNotification = null;
+    }
+  }, []);
+
+  return {
+    unlockAudio,
+    playAlert,
+    startLoop,
+    stopLoop,
+    stopAlert: stopLoop,
+    isPlaying: false
+  };
 }

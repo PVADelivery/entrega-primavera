@@ -201,13 +201,6 @@ public class DeliveryOverlayPlugin extends Plugin {
 
     @PluginMethod
     public void postNotification(PluginCall call) {
-        String deliveryId = call.getString("deliveryId", "");
-        String storeName = call.getString("storeName", "");
-        String pickup = call.getString("pickup", "");
-        String dropoff = call.getString("dropoff", "");
-        String fee = call.getString("fee", "");
-        String details = call.getString("details", "");
-        MyFirebaseMessagingService.postDeliveryNotification(getContext(), deliveryId, storeName, pickup, dropoff, fee, details);
         call.resolve();
     }
 
@@ -237,10 +230,6 @@ public class DeliveryOverlayPlugin extends Plugin {
 
     @PluginMethod
     public void cancelDeliveryNotification(PluginCall call) {
-        String deliveryId = call.getString("deliveryId", "");
-        if (deliveryId != null && !deliveryId.isEmpty()) {
-            MyFirebaseMessagingService.dismissDeliveryAlert(getContext(), deliveryId);
-        }
         call.resolve();
     }
 
@@ -262,11 +251,6 @@ public class DeliveryOverlayPlugin extends Plugin {
                 .edit()
                 .putBoolean("is_online", online)
                 .apply();
-        if (online) {
-            DeliveryBackgroundService.startService(getContext());
-        } else {
-            DeliveryBackgroundService.stopService(getContext());
-        }
         call.resolve();
     }
 

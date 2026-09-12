@@ -23,7 +23,7 @@ const config: CapacitorConfig = {
       presentationOptions: ["badge", "sound", "alert"]
     },
     LocalNotifications: {
-      sound: "ring.wav"
+      sound: "notification_sound.mp3"
     }
   }
 };

@@ -22,7 +22,6 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(DeliveryOverlayPlugin.class);
         NotificationChannels.ensureIncomingChannel(this);
-        DeliveryBackgroundService.startService(this);
         super.onCreate(savedInstanceState);
 
         // Otimiza o WebView para alta estabilidade, cache e tolerância a quedas de rede
@@ -41,27 +40,7 @@ public class MainActivity extends BridgeActivity {
         // Monitor de conectividade: recarrega automaticamente se estava na tela de erro e a internet voltou
         registerNetworkAutoRecovery();
 
-        // Solicita desativar restrições de bateria para que o app continue notificando em segundo plano
-        requestIgnoreBatteryOptimization();
-
         handleIntent(getIntent());
-    }
-
-    private void requestIgnoreBatteryOptimization() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
-                String pkg = getPackageName();
-                if (pm != null && !pm.isIgnoringBatteryOptimizations(pkg)) {
-                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                    intent.setData(Uri.parse("package:" + pkg));
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(intent);
-                }
-            }
-        } catch (Exception e) {
-            android.util.Log.w("MainActivity", "Erro ao solicitar isenção de otimização de bateria: " + e.getMessage());
-        }
     }
 
     private void registerNetworkAutoRecovery() {
@@ -130,7 +109,6 @@ public class MainActivity extends BridgeActivity {
         if (deliveryId != null && !deliveryId.isEmpty() && "accept".equals(action)) {
             android.util.Log.d("MainActivity", "handleIntent: ACEITAR deliveryId=" + deliveryId);
             NativeSoundPlayer.stopSound();
-            MyFirebaseMessagingService.dismissDeliveryAlert(this, deliveryId);
 
             DeliveryOverlayPlugin.setPendingAccepted(deliveryId);
 
