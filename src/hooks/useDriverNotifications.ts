@@ -112,13 +112,7 @@ export function useDriverNotifications() {
   useEffect(() => {
     // 0. Permissão para Web Browsers (Chrome, Edge, Firefox, Safari)
     if (!Capacitor.isNativePlatform() && typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "default") {
-        Notification.requestPermission().then((perm) => {
-          permissionRef.current = perm;
-        }).catch(() => {});
-      } else {
-        permissionRef.current = Notification.permission;
-      }
+      permissionRef.current = Notification.permission;
     }
 
     // 1. Notificações locais do dispositivo

@@ -15,12 +15,6 @@ export function DriverHeader() {
   const lastLocationUpdateRef = useRef<{ lat: number; lng: number; time: number }>({ lat: 0, lng: 0, time: 0 });
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  useEffect(() => {
     if (!user || typeof window === "undefined") return;
 
     // Carrega status salvo do localStorage como prioridade

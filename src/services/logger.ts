@@ -235,13 +235,27 @@ export function initializeGlobalErrorHandlers(appName: string) {
 
   // 1. Unhandled exceptions
   window.onerror = (message, source, lineno, colno, error) => {
-    const msgStr = String(message);
-    if (msgStr.includes("insertBefore") || msgStr.includes("removeChild")) {
-      return true; // Ignore browser-translation DOM mutation errors
+    const msgStr = String(message || "");
+    const lower = msgStr.toLowerCase();
+
+    // Ignore browser-translation DOM mutation errors
+    if (lower.includes("insertbefore") || lower.includes("removechild")) {
+      return true;
     }
+
+    // Ignore generic cross-origin, browser extension, or Safari background termination noise without source/line
+    if (
+      lower === "script error." ||
+      lower === "script error" ||
+      (!error && !source && lineno === 0 && colno === 0)
+    ) {
+      console.warn("[Logger] Generic cross-origin / browser extension Script Error ignored.");
+      return true;
+    }
+
     reportErrorToTelegram({
-      error_message: String(message),
-      stack_trace: error?.stack || `At ${source}:${lineno}:${colno}`,
+      error_message: msgStr,
+      stack_trace: error?.stack || `At ${source || 'unknown'}:${lineno}:${colno}`,
       url: window.location.href,
       additional_info: {
         source,
@@ -268,6 +282,20 @@ export function initializeGlobalErrorHandlers(appName: string) {
           window.location.href = "/login";
         }, 1000);
       }
+      return;
+    }
+
+    // Silencia rejeições de áudio/permissão de navegador não críticas (ex: autoplay policy do Safari / falta de clique)
+    if (
+      lower.includes("notallowederror") ||
+      lower.includes("aborterror") ||
+      lower.includes("user gesture") ||
+      lower.includes("requestpermission") ||
+      lower.includes("the operation was aborted") ||
+      lower.includes("the play() request was interrupted") ||
+      lower.includes("script error")
+    ) {
+      console.warn("[Logger] Non-critical browser rejection ignored:", msg);
       return;
     }
 
