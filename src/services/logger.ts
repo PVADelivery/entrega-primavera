@@ -198,16 +198,8 @@ export function initializeGlobalErrorHandlers(appName: string) {
 
           // Trata automaticamente sessão expirada (JWT Expired) sem poluir logs do Telegram
           if (lower.includes("jwt expired") || lower.includes("token expired") || lower.includes("session expired")) {
-            try {
-              supabase.auth.signOut();
-            } catch {}
-            if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-              setTimeout(() => {
-                window.location.href = "/login";
-              }, 1000);
-            }
-            message = "Sua sessão expirou. Por favor, faça login novamente.";
-            return originalToastError.apply(rawToast, [message, options]);
+            supabase.auth.refreshSession().catch(() => {});
+            return;
           }
 
           const isRaceCondition = 
@@ -272,16 +264,9 @@ export function initializeGlobalErrorHandlers(appName: string) {
     const msg = reason?.message || (typeof reason === "object" ? JSON.stringify(reason) : String(reason));
     const lower = (msg || "").toLowerCase();
 
-    // Silencia rejeições de JWT Expirado e redireciona para login
+    // Silencia rejeições de JWT Expirado e tenta renovar a sessão silenciosamente sem forçar logout
     if (lower.includes("jwt expired") || lower.includes("token expired") || lower.includes("session expired")) {
-      try {
-        supabase.auth.signOut();
-      } catch {}
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 1000);
-      }
+      supabase.auth.refreshSession().catch(() => {});
       return;
     }
 

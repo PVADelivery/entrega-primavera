@@ -21,13 +21,14 @@ export const attachExternalSupabaseAuth = createMiddleware({ type: "function" })
     );
 
     if (shouldRefresh) {
-      const refreshed = await supabase.auth.refreshSession();
-      if (refreshed.error || !refreshed.data.session) {
-        console.warn("[auth] A sessão expirou e não pôde ser renovada.");
-        await supabase.auth.signOut({ scope: "local" });
-        return next();
+      try {
+        const refreshed = await supabase.auth.refreshSession();
+        if (refreshed.data?.session) {
+          session = refreshed.data.session;
+        }
+      } catch (err) {
+        console.warn("[auth] Falha temporária ao renovar sessão (offline/rede):", err);
       }
-      session = refreshed.data.session;
     }
 
     // Se o servidor rejeitar o token (getUser retornou null), renova UMA vez e repete.
@@ -35,18 +36,18 @@ export const attachExternalSupabaseAuth = createMiddleware({ type: "function" })
       const response = await fetch(input as RequestInfo, init);
       if (response.status !== 401) return response;
 
-      console.warn("[auth] Servidor rejeitou o token. Tentando renovar a sessão uma vez.");
-      const refreshed = await supabase.auth.refreshSession();
-      if (refreshed.error || !refreshed.data.session?.access_token) {
-        console.warn("[auth] Renovação falhou. Sessão encerrada.");
-        await supabase.auth.signOut({ scope: "local" });
-        return response;
+      console.warn("[auth] Servidor rejeitou o token (401). Tentando renovar a sessão.");
+      try {
+        const refreshed = await supabase.auth.refreshSession();
+        if (refreshed.data?.session?.access_token) {
+          const headers = new Headers(init?.headers);
+          headers.set("Authorization", `Bearer ${refreshed.data.session.access_token}`);
+          return fetch(input as RequestInfo, { ...init, headers });
+        }
+      } catch (err) {
+        console.warn("[auth] Falha ao renovar token após 401:", err);
       }
-
-      const headers = new Headers(init?.headers);
-      headers.set("Authorization", `Bearer ${refreshed.data.session.access_token}`);
-      console.info("[auth] Sessão renovada. Repetindo a chamada uma única vez.");
-      return fetch(input as RequestInfo, { ...init, headers });
+      return response;
     };
 
     return next({

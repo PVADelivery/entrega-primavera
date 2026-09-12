@@ -30,29 +30,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    // Timeout de segurança: jamais travar em "Verificando acesso..." por mais de 2.5s
+    // Timeout de segurança generoso para conexões móveis e inicialização nativa no Android
     const safetyTimeout = setTimeout(() => {
       if (isMounted) setLoading(false);
-    }, 2500);
+    }, 15000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!isMounted) return;
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-      if (newSession?.user) {
-        loadRoles(newSession.user.id);
-      } else {
+      if (event === "SIGNED_OUT") {
+        setSession(null);
+        setUser(null);
         setRoles([]);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+      if (newSession) {
+        setSession(newSession);
+        setUser(newSession.user);
+        loadRoles(newSession.user.id);
+        setLoading(false);
+      }
     });
 
     supabase.auth.getSession()
-      .then(({ data: { session: s } }) => {
+      .then(async ({ data: { session: s } }) => {
         if (!isMounted) return;
-        setSession(s);
-        setUser(s?.user ?? null);
-        if (s?.user) loadRoles(s.user.id);
+        if (s) {
+          setSession(s);
+          setUser(s.user);
+          await loadRoles(s.user.id);
+        } else {
+          // Se getSession inicial vier nulo, tenta refreshSession antes de considerar deslogado
+          try {
+            const { data: refData } = await supabase.auth.refreshSession();
+            if (refData?.session && isMounted) {
+              setSession(refData.session);
+              setUser(refData.session.user);
+              await loadRoles(refData.session.user.id);
+            }
+          } catch {}
+        }
       })
       .catch((err) => {
         console.warn("[Auth] Erro ao carregar sessão inicial:", err);
