@@ -28,24 +28,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    let isMounted = true;
+
+    // Timeout de segurança: jamais travar em "Verificando acesso..." por mais de 2.5s
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2500);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!isMounted) return;
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
-        setTimeout(() => loadRoles(newSession.user.id), 0);
+        loadRoles(newSession.user.id);
       } else {
         setRoles([]);
       }
-    });
-
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) loadRoles(s.user.id);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    supabase.auth.getSession()
+      .then(({ data: { session: s } }) => {
+        if (!isMounted) return;
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user) loadRoles(s.user.id);
+      })
+      .catch((err) => {
+        console.warn("[Auth] Erro ao carregar sessão inicial:", err);
+      })
+      .finally(() => {
+        clearTimeout(safetyTimeout);
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

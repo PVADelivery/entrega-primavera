@@ -92,7 +92,6 @@ export function useDriverNotifications() {
   const invalidateDeliveries = () => {
     try {
       qc.invalidateQueries({ queryKey: ["deliveries"] });
-      qc.refetchQueries({ queryKey: ["deliveries"] });
     } catch (e) {
       console.warn("[Notify] erro ao invalidar queries:", e);
     }
@@ -597,7 +596,7 @@ export function useDriverNotifications() {
 
       // Realtime — novas entregas e mudanças de status
       const broadcastChannel = supabase
-        .channel(`mt24-driver-broadcast-${driverId}-${Date.now()}`)
+        .channel(`mt24-driver-broadcast-${driverId}`)
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "deliveries" },
@@ -640,6 +639,11 @@ export function useDriverNotifications() {
           }
         )
         .subscribe();
+
+      if (cancelled) {
+        supabase.removeChannel(broadcastChannel);
+        return () => {};
+      }
       channelsRef.current.push(broadcastChannel);
 
       return () => {

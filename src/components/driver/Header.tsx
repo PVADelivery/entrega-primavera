@@ -12,6 +12,7 @@ export function DriverHeader() {
   const [online, setOnline] = useState(false);
   const [name, setName] = useState("Entregador");
   const locationWatchRef = useRef<number | null>(null);
+  const lastLocationUpdateRef = useRef<{ lat: number; lng: number; time: number }>({ lat: 0, lng: 0, time: 0 });
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
@@ -61,15 +62,32 @@ export function DriverHeader() {
 
       loadDriverInfo();
 
+      // Debounce e filtro para refletir alterações do Admin sem re-consultar a cada tick de GPS
+      let debounceTimer: any = null;
+      const debouncedLoadDriverInfo = (payload?: any) => {
+        if (payload?.table === "delivery_drivers" && payload?.eventType === "UPDATE") {
+          const oldD = payload.old;
+          const newD = payload.new;
+          if (oldD && newD && oldD.full_name === newD.full_name && oldD.is_online === newD.is_online) {
+            return; // Apenas GPS mudou, não recarrega perfil
+          }
+        }
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          loadDriverInfo();
+        }, 2000);
+      };
+
       // Realtime listener para refletir alterações do Admin instantaneamente
       const ch = supabase
         .channel(`driver-profile-sync-${user.id}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, () => loadDriverInfo())
-        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` }, () => loadDriverInfo())
-        .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` }, () => loadDriverInfo())
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, (p) => debouncedLoadDriverInfo(p))
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` }, (p) => debouncedLoadDriverInfo(p))
+        .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` }, (p) => debouncedLoadDriverInfo(p))
         .subscribe();
 
     return () => {
+      clearTimeout(debounceTimer);
       supabase.removeChannel(ch);
     };
   }, [user]);
@@ -98,16 +116,26 @@ export function DriverHeader() {
         const lng = Number(pos.coords?.longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-        await Promise.allSettled([
-          supabase
+        const now = Date.now();
+        const last = lastLocationUpdateRef.current;
+        const timeDiff = now - last.time;
+
+        // Limite de taxa: no máximo 1 update a cada 20 segundos, ou 10s se deslocamento > 35m
+        const approxDist = Math.hypot(lat - last.lat, lng - last.lng);
+        if (timeDiff < 20000 && (timeDiff < 10000 || approxDist < 0.00035)) {
+          return;
+        }
+
+        lastLocationUpdateRef.current = { lat, lng, time: now };
+
+        try {
+          await supabase
             .from("delivery_drivers")
             .update({ latitude: lat, longitude: lng, is_online: true } as any)
-            .eq("user_id", user.id),
-          supabase
-            .from("delivery_drivers")
-            .update({ latitude: lat, longitude: lng, is_online: true } as any)
-            .eq("id", user.id),
-        ]);
+            .eq("user_id", user.id);
+        } catch (e) {
+          console.warn("[GPS] Falha ao sincronizar posição:", e);
+        }
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 },
