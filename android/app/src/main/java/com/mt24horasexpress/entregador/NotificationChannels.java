@@ -13,6 +13,7 @@ public final class NotificationChannels {
 
     public static final String INCOMING_CHANNEL_ID = "mt24_delivery_alerts_v35";
     public static final String MARKETPLACE_CHANNEL_ID = "mt24_marketplace_orders_v35";
+    public static final String SERVICE_CHANNEL_ID = "mt24_driver_service_channel";
 
     private NotificationChannels() {}
 
@@ -78,6 +79,15 @@ public final class NotificationChannels {
             ch.setBypassDnd(true);
             ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             nm.createNotificationChannel(ch);
+        }
+
+        // 3) Canal de Serviço Contínuo em Segundo Plano
+        if (nm.getNotificationChannel(SERVICE_CHANNEL_ID) == null) {
+            NotificationChannel sCh = new NotificationChannel(
+                    SERVICE_CHANNEL_ID, "Monitoramento de Entregas (Segundo Plano)", NotificationManager.IMPORTANCE_LOW);
+            sCh.setDescription("Mantém o app ativo em segundo plano para alertar novas corridas na central do aparelho");
+            sCh.setShowBadge(false);
+            nm.createNotificationChannel(sCh);
         }
     }
 }

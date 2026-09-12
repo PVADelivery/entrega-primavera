@@ -22,6 +22,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(DeliveryOverlayPlugin.class);
         NotificationChannels.ensureIncomingChannel(this);
+        DeliveryBackgroundService.startService(this);
         super.onCreate(savedInstanceState);
 
         // Otimiza o WebView para alta estabilidade, cache e tolerância a quedas de rede

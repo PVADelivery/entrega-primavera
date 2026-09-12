@@ -255,10 +255,16 @@ public class DeliveryOverlayPlugin extends Plugin {
     @PluginMethod
     public void setDriverOnlineStatus(PluginCall call) {
         Boolean isOnline = call.getBoolean("isOnline", true);
+        boolean online = Boolean.TRUE.equals(isOnline);
         getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
-                .putBoolean("is_online", Boolean.TRUE.equals(isOnline))
+                .putBoolean("is_online", online)
                 .apply();
+        if (online) {
+            DeliveryBackgroundService.startService(getContext());
+        } else {
+            DeliveryBackgroundService.stopService(getContext());
+        }
         call.resolve();
     }
 

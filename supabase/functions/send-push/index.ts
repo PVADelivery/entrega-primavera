@@ -200,6 +200,10 @@ serve(async (req) => {
       const message = {
         message: {
           token: token,
+          notification: {
+            title: pushTitle,
+            body: `${dropoffAddr} • Ganhos: ${feeText}`,
+          },
           data: {
             type: "delivery",
             deliveryId: String(record.id),
@@ -218,7 +222,31 @@ serve(async (req) => {
           android: {
             priority: "HIGH",
             ttl: "300s",
-            direct_boot_ok: true
+            direct_boot_ok: true,
+            notification: {
+              title: pushTitle,
+              body: `${dropoffAddr} • Ganhos: ${feeText}`,
+              channel_id: "mt24_delivery_alerts_v35",
+              sound: "ring",
+              notification_priority: "PRIORITY_MAX",
+              visibility: "PUBLIC",
+              default_sound: false,
+              default_vibrate_timings: false,
+              vibrate_timings: ["0s", "0.8s", "0.25s", "0.8s", "0.25s", "0.8s"]
+            }
+          },
+          webpush: {
+            headers: {
+              Urgency: "high"
+            },
+            notification: {
+              title: pushTitle,
+              body: `${dropoffAddr} • Ganhos: ${feeText}`,
+              icon: "/favicon-v3.png",
+              badge: "/favicon-v3.png",
+              vibrate: [500, 200, 500, 200, 500],
+              requireInteraction: true
+            }
           },
           apns: {
             headers: {
