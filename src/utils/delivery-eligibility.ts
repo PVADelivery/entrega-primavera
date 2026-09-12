@@ -1,13 +1,16 @@
 import { getElapsedSeconds } from "./time";
 
-export const ADMIN_WINDOW_SECONDS = 0; // Notificação e disponibilização IMEDIATA para os entregadores
+export const ADMIN_WINDOW_SECONDS = 120; // 2 minutos (120 segundos) da janela do Admin
 
 /**
  * Regra de Elegibilidade de Entregas:
  * 1. Não elegível se já finalizada/cancelada.
  * 2. Se atribuída a outro entregador específico, ignora.
- * 3. Se atribuída ao entregador logado, ou transmitida (broadcasted), ou pendente geral:
- *    DISPONÍVEL E NOTIFICA IMEDIATAMENTE (sem janela de espera artificial).
+ * 3. Se atribuída ao entregador logado, ou transmitida (broadcasted):
+ *    DISPONÍVEL E NOTIFICA IMEDIATAMENTE!
+ * 4. Se for pendente geral (sem motorista atribuído):
+ *    Respeita a regra dos 2 minutos (120s) do Admin. Só fica disponível e notifica
+ *    após decorridos 120 segundos da criação (created_at).
  */
 export function isDeliveryEligibleForDriver(
   delivery: any,
@@ -45,9 +48,16 @@ export function isDeliveryEligibleForDriver(
     return true;
   }
 
-  // 4. Se o status for pendente/aberto, oferece IMEDIATAMENTE para todos os entregadores online
+  // 4. Se o status for pendente/aberto e não estiver atribuída:
+  // REGRA DOS 2 MINUTOS DO ADMIN: Só fica elegível após completar 120 segundos!
   const validPendingStatuses = ["pending", "pending_assignment", "created", "open", "em_aberto", "pendente"];
   if (validPendingStatuses.includes(status)) {
+    if (delivery.created_at) {
+      const elapsed = getElapsedSeconds(delivery.created_at);
+      if (elapsed < ADMIN_WINDOW_SECONDS) {
+        return false; // Janela exclusiva do Admin (2 minutos)
+      }
+    }
     return true;
   }
 

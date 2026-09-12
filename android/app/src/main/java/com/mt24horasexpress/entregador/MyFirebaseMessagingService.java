@@ -316,15 +316,16 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             details = details.replace("Veja no app", "Retirada na Loja");
         }
 
-        // ── REGRA DE ATRIBUIÇÃO DIRETA & ALERTA IMEDIATO (SEM ATRASO) ──────────────
+        // ── REGRA DE ATRIBUIÇÃO DIRETA & JANELA DOS 2 MINUTOS DO ADMIN ──────────────
         String driverIdInPayload = data.get("driver_id");
         SharedPreferences prefs = getSharedPreferences(DeliveryOverlayPlugin.PREFS_NAME, Context.MODE_PRIVATE);
         String myDriverId = prefs.getString("driver_id", "");
         String myUserId = prefs.getString("user_id", "");
 
+        boolean isForMe = false;
         // 1. Se atribuída diretamente a outro entregador específico, ignora
         if (driverIdInPayload != null && !driverIdInPayload.isEmpty() && !"none".equalsIgnoreCase(driverIdInPayload) && !"00000000-0000-0000-0000-000000000000".equals(driverIdInPayload)) {
-            boolean isForMe = (myDriverId != null && !myDriverId.isEmpty() && myDriverId.equalsIgnoreCase(driverIdInPayload))
+            isForMe = (myDriverId != null && !myDriverId.isEmpty() && myDriverId.equalsIgnoreCase(driverIdInPayload))
                     || (myUserId != null && !myUserId.isEmpty() && myUserId.equalsIgnoreCase(driverIdInPayload));
             if (!isForMe && (!myDriverId.isEmpty() || !myUserId.isEmpty())) {
                 Log.d(TAG, "Corrida atribuída a outro motorista (" + driverIdInPayload + "). Ignorando.");
@@ -332,8 +333,26 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             }
         }
 
-        // 2. Notifica o entregador IMEDIATAMENTE ao receber o Push FCM em segundo plano/app fechado
-        Log.d(TAG, "Notificando entregador IMEDIATAMENTE para a corrida: " + deliveryId);
+        String statusInPayload = data.get("status");
+        boolean isBroadcasted = "broadcasted".equalsIgnoreCase(statusInPayload);
+
+        // 2. REGRA DOS 2 MINUTOS DO ADMIN:
+        // Se NÃO foi atribuída diretamente a mim E NÃO foi transmitida pelo admin:
+        if (!isForMe && !isBroadcasted) {
+            String createdAt = data.get("created_at");
+            long createdAtMs = parseIsoDate(createdAt);
+            long elapsedMs = System.currentTimeMillis() - createdAtMs;
+            long twoMinutesMs = 120_000L;
+            if (elapsedMs < twoMinutesMs) {
+                long delayMs = Math.max(1000L, twoMinutesMs - elapsedMs);
+                Log.d(TAG, "Corrida na janela exclusiva do Admin (" + (delayMs / 1000) + "s restantes). Agendando alarme nativo.");
+                scheduleAlarmManager(this, deliveryId, storeName, pickup, dropoff, fee, details, delayMs);
+                return;
+            }
+        }
+
+        // 3. Notifica o entregador (atribuído para ele, transmitido ou após os 2 minutos)
+        Log.d(TAG, "Notificando entregador para a corrida: " + deliveryId);
         triggerDeliveryAlert(deliveryId, storeName, pickup, dropoff, fee, details);
     }
 

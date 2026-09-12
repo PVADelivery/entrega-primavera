@@ -184,10 +184,26 @@ public class DeliveryBackgroundService extends Service {
                 currentPendingIds.add(id);
 
                 String assignedDriverId = obj.optString("driver_id", "");
+                boolean isForMe = false;
                 if (!assignedDriverId.isEmpty() && !"null".equalsIgnoreCase(assignedDriverId)) {
-                    boolean isForMe = (!myDriverId.isEmpty() && myDriverId.equalsIgnoreCase(assignedDriverId))
+                    isForMe = (!myDriverId.isEmpty() && myDriverId.equalsIgnoreCase(assignedDriverId))
                             || (!myUserId.isEmpty() && myUserId.equalsIgnoreCase(assignedDriverId));
                     if (!isForMe) {
+                        continue;
+                    }
+                }
+
+                String status = obj.optString("status", "pending");
+                boolean isBroadcasted = "broadcasted".equalsIgnoreCase(status);
+
+                // REGRA DOS 2 MINUTOS DO ADMIN (120 SEGUNDOS):
+                // Se a corrida NÃO foi atribuída diretamente a mim E NÃO foi transmitida pelo admin:
+                // Ela fica na janela exclusiva do Admin por 120 segundos. NÃO notifica os entregadores gerais!
+                if (!isForMe && !isBroadcasted) {
+                    String createdAt = obj.optString("created_at", "");
+                    long elapsedSeconds = getElapsedSeconds(createdAt);
+                    if (elapsedSeconds < 120) {
+                        // Ainda aguardando o direcionamento manual do Admin (janela de 2 minutos)
                         continue;
                     }
                 }
@@ -260,6 +276,31 @@ public class DeliveryBackgroundService extends Service {
         if (executorService != null) {
             executorService.shutdownNow();
             executorService = null;
+        }
+    }
+
+    private static long getElapsedSeconds(String dateStr) {
+        if (dateStr == null || dateStr.trim().isEmpty()) return 999;
+        try {
+            String s = dateStr.trim().replace(" ", "T");
+            long timeMs;
+            boolean hasTz = s.endsWith("Z") || s.contains("+") || (s.length() > 6 && (s.charAt(s.length() - 6) == '-' || s.charAt(s.length() - 3) == '-'));
+            if (hasTz) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    timeMs = java.time.Instant.parse(s).toEpochMilli();
+                } else {
+                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+                    sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                    timeMs = sdf.parse(s.substring(0, Math.min(19, s.length()))).getTime();
+                }
+            } else {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+                timeMs = sdf.parse(s.substring(0, Math.min(19, s.length()))).getTime();
+            }
+            long diffMs = System.currentTimeMillis() - timeMs;
+            return Math.max(0, diffMs / 1000);
+        } catch (Exception e) {
+            return 999;
         }
     }
 
