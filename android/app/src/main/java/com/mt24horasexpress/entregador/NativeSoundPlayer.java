@@ -33,7 +33,7 @@ public class NativeSoundPlayer {
                         .build();
 
                 mediaPlayer.setAudioAttributes(attrs);
-                mediaPlayer.setLooping(false);
+                mediaPlayer.setLooping(true);
                 mediaPlayer.setVolume(1.0f, 1.0f);
                 mediaPlayer.setOnCompletionListener(mp -> {
                     synchronized (lock) {
