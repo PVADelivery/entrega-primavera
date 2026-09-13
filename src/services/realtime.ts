@@ -99,13 +99,13 @@ export function useDriverRealtime() {
 
       if (!isBroadcasted && !isPending) return;
 
-      // Regra dos 2 minutos do Admin: se for "pending", verifica se já passaram 120s
+      // Se for "pending" e estiver dentro dos 2 minutos, agenda para aparecer na lista de aceite assim que completar 120s
       if (isPending && !isBroadcasted && newDel.created_at) {
         const elapsedSeconds = getElapsedSeconds(newDel.created_at);
         if (elapsedSeconds < 120) {
-          // Reservado para o Admin direcionar! Não toca áudio nem notifica entregadores gerais ainda.
-          qc.invalidateQueries({ queryKey: ["deliveries"] });
-          return;
+          setTimeout(() => {
+            qc.invalidateQueries({ queryKey: ["deliveries"] });
+          }, Math.max(500, (120 - elapsedSeconds) * 1000));
         }
       }
 

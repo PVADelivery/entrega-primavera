@@ -312,73 +312,44 @@ export function useDriverNotifications() {
     };
     window.addEventListener("delivery-accepted", handleAcceptEvent);
 
-    const scheduleDeliveryIfWithinAdminWindow = (delivery: any) => {
-      if (!delivery || !delivery.id) return;
-      const status = String(delivery.status || "").toLowerCase();
-      const validPendingStatuses = ["pending", "pending_assignment", "created", "open", "em_aberto", "pendente"];
-      if (!validPendingStatuses.includes(status)) return;
-      if (delivery.driver_id && String(delivery.driver_id).trim() !== "" && delivery.driver_id !== "none") return;
-
-      const declined = getDeclinedDeliveries();
-      if (declined.has(delivery.id)) return;
-      if (seenIdsRef.current.has(delivery.id)) return;
-
-      const createdAt = delivery.created_at || new Date().toISOString();
-      const elapsed = getElapsedSeconds(createdAt);
-
-      if (elapsed < ADMIN_WINDOW_SECONDS) {
-        if (scheduledDeliveriesRef.current.has(delivery.id)) return;
-
-        const remainingMs = Math.max(500, (ADMIN_WINDOW_SECONDS - elapsed) * 1000 + 500);
-        console.log(`[Notify] Agendando alerta da entrega ${delivery.id} para tocar em ${(remainingMs / 1000).toFixed(1)}s (após vencer 2 min do Admin)`);
-
-        const timer = setTimeout(async () => {
-          scheduledDeliveriesRef.current.delete(delivery.id);
-          try {
-            const { data: latest } = await supabase
-              .from("deliveries")
-              .select("*, companies(name, address)")
-              .eq("id", delivery.id)
-              .maybeSingle();
-
-            if (latest) {
-              const latestStatus = String(latest.status || "").toLowerCase();
-              if (validPendingStatuses.includes(latestStatus) || latestStatus === "broadcasted") {
-                const currentDriverId = driverRowRef.current?.id || user?.id;
-                const currentUserId = user?.id;
-                if (!latest.driver_id || latest.driver_id === currentDriverId || latest.driver_id === currentUserId) {
-                  console.log(`[Notify] Janela de 2 min vencida! Disparando alerta sonoro e popup para entrega ${latest.id}`);
-                  notifyNewDelivery(latest);
-                }
-              }
-            }
-          } catch (e) {
-            console.warn("[Notify] erro ao disparar entrega agendada após 120s:", e);
-          }
-        }, remainingMs);
-
-        scheduledDeliveriesRef.current.set(delivery.id, timer);
-      } else {
-        notifyNewDelivery(delivery);
-      }
-    };
-
     const notifyNewDelivery = async (rawDelivery: any) => {
       const isOnlineNow = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
       if (!isOnlineNow) return;
+
+      const status = String(rawDelivery.status || "").toLowerCase();
+      if (["completed", "delivered", "cancelled", "returned", "concluida", "cancelada"].includes(status)) {
+        return;
+      }
 
       const declined = getDeclinedDeliveries();
       if (declined.has(rawDelivery.id)) return;
       if (seenIdsRef.current.has(rawDelivery.id)) return;
 
-      // Verifica se a corrida é elegível para o entregador (notificação imediata)
+      const assignedId = rawDelivery.driver_id ? String(rawDelivery.driver_id).toLowerCase().trim() : "";
+      const isAssigned = Boolean(assignedId && assignedId !== "none" && assignedId !== "00000000-0000-0000-0000-000000000000");
       const currentDriverId = driverRowRef.current?.id || user?.id;
       const currentUserId = user?.id;
-      const isEligible = isDeliveryEligibleForDriver(rawDelivery, currentDriverId, currentUserId);
-      if (!isEligible) {
-        // Se ainda está dentro da janela de 2 minutos do Admin, agenda para tocar assim que vencer os 120s!
-        scheduleDeliveryIfWithinAdminWindow(rawDelivery);
+      const myIds = [currentDriverId, currentUserId].filter(Boolean).map((id) => String(id).toLowerCase().trim());
+
+      // Se atribuída diretamente a outro entregador parceiro pelo Admin, não notifica
+      if (isAssigned && myIds.length > 0 && !myIds.includes(assignedId)) {
         return;
+      }
+
+      // REGRA: A notificação e áudio disparam IMEDIATAMENTE no momento da criação/push!
+      // Se for entrega pendente geral dentro dos 2 minutos, agenda para aparecer no app para aceite ao completar 120s
+      const createdAt = rawDelivery.created_at || new Date().toISOString();
+      const elapsed = getElapsedSeconds(createdAt);
+      if (elapsed < ADMIN_WINDOW_SECONDS && !isAssigned && status !== "broadcasted") {
+        if (!scheduledDeliveriesRef.current.has(rawDelivery.id)) {
+          const remainingMs = Math.max(500, (ADMIN_WINDOW_SECONDS - elapsed) * 1000 + 500);
+          console.log(`[Notify] Notificando som/alerta agora! A entrega ${rawDelivery.id} aparecerá para aceite no app em ${(remainingMs / 1000).toFixed(1)}s (2 min)`);
+          const timer = setTimeout(() => {
+            scheduledDeliveriesRef.current.delete(rawDelivery.id);
+            invalidateDeliveries();
+          }, remainingMs);
+          scheduledDeliveriesRef.current.set(rawDelivery.id, timer);
+        }
       }
 
       seenIdsRef.current.add(rawDelivery.id);

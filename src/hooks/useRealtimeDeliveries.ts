@@ -25,11 +25,12 @@ export function useRealtimeDeliveries() {
           const isPending = d.status === "pending";
           const elapsedSeconds = getElapsedSeconds(d.created_at);
 
-          // Se for "pending" e tiver menos de 2 minutos, está reservado no Admin! Não toca som de entrega em geral.
+          // Se for "pending" e tiver menos de 2 minutos, agenda para aparecer na lista de aceite ao completar 120s
           if (isPending && !isBroadcasted && elapsedSeconds < 120 && !d.driver_id) {
-            qc.invalidateQueries({ queryKey: ["deliveries"] });
-            qc.invalidateQueries({ queryKey: ["delivery-stats"] });
-            return;
+            setTimeout(() => {
+              qc.invalidateQueries({ queryKey: ["deliveries"] });
+              qc.invalidateQueries({ queryKey: ["delivery-stats"] });
+            }, Math.max(500, (120 - elapsedSeconds) * 1000));
           }
 
           audioRef.current?.play().catch(() => {});
