@@ -845,7 +845,7 @@ function describeDbError(err: any) {
 
 function statusCandidates(status: string): string[] {
   if (status === "in_transit" || status === "in_route") return ["in_transit", "in_route", "delivering"];
-  if (status === "delivered" || status === "completed") return ["delivered", "completed"];
+  if (status === "delivered" || status === "completed" || status === "concluded") return ["delivered", "completed", "concluded"];
   return [status];
 }
 
@@ -854,18 +854,84 @@ export async function advanceDelivery(delivery: any) {
   const now = new Date().toISOString();
   const dbNextStatus = toDbStatus(next);
 
-  // 1. Tenta RPC segura com assinatura p_delivery_id / p_status
-  try {
-    const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
-      p_delivery_id: delivery.id,
-      p_status: next,
-    });
-    if (!rpcError && rpcData && (rpcData as any).success) {
-      return;
-    }
-  } catch {}
+  // Status candidatos para garantir compatibilidade com enum e colunas do banco
+  const candidates = (next === "delivered" || dbNextStatus === "delivered")
+    ? ["delivered", "completed", "concluded"]
+    : (next === "in_transit" || dbNextStatus === "in_transit")
+    ? ["in_transit", "in_route"]
+    : [next, dbNextStatus];
 
-  // 2. Fallback autenticado no servidor
+  let lastError: any = null;
+
+  // 1. Tenta RPC segura update_delivery_status_safe com os candidatos
+  for (const st of candidates) {
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
+        p_delivery_id: delivery.id,
+        p_status: st,
+      });
+      if (!rpcError && rpcData && (rpcData as any).success) {
+        return;
+      }
+      if (rpcError) lastError = rpcError;
+    } catch (e: any) {
+      lastError = e;
+    }
+
+    try {
+      const { data: rpcData2, error: rpcError2 } = await supabase.rpc("update_delivery_status_safe", {
+        _delivery_id: delivery.id,
+        _status: st,
+      });
+      if (!rpcError2 && rpcData2 && (rpcData2 as any).success) {
+        return;
+      }
+    } catch {}
+  }
+
+  // 2. Fallback REST direto no banco com candidatos
+  for (const st of candidates) {
+    try {
+      const updatePayload: Record<string, any> = {
+        status: st,
+        updated_at: now,
+      };
+      if (st === "delivered" || st === "completed") {
+        updatePayload.delivered_at = now;
+        updatePayload.completed_at = now;
+      } else if (st === "collecting") {
+        updatePayload.collected_at = now;
+      } else if (st === "accepted") {
+        updatePayload.accepted_at = now;
+      }
+
+      const { data: updated, error: directErr } = await supabase
+        .from("deliveries")
+        .update(updatePayload)
+        .eq("id", delivery.id)
+        .select("id, status")
+        .maybeSingle();
+
+      if (!directErr && updated) {
+        return;
+      }
+      if (directErr) {
+        lastError = directErr;
+        const msg = directErr.message || "";
+        if (msg.includes("tuple to be updated") || msg.includes("already modified") || directErr.code === "27000") {
+          return;
+        }
+      }
+    } catch (err: any) {
+      lastError = err;
+      const msg = String(err?.message || "");
+      if (msg.includes("tuple to be updated") || msg.includes("already modified") || msg.includes("27000")) {
+        return;
+      }
+    }
+  }
+
+  // 3. Fallback no endpoint do servidor
   try {
     const result = await updateDriverDelivery({
       data: { deliveryId: delivery.id, status: dbNextStatus as any },
@@ -880,33 +946,6 @@ export async function advanceDelivery(delivery: any) {
     ) {
       return;
     }
-    console.warn("[advanceDelivery] Falha no endpoint do servidor, acionando atualização direta no banco:", serverError);
-  }
-
-  // 3. Atualização direta no banco com tratamento resiliente para evitar loops de triggers concorrentes
-  try {
-    const { data: updated, error: directErr } = await supabase
-      .from("deliveries")
-      .update({ status: dbNextStatus, updated_at: now })
-      .eq("id", delivery.id)
-      .select("id, status")
-      .maybeSingle();
-
-    if (!directErr && updated) {
-      return;
-    }
-    if (directErr) {
-      const msg = directErr.message || "";
-      if (msg.includes("tuple to be updated") || msg.includes("already modified") || directErr.code === "27000") {
-        // Conflito de trigger no Postgres: o status já foi atualizado pela operação encadeada
-        return;
-      }
-    }
-  } catch (err: any) {
-    const msg = String(err?.message || "");
-    if (msg.includes("tuple to be updated") || msg.includes("already modified") || msg.includes("27000")) {
-      return;
-    }
   }
 
   // 4. Confere se o status no banco já mudou para o status esperado
@@ -916,9 +955,11 @@ export async function advanceDelivery(delivery: any) {
     .eq("id", delivery.id)
     .maybeSingle();
 
-  if (check && (statusCandidates(dbNextStatus).includes(String(check.status)) || check.status === next || check.status === dbNextStatus)) {
+  if (check && (statusCandidates(dbNextStatus).includes(String(check.status)) || check.status === next || check.status === dbNextStatus || (next === "delivered" && ["delivered", "completed"].includes(String(check.status))))) {
     return;
   }
+
+  throw new Error(lastError?.message || "Falha ao atualizar status da entrega no banco.");
 }
 
 export async function releaseDeliveryToPool(deliveryId: string) {
