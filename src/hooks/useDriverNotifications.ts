@@ -92,6 +92,7 @@ export function useDriverNotifications() {
   const invalidateDeliveries = () => {
     try {
       qc.invalidateQueries({ queryKey: ["deliveries"] });
+      qc.invalidateQueries({ queryKey: ["rides"] });
     } catch (e) {
       console.warn("[Notify] erro ao invalidar queries:", e);
     }
@@ -188,8 +189,24 @@ export function useDriverNotifications() {
           PushNotifications.addListener("pushNotificationReceived", (notification) => {
             console.log("[FCM] Push recebido em primeiro plano:", notification);
             const d = notification?.data;
+            const rideId = d?.rideId || d?.ride_id;
             const deliveryId = d?.deliveryId || d?.delivery_id || d?.id;
-            if (deliveryId) {
+
+            if (rideId || d?.type === "ride" || d?.type === "new_ride") {
+              const targetRideId = rideId || deliveryId;
+              seenIdsRef.current.delete(targetRideId);
+              notifyNewRide({
+                id: targetRideId,
+                status: d?.status || "pending",
+                customer_name: d?.customerName || d?.passenger || d?.storeName,
+                customer_phone: d?.customerPhone || d?.phone,
+                pickup_address: d?.pickup || d?.pickup_address,
+                dropoff_address: d?.dropoff || d?.dropoff_address || d?.delivery_address,
+                price: d?.fee || d?.price,
+                vehicle_type: d?.vehicle_type || "taxi",
+                driver_id: d?.driver_id,
+              });
+            } else if (deliveryId) {
               seenIdsRef.current.delete(deliveryId);
               notifyNewDelivery({
                 id: deliveryId,
@@ -404,6 +421,148 @@ export function useDriverNotifications() {
       }
     };
 
+    const isRideVehicleCompatible = (rideVehicle: string): boolean => {
+      const rVeh = String(rideVehicle || "").toLowerCase().replace(/_/g, "");
+      const info = driverVehicleInfoRef.current;
+      const services = Array.isArray(info?.service_types) ? info.service_types : [];
+      const dVeh = String(info?.vehicle_type || info?.vehicle || "moto").toLowerCase().replace(/_/g, "");
+
+      if (services.length > 0) {
+        const normServices = services.map((s: any) => String(s).toLowerCase().replace(/_/g, ""));
+        if (rVeh === "mototaxi" || rVeh === "moto") {
+          return normServices.some((s: any) => s.includes("mototaxi") || s.includes("moto"));
+        }
+        if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
+          return normServices.some((s: any) => s.includes("taxi") || s.includes("car"));
+        }
+      }
+
+      if (rVeh === "mototaxi" || rVeh === "moto") {
+        return dVeh === "moto" || dVeh === "mototaxi";
+      }
+      if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
+        return dVeh === "carro" || dVeh === "car" || dVeh === "taxi";
+      }
+      return true;
+    };
+
+    const notifyNewRide = async (rawRide: any) => {
+      const isOnlineNow = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
+      if (!isOnlineNow) return;
+
+      const declined = getDeclinedDeliveries();
+      if (declined.has(rawRide.id)) return;
+      if (seenIdsRef.current.has(rawRide.id)) return;
+
+      const currentDriverId = driverRowRef.current?.id || user?.id;
+      const currentUserId = user?.id;
+
+      // Se já foi atribuída para outro motorista
+      if (rawRide.driver_id && rawRide.driver_id !== currentDriverId && rawRide.driver_id !== currentUserId) {
+        return;
+      }
+
+      const statusLower = String(rawRide.status || "").toLowerCase();
+      if (statusLower !== "pending" && statusLower !== "broadcasted") {
+        return;
+      }
+
+      // Checa compatibilidade de veículo
+      if (!isRideVehicleCompatible(rawRide.vehicle_type)) {
+        return;
+      }
+
+      seenIdsRef.current.add(rawRide.id);
+      activeAlertsRef.current.add(rawRide.id);
+      invalidateDeliveries();
+
+      // Dispara o alerta sonoro contínuo
+      try {
+        unlockAudio();
+        startLoop();
+      } catch (e) {
+        console.warn("[Notify] som falhou para corrida:", e);
+      }
+
+      const isTaxi = String(rawRide.vehicle_type || "").toLowerCase().includes("taxi") && !String(rawRide.vehicle_type || "").toLowerCase().includes("moto");
+      const rideTypeLabel = isTaxi ? "🚕 Nova Corrida de Táxi!" : "🏍️ Nova Corrida de Moto Táxi!";
+      const passenger = rawRide.customer_name || "Passageiro";
+      const pickup = rawRide.pickup_address || "Ponto de Embarque";
+      const dropoff = rawRide.dropoff_address || "Destino";
+      const ridePrice = Number(rawRide.price || (isTaxi ? 15.0 : 10.0));
+      const feeText = `R$ ${ridePrice.toFixed(2).replace(".", ",")}`;
+
+      const title = `${rideTypeLabel} ${feeText}`;
+      const body = `Passageiro: ${passenger} • ${pickup} → ${dropoff}`;
+
+      toast(title, {
+        description: body,
+        duration: 20000,
+        action: {
+          label: "Ver Corrida",
+          onClick: () => {
+            if (typeof window !== "undefined") {
+              window.location.href = `/driver?mode=ride&rideId=${rawRide.id}`;
+            }
+          },
+        },
+      });
+
+      if (Capacitor.isNativePlatform()) {
+        DeliveryOverlay.playNativeAudio().catch(() => {});
+
+        DeliveryOverlay.showIncomingCall({
+          deliveryId: rawRide.id,
+          storeName: isTaxi ? "🚕 TÁXI EXPRESS" : "🏍️ MOTO TÁXI EXPRESS",
+          pickup: pickup,
+          dropoff: dropoff,
+          fee: feeText,
+          customerName: passenger,
+          customerPhone: rawRide.customer_phone || "",
+        }).catch(() => {
+          DeliveryOverlay.postNotification({
+            deliveryId: rawRide.id,
+            storeName: isTaxi ? "🚕 TÁXI EXPRESS" : "🏍️ MOTO TÁXI EXPRESS",
+            pickup: pickup,
+            dropoff: dropoff,
+            fee: feeText,
+            status: rawRide.status || "pending",
+            driverId: rawRide.driver_id || "",
+          }).catch((e) => console.warn("[DeliveryOverlay] erro corrida:", e));
+        });
+
+        LocalNotifications.schedule({
+          notifications: [
+            {
+              title: title,
+              body: `🏁 Destino: ${dropoff}`,
+              id: hashId(rawRide.id),
+              actionTypeId: "DELIVERY_ACTION",
+              channelId: NOTIFICATION_CHANNEL_ID,
+              sound: "notification_sound.mp3",
+              extra: { type: "ride", rideId: rawRide.id },
+            },
+          ],
+        }).catch((e) => console.warn("[LocalNotifications] erro corrida:", e));
+      } else if (!Capacitor.isNativePlatform() && typeof window !== "undefined" && "Notification" in window) {
+        const currentPerm = Notification.permission || permissionRef.current;
+        if (currentPerm === "granted") {
+          try {
+            const notif = new Notification(title, {
+              body,
+              icon: "/favicon-v3.png",
+              tag: `ride-${rawRide.id}`,
+              requireInteraction: true,
+            });
+            notif.onclick = () => {
+              window.focus();
+              window.location.href = `/driver?mode=ride&rideId=${rawRide.id}`;
+            };
+          } catch (e) {}
+        }
+      }
+    };
+
     const setup = async () => {
       const localOnline = typeof window !== "undefined" ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : false;
 
@@ -497,7 +656,9 @@ export function useDriverNotifications() {
             if (response.status === "accepted") {
               stopAlert();
               activeAlertsRef.current.delete(deliveryId);
-              const { data, error } = await supabase
+
+              // 1. Tenta atualizar deliveries primeiro
+              const { data: delData, error: delErr } = await supabase
                 .from("deliveries")
                 .update({ status: "accepted", driver_id: driverId })
                 .eq("id", deliveryId)
@@ -505,15 +666,35 @@ export function useDriverNotifications() {
                 .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`)
                 .select("id");
 
-              if (!error && data && data.length > 0) {
+              if (!delErr && delData && delData.length > 0) {
+                DeliveryOverlay.reportCallResult({ success: true, message: "✅ Entrega aceita!" }).catch(() => {});
+                acceptDeliveryLocally(deliveryId);
+                toast("✅ Entrega aceita!", { description: "Aceita com sucesso." });
+                invalidateDeliveries();
+                return;
+              }
+
+              // 2. Tenta atualizar ride_requests (Táxi / Moto Táxi)
+              const { data: rideData, error: rideErr } = await supabase
+                .from("ride_requests")
+                .update({ status: "accepted", driver_id: driverId })
+                .eq("id", deliveryId)
+                .in("status", ["pending", "broadcasted"])
+                .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`)
+                .select("id");
+
+              if (!rideErr && rideData && rideData.length > 0) {
                 DeliveryOverlay.reportCallResult({ success: true, message: "✅ Corrida aceita!" }).catch(() => {});
                 acceptDeliveryLocally(deliveryId);
-                toast("✅ Corrida aceita!", { description: "Aceita com sucesso." });
-              } else {
-                DeliveryOverlay.reportCallResult({ success: false, message: "Corrida já foi aceita por outro entregador" }).catch(() => {});
-                declineDeliveryLocally(deliveryId);
-                toast("❌ Ops! Já foi aceita.", { description: "Outro entregador aceitou antes de você." });
+                toast("✅ Corrida aceita!", { description: "Vá até o ponto de embarque." });
+                invalidateDeliveries();
+                return;
               }
+
+              // 3. Caso tenha falhado em ambas
+              DeliveryOverlay.reportCallResult({ success: false, message: "Já foi aceita por outro motorista" }).catch(() => {});
+              declineDeliveryLocally(deliveryId);
+              toast("❌ Ops! Já foi aceita.", { description: "Outro motorista aceitou antes de você." });
             } else if (response.status === "rejected" || response.status === "declined") {
               declineDeliveryLocally(deliveryId);
             }
@@ -533,6 +714,17 @@ export function useDriverNotifications() {
           if (initial && !cancelled) {
             initial.forEach((d: any) => notifyNewDelivery(d));
           }
+
+          // Seed inicial de Corridas (Táxi e Moto Táxi)
+          const { data: initialRides } = await supabase
+            .from("ride_requests")
+            .select("*")
+            .in("status", ["pending", "broadcasted"])
+            .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`)
+            .limit(10);
+          if (initialRides && !cancelled) {
+            initialRides.forEach((r: any) => notifyNewRide(r));
+          }
         } catch (e) {
           console.warn("[Notify] seed inicial falhou:", e);
         }
@@ -549,29 +741,36 @@ export function useDriverNotifications() {
             .in("status", ["pending", "broadcasted"])
             .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`)
             .limit(20);
-          if (data && !cancelled) {
-            const freshIds = new Set(data.map((d: any) => d.id));
-            data.forEach((d: any) => notifyNewDelivery(d));
 
-            // Limpa timers agendados de corridas que não estão mais pendentes
-            scheduledDeliveriesRef.current.forEach((timer, id) => {
-              if (!freshIds.has(id)) {
-                clearTimeout(timer);
-                scheduledDeliveriesRef.current.delete(id);
-              }
-            });
+          const { data: ridesData } = await supabase
+            .from("ride_requests")
+            .select("*")
+            .in("status", ["pending", "broadcasted"])
+            .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`)
+            .limit(10);
 
-            Array.from(activeAlertsRef.current).forEach((id) => {
-              if (!freshIds.has(id)) stopRingingFor(id);
-            });
+          if (cancelled) return;
 
-            if (data.length === 0) {
-              scheduledDeliveriesRef.current.forEach((t) => clearTimeout(t));
-              scheduledDeliveriesRef.current.clear();
-              activeAlertsRef.current.clear();
-              stopAlert();
+          const freshDeliveryIds = new Set((data || []).map((d: any) => d.id));
+          const freshRideIds = new Set((ridesData || []).map((r: any) => r.id));
+          const freshIds = new Set([...freshDeliveryIds, ...freshRideIds]);
+
+          data?.forEach((d: any) => notifyNewDelivery(d));
+          ridesData?.forEach((r: any) => notifyNewRide(r));
+
+          // Limpa timers agendados de corridas que não estão mais pendentes
+          scheduledDeliveriesRef.current.forEach((timer, id) => {
+            if (!freshIds.has(id)) {
+              clearTimeout(timer);
+              scheduledDeliveriesRef.current.delete(id);
             }
-          } else if (!data || data.length === 0) {
+          });
+
+          Array.from(activeAlertsRef.current).forEach((id) => {
+            if (!freshIds.has(id)) stopRingingFor(id);
+          });
+
+          if (freshIds.size === 0) {
             scheduledDeliveriesRef.current.forEach((t) => clearTimeout(t));
             scheduledDeliveriesRef.current.clear();
             activeAlertsRef.current.clear();
@@ -602,7 +801,7 @@ export function useDriverNotifications() {
       window.addEventListener("focus", handleAppWakeup);
       window.addEventListener("online", handleAppWakeup);
 
-      // Realtime — novas entregas e mudanças de status
+      // Realtime — novas entregas, corridas e mudanças de status
       const broadcastChannel = supabase
         .channel(`mt24-driver-broadcast-${driverId}`)
         .on(
@@ -638,6 +837,47 @@ export function useDriverNotifications() {
             if ((d?.driver_id === driverId || d?.driver_id === user.id) && o?.status !== d?.status && d?.status === "accepted") {
               toast("✅ Corrida confirmada!", { description: "Vá até o ponto de retirada." });
               activeAlertsRef.current.delete(d.id);
+              if (activeAlertsRef.current.size === 0) {
+                stopAlert();
+                DeliveryOverlay.dismissIncomingCall().catch(() => {});
+                DeliveryOverlay.stopNativeAudio().catch(() => {});
+              }
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "ride_requests" },
+          (payload) => {
+            invalidateDeliveries();
+            const r = payload.new as any;
+            if (isOnlineRef.current && (r?.status === "pending" || r?.status === "broadcasted")) {
+              notifyNewRide(r);
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "ride_requests" },
+          (payload) => {
+            invalidateDeliveries();
+            const r = payload.new as any;
+            const o = payload.old as any;
+
+            if (r?.status !== "pending" && r?.status !== "broadcasted") {
+              stopRingingFor(r.id);
+            }
+
+            if (r?.status === "pending" || r?.status === "broadcasted") {
+              if (isOnlineRef.current) {
+                seenIdsRef.current.delete(r.id);
+                notifyNewRide(r);
+              }
+            }
+
+            if ((r?.driver_id === driverId || r?.driver_id === user.id) && o?.status !== r?.status && r?.status === "accepted") {
+              toast("✅ Corrida aceita!", { description: "Vá até o ponto de embarque do passageiro." });
+              activeAlertsRef.current.delete(r.id);
               if (activeAlertsRef.current.size === 0) {
                 stopAlert();
                 DeliveryOverlay.dismissIncomingCall().catch(() => {});

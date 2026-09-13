@@ -3,11 +3,13 @@ import { useNavigate } from "@tanstack/react-router";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { PermissionModal } from "./PermissionModal";
+import { useDriverNotifications } from "@/hooks/useDriverNotifications";
 
 export function DriverShell({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
+  useDriverNotifications();
 
   useEffect(() => {
     setMounted(true);

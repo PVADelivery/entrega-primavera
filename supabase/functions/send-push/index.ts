@@ -109,44 +109,54 @@ serve(async (req) => {
     let dropoffAddr = record.delivery_address || record.dropoff_address || record.address || record.destination_address || record.customer_address || "";
     let deliveryFee = Number(record.delivery_fee) || Number(record.driver_fee) || Number(record.value) || Number(record.price) || Number(record.total_value) || 0;
 
-    // 1. Se houver order_id, buscar os dados reais do pedido (endereço do cliente, taxa e loja)
-    if (record.order_id) {
-      const { data: ord } = await supabaseClient
-        .from('orders')
-        .select('*')
-        .eq('id', record.order_id)
-        .maybeSingle();
+    const isRideRequest = payload.table === 'ride_requests' || record.vehicle_type === 'taxi' || record.vehicle_type === 'mototaxi';
+    const isTaxi = record.vehicle_type === 'taxi';
 
-      if (ord) {
-        if (!companyName) {
-          companyName = ord.company_name || ord.store_name || ord.company_title || "";
-        }
-        if (!dropoffAddr) {
-          dropoffAddr = ord.delivery_address || ord.customer_address || ord.address || "";
-          if (!dropoffAddr && ord.street) {
-            dropoffAddr = `${ord.street}, ${ord.number || 'S/N'}${ord.neighborhood ? ' - ' + ord.neighborhood : ''}`;
+    if (isRideRequest) {
+      companyName = isTaxi ? '🚕 Táxi Express' : '🏍️ Moto Táxi Express';
+      pickupAddr = record.pickup_address || 'Ponto de Embarque';
+      dropoffAddr = record.dropoff_address || 'Destino do Passageiro';
+      deliveryFee = Number(record.price || (isTaxi ? 15.0 : 10.0));
+    } else {
+      // 1. Se houver order_id, buscar os dados reais do pedido (endereço do cliente, taxa e loja)
+      if (record.order_id) {
+        const { data: ord } = await supabaseClient
+          .from('orders')
+          .select('*')
+          .eq('id', record.order_id)
+          .maybeSingle();
+
+        if (ord) {
+          if (!companyName) {
+            companyName = ord.company_name || ord.store_name || ord.company_title || "";
+          }
+          if (!dropoffAddr) {
+            dropoffAddr = ord.delivery_address || ord.customer_address || ord.address || "";
+            if (!dropoffAddr && ord.street) {
+              dropoffAddr = `${ord.street}, ${ord.number || 'S/N'}${ord.neighborhood ? ' - ' + ord.neighborhood : ''}`;
+            }
+          }
+          if (!deliveryFee || deliveryFee === 0) {
+            deliveryFee = Number(ord.delivery_fee) || Number(ord.shipping_fee) || Number(ord.driver_fee) || Number(ord.total_delivery_fee) || 0;
+          }
+          if (!record.company_id && ord.company_id) {
+            record.company_id = ord.company_id;
           }
         }
-        if (!deliveryFee || deliveryFee === 0) {
-          deliveryFee = Number(ord.delivery_fee) || Number(ord.shipping_fee) || Number(ord.driver_fee) || Number(ord.total_delivery_fee) || 0;
-        }
-        if (!record.company_id && ord.company_id) {
-          record.company_id = ord.company_id;
-        }
       }
-    }
 
-    // 2. Se houver company_id, buscar nome fantasia e endereço oficial da loja
-    const companyId = record.company_id || record.companyId || record.store_id;
-    if (companyId) {
-      const { data: comp } = await supabaseClient
-        .from('companies')
-        .select('name, address')
-        .eq('id', companyId)
-        .maybeSingle();
-      if (comp) {
-        companyName = comp.name || companyName || "MT 24 Horas Express";
-        if (!pickupAddr && comp.address) pickupAddr = comp.address;
+      // 2. Se houver company_id, buscar nome fantasia e endereço oficial da loja
+      const companyId = record.company_id || record.companyId || record.store_id;
+      if (companyId) {
+        const { data: comp } = await supabaseClient
+          .from('companies')
+          .select('name, address')
+          .eq('id', companyId)
+          .maybeSingle();
+        if (comp) {
+          companyName = comp.name || companyName || "MT 24 Horas Express";
+          if (!pickupAddr && comp.address) pickupAddr = comp.address;
+        }
       }
     }
 
@@ -159,21 +169,33 @@ serve(async (req) => {
       return s
     }
 
-    companyName = norm(companyName, "MT 24 Horas Express")
-    pickupAddr = norm(pickupAddr, "Retirada na Loja")
-    dropoffAddr = norm(dropoffAddr, "Endereço do cliente")
+    companyName = norm(companyName, isRideRequest ? (isTaxi ? "🚕 Táxi Express" : "🏍️ Moto Táxi") : "MT 24 Horas Express")
+    pickupAddr = norm(pickupAddr, isRideRequest ? "Ponto de Embarque" : "Retirada na Loja")
+    dropoffAddr = norm(dropoffAddr, isRideRequest ? "Destino do Passageiro" : "Endereço do cliente")
     if (!Number.isFinite(deliveryFee) || deliveryFee < 0) deliveryFee = 0
-    // Repasse de 75% da entrega para o motoboy
-    const driverEarnings = (record.commission && Number(record.commission) > 0)
-      ? Number(record.commission)
-      : (record.driver_fee && Number(record.driver_fee) > 0)
-        ? Number(record.driver_fee)
-        : deliveryFee * 0.75;
+
+    // Ganhos: 100% da corrida para o motorista de táxi/mototáxi ou 75% da entrega para o motoboy
+    const driverEarnings = isRideRequest
+      ? deliveryFee
+      : ((record.commission && Number(record.commission) > 0)
+          ? Number(record.commission)
+          : (record.driver_fee && Number(record.driver_fee) > 0)
+            ? Number(record.driver_fee)
+            : deliveryFee * 0.75);
+
     const feeText = `R$ ${driverEarnings.toFixed(2).replace('.', ',')}`
 
-    const formattedDetails = `🏬 Loja: ${companyName}\n📍 Coleta: ${pickupAddr}\n🏁 Entrega: ${dropoffAddr}\n💰 Ganhos: ${feeText}`
-    const pushTitle = `🏬 ${companyName}`;
-    const pushBody = `🏁 Entrega: ${dropoffAddr}`;
+    const formattedDetails = isRideRequest
+      ? `🚗 Tipo: ${companyName}\n📍 Origem: ${pickupAddr}\n🏁 Destino: ${dropoffAddr}\n💰 Valor: ${feeText}`
+      : `🏬 Loja: ${companyName}\n📍 Coleta: ${pickupAddr}\n🏁 Entrega: ${dropoffAddr}\n💰 Ganhos: ${feeText}`
+
+    const pushTitle = isRideRequest
+      ? (isTaxi ? `🚕 Nova Corrida de Táxi (${feeText})` : `🏍️ Nova Corrida de Moto Táxi (${feeText})`)
+      : `🏬 ${companyName}`;
+
+    const pushBody = isRideRequest
+      ? `🏁 Destino: ${dropoffAddr}`
+      : `🏁 Entrega: ${dropoffAddr}`;
 
     let query = supabaseClient
       .from('delivery_drivers')
@@ -205,8 +227,9 @@ serve(async (req) => {
             body: `${dropoffAddr} • Ganhos: ${feeText}`,
           },
           data: {
-            type: "delivery",
+            type: isRideRequest ? "ride" : "delivery",
             deliveryId: String(record.id),
+            rideId: String(record.id),
             address: formattedDetails,
             details: formattedDetails,
             storeName: companyName,
@@ -217,7 +240,8 @@ serve(async (req) => {
             body: pushBody,
             status: String(record.status || "pending"),
             created_at: String(record.created_at || new Date().toISOString()),
-            driver_id: String(record.driver_id || "")
+            driver_id: String(record.driver_id || ""),
+            vehicle_type: String(record.vehicle_type || "")
           },
           android: {
             priority: "HIGH",

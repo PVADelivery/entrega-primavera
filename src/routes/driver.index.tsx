@@ -26,7 +26,6 @@ import { toast } from "sonner";
 import { TrendingUp, Package2, CalendarDays, Sparkles, Navigation, User, MapPin, ArrowRight, Loader2 } from "lucide-react";
 import { useWorkMode } from "@/hooks/useWorkMode";
 import { WorkModeSwitch } from "@/components/driver/WorkModeSwitch";
-import { useDriverNotifications } from "@/hooks/useDriverNotifications";
 import { getElapsedSeconds } from "@/utils/time";
 
 export const Route = createFileRoute("/driver/")({
@@ -39,7 +38,6 @@ function DriverHome() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { mode, setMode } = useWorkMode();
-  useDriverNotifications();
   const [driverId, setDriverId] = useState<string | null>(null);
   const [driverServiceTypes, setDriverServiceTypes] = useState<string[]>([]);
   const [driverInfo, setDriverInfo] = useState<{ vehicle_type?: string; vehicle?: string; service_types?: string[] } | null>(null);
@@ -245,11 +243,6 @@ function DriverHome() {
           const isUnassigned = !r.driver_id || String(r.driver_id).trim() === "" || r.driver_id === "none" || r.driver_id === "00000000-0000-0000-0000-000000000000";
           if (!isUnassigned) return false;
 
-          if (r.created_at && statusLower !== "broadcasted") {
-            const elapsed = getElapsedSeconds(r.created_at);
-            if (elapsed < 120) return false;
-          }
-
           const driverVeh = driverInfo?.vehicle_type || driverInfo?.vehicle || "moto";
           return isRideVehicleCompatible(r.vehicle_type, safeServices, driverVeh);
         });
@@ -260,8 +253,8 @@ function DriverHome() {
         return [];
       }
     },
-    enabled: mode === "ride",
-    staleTime: 15000,
+    enabled: true,
+    staleTime: 10000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,
@@ -408,6 +401,7 @@ function DriverHome() {
           throw error;
         }
       }
+      acceptDeliveryLocally(id);
       toast.success("Corrida aceita com sucesso!");
       qc.invalidateQueries({ queryKey: ["rides"] });
       navigate({ to: "/driver/deliveries" });
