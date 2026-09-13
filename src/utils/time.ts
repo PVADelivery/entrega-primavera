@@ -3,7 +3,7 @@
  * Handles ISO strings, UTC strings, naive database strings, and timestamps without timezone offset bugs.
  */
 export function getElapsedSeconds(created_at: string | Date | number | null | undefined): number {
-  if (!created_at) return 0;
+  if (!created_at) return 999999;
   let timestamp: number;
 
   if (typeof created_at === "number") {
@@ -11,16 +11,17 @@ export function getElapsedSeconds(created_at: string | Date | number | null | un
   } else if (created_at instanceof Date) {
     timestamp = created_at.getTime();
   } else {
-    const str = String(created_at).trim();
-    let parsed = new Date(str).getTime();
-
-    if (isNaN(parsed)) {
-      const isoStr = str.replace(" ", "T");
-      parsed = new Date(isoStr).getTime();
+    let str = String(created_at).trim();
+    // Se a data vier do Postgres sem indicador de timezone (Z ou offset +/-), assume UTC adicionando Z
+    if (!str.endsWith("Z") && !/[+-]\d{2}(:\d{2})?$/.test(str)) {
+      str = str.replace(" ", "T") + "Z";
+    } else {
+      str = str.replace(" ", "T");
     }
 
+    const parsed = new Date(str).getTime();
     if (isNaN(parsed)) {
-      return 0;
+      return 999999;
     }
     timestamp = parsed;
   }
@@ -28,9 +29,6 @@ export function getElapsedSeconds(created_at: string | Date | number | null | un
   const now = Date.now();
   const elapsedMs = now - timestamp;
 
-  if (elapsedMs < 0) {
-    return 0;
-  }
-
+  // Se a diferença for positiva mas pequena ou negativa por descompasso de relógio de segundos, tolera
   return Math.floor(elapsedMs / 1000);
 }
