@@ -126,7 +126,7 @@ export function useDriverNotifications() {
           id: NOTIFICATION_CHANNEL_ID,
           name: "Novas Corridas MT 24 Horas",
           description: "Alerta de novas corridas disponíveis para entregadores MT 24 Horas",
-          sound: "ring.wav",
+          sound: "notification_sound.mp3",
           importance: 5,
           visibility: 1,
           vibration: true,
@@ -153,6 +153,19 @@ export function useDriverNotifications() {
           if (user?.id) {
             await supabase.from("delivery_drivers").update({ fcm_token: tokenVal } as any).eq("user_id", user.id);
             await supabase.from("delivery_drivers").update({ fcm_token: tokenVal } as any).eq("id", user.id);
+
+            try {
+              await supabase
+                .from("device_tokens")
+                .upsert({
+                  token: tokenVal,
+                  user_id: user.id,
+                  platform: Capacitor.getPlatform(),
+                  updated_at: new Date().toISOString(),
+                } as any, { onConflict: "token" });
+            } catch (e) {
+              console.warn("[FCM] device_tokens update error:", e);
+            }
           }
         };
 
@@ -365,7 +378,7 @@ export function useDriverNotifications() {
               id: hashId(delivery.id),
               actionTypeId: "DELIVERY_ACTION",
               channelId: NOTIFICATION_CHANNEL_ID,
-              sound: "ring",
+              sound: "notification_sound.mp3",
               extra: { type: "delivery", deliveryId: delivery.id },
             },
           ],
