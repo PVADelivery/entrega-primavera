@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getElapsedSeconds } from "@/utils/time";
 import { isDeliveryEligibleForDriver } from "@/utils/delivery-eligibility";
-import { getCompanyNames } from "@/lib/companies.functions";
-import { updateDriverDelivery } from "@/lib/driver-deliveries.functions";
 import type { DeliveryStatus } from "@/types/models";
 
 export function cleanAddressForDriver(address: string | null | undefined): string {
@@ -24,18 +22,19 @@ function toDbStatus(status: string) {
 }
 
 function toAppStatus(status: string) {
+  if (status === "in_transit") return "in_route";
+  if (status === "delivered") return "completed";
   return status as DeliveryStatus;
 }
 
 export interface DeliveryWithRelations {
   id: string;
-  company_id: string | null;
-  driver_id: string | null;
   order_id: string | null;
-  region_id: string | null;
-  customer_name: string | null;
-  customer_phone: string | null;
-  address: string | null;
+  driver_id: string | null;
+  company_id: string | null;
+  company_name?: string | null;
+  company_phone?: string | null;
+  status: DeliveryStatus;
   pickup_address: string;
   dropoff_address: string;
   pickup_latitude: number | null;
@@ -45,12 +44,11 @@ export interface DeliveryWithRelations {
   delivery_address: string | null;
   delivery_latitude: number | null;
   delivery_longitude: number | null;
-  value: number;
-  price: number | null;
-  commission: number;
+  fee: number;
+  value?: number | null;
+  price?: number | null;
   distance_km: number | null;
   estimated_time_minutes: number | null;
-  status: DeliveryStatus;
   notes: string | null;
   proof_photo_url: string | null;
   signature_url: string | null;
@@ -59,21 +57,18 @@ export interface DeliveryWithRelations {
   delivered_at: string | null;
   cancelled_at: string | null;
   picked_up_at: string | null;
-  cancellation_reason: string | null;
-  payment_method?: string | null;
   created_at: string;
-  updated_at: string | null;
-  delivery_drivers?: {
-    id: string;
-    user_id: string;
-    full_name: string;
-    phone: string | null;
-    vehicle_type: string | null;
-    vehicle_plate: string | null;
-  } | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  address?: string | null;
+  region_id?: string | null;
+  batch_id?: string | null;
+  vehicle_type?: string | null;
   companies?: {
     name: string | null;
     phone: string | null;
+    address?: string | null;
+    pricing_table_id?: string | null;
   } | null;
   regions?: {
     id: string;
@@ -81,7 +76,6 @@ export interface DeliveryWithRelations {
     price: number | null;
   } | null;
   region_name?: string | null;
-  company_name?: string | null;
   short_id?: string | null;
   customer_neighborhood?: string | null;
   delivery_fee?: number | null;
@@ -91,7 +85,7 @@ export interface DeliveryWithRelations {
 }
 
 let cachedPricingData: { rules: any[]; regions: any[]; hoods: any[]; timestamp: number } | null = null;
-const PRICING_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos de cache em memória
+const PRICING_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutos de cache em memória
 
 async function getCachedPricingData() {
   const now = Date.now();
@@ -119,109 +113,63 @@ async function getCachedPricingData() {
   return cachedPricingData;
 }
 
+// Cache local em memória de empresas para resposta instantânea (<1ms) sem travar a thread
+const companyInfoCache = new Map<string, { name: string | null; phone: string | null; pricingTableId: string | null }>();
+
 async function resolveDeliveryCompanies(rows: any[]) {
   if (rows.length === 0) return rows;
 
-  const orderIds = Array.from(new Set(rows.map((row) => row.order_id).filter(Boolean))) as string[];
-  const orderDetails = new Map<string, { companyId: string | null; name: string | null; phone: string | null; customerPhone: string | null; customerName: string | null }>();
-
-  if (orderIds.length > 0) {
-    const { data: orders, error: ordersError } = await supabase
-      .from("orders")
-      .select("id, company_id, user_id, customer_id, delivery_address, customers(name, phone), companies(name, phone)")
-      .in("id", orderIds);
-
-    if (ordersError) {
-      console.warn("[deliveries] Não foi possível resolver dados pelo pedido:", ordersError.message);
-    } else {
-      const userIds = Array.from(new Set((orders ?? []).map((o: any) => o.user_id).filter(Boolean))) as string[];
-      const profilesMap = new Map<string, { full_name: string | null; phone: string | null }>();
-
-      if (userIds.length > 0) {
-        try {
-          const { data: profs } = await supabase
-            .from("profiles")
-            .select("id, full_name, phone")
-            .in("id", userIds);
-          (profs ?? []).forEach((p: any) => {
-            profilesMap.set(p.id, { full_name: p.full_name || null, phone: p.phone || null });
-          });
-        } catch (e) {
-          console.warn("[deliveries] Erro ao buscar perfis de clientes:", e);
-        }
-      }
-
-      (orders ?? []).forEach((order: any) => {
-        const prof = order.user_id ? profilesMap.get(order.user_id) : null;
-        const resolvedPhone = order.customers?.phone || prof?.phone || null;
-        const resolvedName = order.customers?.name || prof?.full_name || null;
-
-        orderDetails.set(order.id, {
-          companyId: order.company_id ?? null,
-          name: order.companies?.name ?? null,
-          phone: order.companies?.phone ?? null,
-          customerPhone: resolvedPhone,
-          customerName: resolvedName,
-        });
-      });
+  // Lojas faltantes que precisam de consulta direta
+  const missingCompanyIds = new Set<string>();
+  for (const row of rows) {
+    const cId = row.company_id;
+    if (cId && !companyInfoCache.has(cId) && !row.companies?.name) {
+      missingCompanyIds.add(cId);
     }
   }
 
-  const companyIds = Array.from(new Set(rows.flatMap((row) => {
-    const orderDetail = row.order_id ? orderDetails.get(row.order_id) : null;
-    return [row.company_id, orderDetail?.companyId].filter(Boolean);
-  }))) as string[];
-  const companiesById = new Map<string, { name: string | null; phone: string | null; pricingTableId: string | null }>();
+  if (missingCompanyIds.size > 0) {
+    try {
+      const { data: companies } = await supabase
+        .from("companies")
+        .select("id, name, phone, pricing_table_id")
+        .in("id", Array.from(missingCompanyIds));
 
-  if (companyIds.length > 0) {
-    const { data: companies, error: companiesError } = await supabase
-      .from("companies")
-      .select("id, name, phone, pricing_table_id")
-      .in("id", companyIds);
-
-    if (companiesError) {
-      console.warn("[deliveries] leitura direta de lojas bloqueada:", companiesError.message);
-    }
-
-    (companies ?? []).forEach((company: any) => {
-      companiesById.set(company.id, { 
-        name: company.name ?? null, 
-        phone: company.phone ?? null, 
-        pricingTableId: company.pricing_table_id ?? null 
-      });
-    });
-
-    // Fallback: lojas bloqueadas por RLS são resolvidas no servidor
-    const missing = companyIds.filter((id) => !companiesById.get(id)?.name);
-    if (missing.length > 0) {
-      try {
-        const resolved = await getCompanyNames({ data: { ids: missing } });
-        (resolved ?? []).forEach((company: any) => {
-          companiesById.set(company.id, { 
-            name: company.name ?? null, 
-            phone: company.phone ?? null,
-            pricingTableId: company.pricing_table_id ?? null
-          });
+      (companies ?? []).forEach((company: any) => {
+        companyInfoCache.set(company.id, {
+          name: company.name ?? null,
+          phone: company.phone ?? null,
+          pricingTableId: company.pricing_table_id ?? null,
         });
-      } catch (error: any) {
-        console.warn("[deliveries] fallback de lojas falhou:", error?.message ?? error);
-      }
+      });
+    } catch (e) {
+      console.warn("[deliveries] leitura de lojas:", e);
     }
   }
 
-  // Carregar regras de preços do cache
-  const { rules: allPricingRules, regions: allRegions, hoods: allHoods } = await getCachedPricingData();
+  // Verifica se alguma entrega precisa de cálculo de preço por estar zerada
+  const hasZeroFee = rows.some((row) => {
+    const v = Number(row.delivery_fee || row.value || row.price || 0);
+    return v <= 0;
+  });
+
+  let pricingCache = cachedPricingData;
+  if (hasZeroFee && (!pricingCache || Date.now() - pricingCache.timestamp > PRICING_CACHE_TTL_MS)) {
+    pricingCache = await getCachedPricingData();
+  }
+  const allHoods = pricingCache?.hoods || [];
+  const allPricingRules = pricingCache?.rules || [];
+  const allRegions = pricingCache?.regions || [];
 
   return rows.map((row) => {
-    const orderDetail = row.order_id ? orderDetails.get(row.order_id) : null;
-    const resolvedCompanyId = row.company_id ?? orderDetail?.companyId ?? null;
-    const directCompany = resolvedCompanyId ? companiesById.get(resolvedCompanyId) : null;
+    const resolvedCompanyId = row.company_id ?? null;
+    const cachedComp = resolvedCompanyId ? companyInfoCache.get(resolvedCompanyId) : null;
     const embeddedCompany = row.companies ?? null;
-    const companyName = directCompany?.name ?? embeddedCompany?.name ?? orderDetail?.name ?? row.company_name ?? null;
-    const companyPhone = directCompany?.phone ?? embeddedCompany?.phone ?? orderDetail?.phone ?? null;
-    const pricingTableId = directCompany?.pricingTableId ?? embeddedCompany?.pricing_table_id ?? null;
-    const customerPhone = row.customer_phone || orderDetail?.customerPhone || null;
-    const customerName = row.customer_name || orderDetail?.customerName || null;
+    const companyName = row.company_name ?? embeddedCompany?.name ?? cachedComp?.name ?? null;
+    const companyPhone = embeddedCompany?.phone ?? cachedComp?.phone ?? null;
+    const pricingTableId = embeddedCompany?.pricing_table_id ?? cachedComp?.pricingTableId ?? null;
+    const customerPhone = row.customer_phone || null;
+    const customerName = row.customer_name || null;
 
     // ── Resolução da Região e Valor Oficial da Tabela de Preços do Admin ──
     let regionId = row.region_id;
@@ -660,31 +608,29 @@ export function useDeliveryTracking(orderId?: string | null) {
 export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: string; vehicle?: string; service_types?: string[] } | null) {
   const pendingStatuses = ["pending", "broadcasted", "pending_assignment", "created", "open", "em_aberto", "pendente"];
 
-  // Busca sem filtro de status no banco (evita HTTP 400 por incompatibilidade de tipo)
-  // Filtragem feita em JavaScript depois
-  let data: any[] | null = null;
+  let data: any[] = [];
 
   const q1 = await supabase
     .from("deliveries")
-    .select("*, companies(name, phone)")
+    .select("*, companies(id, name, phone, address)")
     .order("created_at", { ascending: false })
-    .limit(60);
+    .limit(40);
 
-  if (!q1.error && q1.data && q1.data.length > 0) {
+  if (!q1.error && q1.data) {
     data = q1.data;
   } else {
     const q2 = await supabase
       .from("deliveries")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(60);
+      .limit(40);
     if (!q2.error && q2.data) {
       data = q2.data;
     }
   }
 
   // Filtra status pendentes em JS
-  const pending = (data ?? []).filter((d: any) =>
+  const pending = data.filter((d: any) =>
     pendingStatuses.includes(String(d.status || "").toLowerCase())
   );
 
@@ -727,10 +673,10 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
 
   const { data, error } = await supabase
     .from("deliveries")
-    .select("*")
+    .select("*, companies(id, name, phone, address)")
     .in("driver_id", ids)
     .order("created_at", { ascending: false })
-    .limit(30);
+    .limit(20);
 
   if (error) throw error;
 
