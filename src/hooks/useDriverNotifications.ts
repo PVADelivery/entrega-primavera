@@ -216,6 +216,7 @@ export function useDriverNotifications() {
                 delivery_address: d?.dropoff || d?.delivery_address,
                 delivery_fee: d?.fee,
                 driver_id: d?.driver_id,
+                created_at: d?.created_at,
               });
             }
           }).then((handle) => { notifListener = handle; }).catch(() => {});
@@ -309,6 +310,57 @@ export function useDriverNotifications() {
     };
     window.addEventListener("delivery-accepted", handleAcceptEvent);
 
+    const scheduleDeliveryIfWithinAdminWindow = (delivery: any) => {
+      if (!delivery || !delivery.id) return;
+      const status = String(delivery.status || "").toLowerCase();
+      const validPendingStatuses = ["pending", "pending_assignment", "created", "open", "em_aberto", "pendente"];
+      if (!validPendingStatuses.includes(status)) return;
+      if (delivery.driver_id && String(delivery.driver_id).trim() !== "" && delivery.driver_id !== "none") return;
+
+      const declined = getDeclinedDeliveries();
+      if (declined.has(delivery.id)) return;
+      if (seenIdsRef.current.has(delivery.id)) return;
+
+      const createdAt = delivery.created_at || new Date().toISOString();
+      const elapsed = getElapsedSeconds(createdAt);
+
+      if (elapsed < ADMIN_WINDOW_SECONDS) {
+        if (scheduledDeliveriesRef.current.has(delivery.id)) return;
+
+        const remainingMs = Math.max(500, (ADMIN_WINDOW_SECONDS - elapsed) * 1000 + 500);
+        console.log(`[Notify] Agendando alerta da entrega ${delivery.id} para tocar em ${(remainingMs / 1000).toFixed(1)}s (após vencer 2 min do Admin)`);
+
+        const timer = setTimeout(async () => {
+          scheduledDeliveriesRef.current.delete(delivery.id);
+          try {
+            const { data: latest } = await supabase
+              .from("deliveries")
+              .select("*, companies(name, address)")
+              .eq("id", delivery.id)
+              .maybeSingle();
+
+            if (latest) {
+              const latestStatus = String(latest.status || "").toLowerCase();
+              if (validPendingStatuses.includes(latestStatus) || latestStatus === "broadcasted") {
+                const currentDriverId = driverRowRef.current?.id || user?.id;
+                const currentUserId = user?.id;
+                if (!latest.driver_id || latest.driver_id === currentDriverId || latest.driver_id === currentUserId) {
+                  console.log(`[Notify] Janela de 2 min vencida! Disparando alerta sonoro e popup para entrega ${latest.id}`);
+                  notifyNewDelivery(latest);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[Notify] erro ao disparar entrega agendada após 120s:", e);
+          }
+        }, remainingMs);
+
+        scheduledDeliveriesRef.current.set(delivery.id, timer);
+      } else {
+        notifyNewDelivery(delivery);
+      }
+    };
+
     const notifyNewDelivery = async (rawDelivery: any) => {
       const isOnlineNow = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
       if (!isOnlineNow) return;
@@ -321,7 +373,11 @@ export function useDriverNotifications() {
       const currentDriverId = driverRowRef.current?.id || user?.id;
       const currentUserId = user?.id;
       const isEligible = isDeliveryEligibleForDriver(rawDelivery, currentDriverId, currentUserId);
-      if (!isEligible) return;
+      if (!isEligible) {
+        // Se ainda está dentro da janela de 2 minutos do Admin, agenda para tocar assim que vencer os 120s!
+        scheduleDeliveryIfWithinAdminWindow(rawDelivery);
+        return;
+      }
 
       seenIdsRef.current.add(rawDelivery.id);
       activeAlertsRef.current.add(rawDelivery.id);
@@ -374,6 +430,17 @@ export function useDriverNotifications() {
 
       if (Capacitor.isNativePlatform()) {
         DeliveryOverlay.playNativeAudio().catch(() => {});
+
+        (DeliveryOverlay as any).showIncomingCall?.({
+          deliveryId: delivery.id,
+          storeName: storeName,
+          pickup: pickup,
+          dropoff: dropoff,
+          fee: feeText,
+          customerName: delivery.customer_name || "Cliente",
+          customerPhone: delivery.customer_phone || "",
+        })?.catch?.(() => {});
+
         // Posta na central de notificações nativa do Android
         DeliveryOverlay.postNotification({
           deliveryId: delivery.id,
