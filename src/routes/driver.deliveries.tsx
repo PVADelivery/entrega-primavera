@@ -131,6 +131,16 @@ function DeliveriesPage() {
   });
 
   useEffect(() => {
+    const handleWake = () => {
+      qc.invalidateQueries({ queryKey: ["deliveries"] });
+      qc.invalidateQueries({ queryKey: ["rides"] });
+    };
+    window.addEventListener("pageshow", handleWake);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") handleWake();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     const channel = supabase
       .channel("deliveries-page")
       .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
@@ -141,6 +151,8 @@ function DeliveriesPage() {
       })
       .subscribe();
     return () => {
+      window.removeEventListener("pageshow", handleWake);
+      document.removeEventListener("visibilitychange", handleVisibility);
       supabase.removeChannel(channel);
     };
   }, [qc]);

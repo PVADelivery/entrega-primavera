@@ -385,18 +385,25 @@ export function useUpdateDeliveryStatus() {
       const now = new Date().toISOString();
       const dbStatus = toDbStatus(status);
 
-      // 1. Try the safe, bulletproof, RLS-bypassing RPC function first
+      // 1. Try the safe, bulletproof, RLS-bypassing RPC function first (with p_driver_id to avoid PGRST203 ambiguity)
       try {
         const { data, error } = await supabase.rpc("update_delivery_status_safe", {
           p_delivery_id: id,
           p_status: status,
+          p_driver_id: null,
         });
 
         if (!error && data && (data as any).success) {
           return;
         }
       } catch (err) {
-        // Silently ignore to proceed to REST fallbacks
+        try {
+          const { data: d2, error: e2 } = await supabase.rpc("update_delivery_status_safe", {
+            p_delivery_id: id,
+            p_status: status,
+          });
+          if (!e2 && d2 && (d2 as any).success) return;
+        } catch {}
       }
 
       // Fallback: Original REST-based combination updates (backward compatible)
@@ -863,12 +870,13 @@ export async function advanceDelivery(delivery: any) {
 
   let lastError: any = null;
 
-  // 1. Tenta RPC segura update_delivery_status_safe com os candidatos
+  // 1. Tenta RPC segura update_delivery_status_safe com os candidatos passando p_driver_id para evitar erro PGRST203
   for (const st of candidates) {
     try {
       const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
         p_delivery_id: delivery.id,
         p_status: st,
+        p_driver_id: delivery.driver_id || null,
       });
       if (!rpcError && rpcData && (rpcData as any).success) {
         return;
@@ -878,18 +886,29 @@ export async function advanceDelivery(delivery: any) {
       lastError = e;
     }
 
+    // Fallback com 2 parâmetros se a RPC do banco for estrita
     try {
       const { data: rpcData2, error: rpcError2 } = await supabase.rpc("update_delivery_status_safe", {
-        _delivery_id: delivery.id,
-        _status: st,
+        p_delivery_id: delivery.id,
+        p_status: st,
       });
       if (!rpcError2 && rpcData2 && (rpcData2 as any).success) {
         return;
       }
     } catch {}
+
+    try {
+      const { data: rpcData3, error: rpcError3 } = await supabase.rpc("update_delivery_status_safe", {
+        _delivery_id: delivery.id,
+        _status: st,
+      });
+      if (!rpcError3 && rpcData3 && (rpcData3 as any).success) {
+        return;
+      }
+    } catch {}
   }
 
-  // 2. Fallback REST direto no banco com candidatos
+  // 2. Fallback REST direto no banco com candidatos (sem travar em RLS do .select())
   for (const st of candidates) {
     try {
       const updatePayload: Record<string, any> = {
@@ -905,14 +924,12 @@ export async function advanceDelivery(delivery: any) {
         updatePayload.accepted_at = now;
       }
 
-      const { data: updated, error: directErr } = await supabase
+      const { error: directErr } = await supabase
         .from("deliveries")
         .update(updatePayload)
-        .eq("id", delivery.id)
-        .select("id, status")
-        .maybeSingle();
+        .eq("id", delivery.id);
 
-      if (!directErr && updated) {
+      if (!directErr) {
         return;
       }
       if (directErr) {
