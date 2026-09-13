@@ -44,8 +44,8 @@ public final class NotificationChannels {
             nm.deleteNotificationChannel("marketplace_orders_v2");
         } catch (Exception ignored) {}
 
-        // Som oficial idêntico ao Lojista (notification_sound.mp3)
-        Uri soundUri = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.notification_sound);
+        // Som oficial MT 24 Horas Express (ring.mp3)
+        Uri soundUri = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.ring);
         AudioAttributes audioAttributes = new AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)

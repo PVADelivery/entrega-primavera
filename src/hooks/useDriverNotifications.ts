@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase, ensureRealtimeConnected } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAudioAlert } from "@/hooks/useAudioAlert";
+import { useAudioAlert, stopGlobalAudioAlert } from "@/hooks/useAudioAlert";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
@@ -38,6 +38,7 @@ export const getDeclinedDeliveries = (): Set<string> => {
 
 export const declineDeliveryLocally = (deliveryId: string) => {
   try {
+    stopGlobalAudioAlert();
     if (typeof window === "undefined") return;
     const declined = getDeclinedDeliveries();
     declined.add(deliveryId);
@@ -67,6 +68,7 @@ export const getAcceptedDeliveries = (): Set<string> => {
 
 export const acceptDeliveryLocally = (deliveryId: string) => {
   try {
+    stopGlobalAudioAlert();
     if (typeof window === "undefined") return;
     const accepted = getAcceptedDeliveries();
     accepted.add(deliveryId);
@@ -127,7 +129,7 @@ export function useDriverNotifications() {
           id: NOTIFICATION_CHANNEL_ID,
           name: "Novas Corridas MT 24 Horas",
           description: "Alerta de novas corridas disponíveis para entregadores MT 24 Horas",
-          sound: "notification_sound.mp3",
+          sound: "ring.mp3",
           importance: 5,
           visibility: 1,
           vibration: true,
@@ -383,12 +385,16 @@ export function useDriverNotifications() {
       activeAlertsRef.current.add(rawDelivery.id);
       invalidateDeliveries();
 
-      // Dispara o alerta sonoro em loop e vibração contínua até o entregador aceitar ou recusar
-      try {
-        unlockAudio();
-        startLoop();
-      } catch (e) {
-        console.warn("[Notify] som falhou:", e);
+      // Dispara o alerta sonoro oficial MT 24 Horas Express (sem duplicidade)
+      if (Capacitor.isNativePlatform()) {
+        DeliveryOverlay.playNativeAudio().catch(() => {});
+      } else {
+        try {
+          unlockAudio();
+          startLoop();
+        } catch (e) {
+          console.warn("[Notify] som falhou:", e);
+        }
       }
 
       // Busca detalhes completos apenas se não vierem no payload da entrega
@@ -429,8 +435,6 @@ export function useDriverNotifications() {
       const title = `🏬 ${storeName}${feeText ? ` — ${feeText}` : ""}`;
 
       if (Capacitor.isNativePlatform()) {
-        DeliveryOverlay.playNativeAudio().catch(() => {});
-
         (DeliveryOverlay as any).showIncomingCall?.({
           deliveryId: delivery.id,
           storeName: storeName,
@@ -462,7 +466,7 @@ export function useDriverNotifications() {
               id: hashId(delivery.id),
               actionTypeId: "DELIVERY_ACTION",
               channelId: NOTIFICATION_CHANNEL_ID,
-              sound: "notification_sound.mp3",
+              sound: "ring.mp3",
               extra: { type: "delivery", deliveryId: delivery.id },
             },
           ],
@@ -543,12 +547,16 @@ export function useDriverNotifications() {
       activeAlertsRef.current.add(rawRide.id);
       invalidateDeliveries();
 
-      // Dispara o alerta sonoro contínuo
-      try {
-        unlockAudio();
-        startLoop();
-      } catch (e) {
-        console.warn("[Notify] som falhou para corrida:", e);
+      // Dispara o alerta sonoro oficial MT 24 Horas Express (sem duplicidade)
+      if (Capacitor.isNativePlatform()) {
+        DeliveryOverlay.playNativeAudio().catch(() => {});
+      } else {
+        try {
+          unlockAudio();
+          startLoop();
+        } catch (e) {
+          console.warn("[Notify] som falhou para corrida:", e);
+        }
       }
 
       const isTaxi = String(rawRide.vehicle_type || "").toLowerCase().includes("taxi") && !String(rawRide.vehicle_type || "").toLowerCase().includes("moto");
@@ -576,8 +584,6 @@ export function useDriverNotifications() {
       });
 
       if (Capacitor.isNativePlatform()) {
-        DeliveryOverlay.playNativeAudio().catch(() => {});
-
         DeliveryOverlay.showIncomingCall({
           deliveryId: rawRide.id,
           storeName: isTaxi ? "🚕 TÁXI EXPRESS" : "🏍️ MOTO TÁXI EXPRESS",
@@ -606,7 +612,7 @@ export function useDriverNotifications() {
               id: hashId(rawRide.id),
               actionTypeId: "DELIVERY_ACTION",
               channelId: NOTIFICATION_CHANNEL_ID,
-              sound: "notification_sound.mp3",
+              sound: "ring.mp3",
               extra: { type: "ride", rideId: rawRide.id },
             },
           ],

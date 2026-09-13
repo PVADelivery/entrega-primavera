@@ -6,6 +6,8 @@ import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { extractDeliveryFee, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
 import { isDeliveryEligibleForDriver } from "@/utils/delivery-eligibility";
+import { Capacitor } from "@capacitor/core";
+import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 
 interface Props {
   delivery: Delivery | null;
@@ -24,14 +26,19 @@ export function MT24NewDeliveryPopup({ delivery, open, onAccept, onDecline, pend
   // Alerta sonoro oficial do MT 24 Horas Express (ring.mp3) enquanto o popup estiver ativo
   useEffect(() => {
     if (open && isAvailableForDriver && delivery) {
-      try {
-        unlockAudio();
-        playAlert(true);
-      } catch (e) {
-        console.warn("[MT24NewDeliveryPopup] Erro áudio ring.mp3:", e);
+      if (!Capacitor.isNativePlatform()) {
+        try {
+          unlockAudio();
+          playAlert();
+        } catch (e) {
+          console.warn("[MT24NewDeliveryPopup] Erro áudio ring.mp3:", e);
+        }
       }
     } else {
       stopAlert();
+      if (Capacitor.isNativePlatform()) {
+        DeliveryOverlay.stopNativeAudio().catch(() => {});
+      }
     }
   }, [open, isAvailableForDriver, delivery?.id]);
 
@@ -73,6 +80,9 @@ export function MT24NewDeliveryPopup({ delivery, open, onAccept, onDecline, pend
       onOpenChange={(isOpen) => {
         if (!isOpen && !pending) {
           stopAlert();
+          if (Capacitor.isNativePlatform()) {
+            DeliveryOverlay.stopNativeAudio().catch(() => {});
+          }
           onDecline(delivery.id);
         }
       }}
@@ -98,64 +108,36 @@ export function MT24NewDeliveryPopup({ delivery, open, onAccept, onDecline, pend
             {isBuscaCondicional ? "Busca de Condicional!" : "Nova Corrida Disponível!"}
           </h2>
 
-          {delivery.short_id && (
-            <p className="mt-0.5 text-xs font-mono font-bold text-slate-400">
-              Pedido #{delivery.short_id}
-            </p>
-          )}
+          <p className="mt-1 text-sm font-semibold text-amber-200/90">{displayStoreName}</p>
         </div>
 
-        {/* Informações detalhadas da corrida */}
-        <div className="px-5 pb-5 space-y-3.5">
-          {/* Loja & Ganhos Card */}
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-3.5 shadow-inner">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
-                <Store className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{displayStoreName}</span>
-              </div>
-              <p className="mt-1 text-xs text-slate-300 font-medium truncate">
-                Cliente: <strong className="text-white">{delivery.customer_name || "Cliente"}</strong>
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-right shrink-0">
-              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Ganhos</p>
-              <p className="font-mono text-xl font-black text-emerald-300">
-                R$ {driverEarnings}
-              </p>
+        {/* Body Info */}
+        <div className="space-y-3 px-5 py-4">
+          {/* Card Ganhos */}
+          <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent p-3.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Seus Ganhos</span>
+              <span className="font-mono text-2xl font-black text-amber-400">R$ {driverEarnings}</span>
             </div>
           </div>
 
-          {/* Rota Coleta / Entrega */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3.5 space-y-3">
-            <div className="flex items-start gap-2.5">
-              <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-xs">
-                📍
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">
-                  {isBuscaCondicional ? "1º Coleta (Cliente)" : "1º Coleta (Loja)"}
-                </p>
-                <p className="mt-0.5 text-xs font-semibold text-slate-200 line-clamp-2">
-                  {isBuscaCondicional ? (delivery.address || "Endereço do Cliente") : pickupAddr}
-                </p>
+          {/* Endereços */}
+          <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs">
+            <div className="flex items-start gap-2">
+              <Store className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+              <div className="min-w-0">
+                <span className="font-semibold text-slate-300">Coleta: </span>
+                <span className="text-slate-100">{pickupAddr}</span>
               </div>
             </div>
 
-            <div className="h-px bg-slate-800/80 mx-1" />
+            <div className="h-px bg-white/10" />
 
-            <div className="flex items-start gap-2.5">
-              <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs">
-                🏁
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                  {isBuscaCondicional ? "2º Entrega (Loja)" : "2º Entrega (Cliente)"}
-                </p>
-                <p className="mt-0.5 text-xs font-semibold text-slate-200 line-clamp-2">
-                  {isBuscaCondicional ? (pickupAddr || displayStoreName) : dropoffAddr}
-                </p>
+            <div className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+              <div className="min-w-0">
+                <span className="font-semibold text-slate-300">Entrega: </span>
+                <span className="text-slate-100">{dropoffAddr}</span>
               </div>
             </div>
           </div>
@@ -182,6 +164,9 @@ export function MT24NewDeliveryPopup({ delivery, open, onAccept, onDecline, pend
               disabled={pending}
               onClick={() => {
                 stopAlert();
+                if (Capacitor.isNativePlatform()) {
+                  DeliveryOverlay.stopNativeAudio().catch(() => {});
+                }
                 onDecline(delivery.id);
               }}
               className="h-13 rounded-2xl border border-red-500/50 bg-red-950/40 font-black text-xs uppercase tracking-wider text-red-300 hover:bg-red-900/60 transition-transform active:scale-95 disabled:opacity-50"
@@ -195,6 +180,9 @@ export function MT24NewDeliveryPopup({ delivery, open, onAccept, onDecline, pend
               disabled={pending}
               onClick={async () => {
                 stopAlert();
+                if (Capacitor.isNativePlatform()) {
+                  DeliveryOverlay.stopNativeAudio().catch(() => {});
+                }
                 await onAccept(delivery.id);
               }}
               className="h-13 rounded-2xl border-none bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-500 font-black text-xs uppercase tracking-wider text-black shadow-[0_4px_20px_rgba(245,158,11,0.4)] hover:brightness-110 transition-transform active:scale-95 disabled:opacity-50"

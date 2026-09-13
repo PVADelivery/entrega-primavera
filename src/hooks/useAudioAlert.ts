@@ -4,13 +4,14 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
 
 // Singleton instances to be used globally outside React lifecycle
-const ALERT_SOUND_URL = "/notification_sound.mp3";
+const ALERT_SOUND_URL = "/ring.mp3";
 
 let globalAudio: HTMLAudioElement | null = null;
 let isUnlocked = false;
 let vibrationInterval: any = null;
 let activeNotification: Notification | null = null;
 let lastPlayPromise: Promise<void> | null = null;
+let loopTimeoutTimer: any = null;
 
 if (typeof window !== "undefined") {
   globalAudio = new Audio();
@@ -90,7 +91,7 @@ export function requestNotificationPermission() {
           importance: 5,
           visibility: 1,
           vibration: true,
-          sound: "notification_sound.mp3",
+          sound: "ring.mp3",
         }).catch(() => {});
       }
     }).catch(() => {});
@@ -128,7 +129,7 @@ export function sendNativeDeviceNotification(
             body: options?.body || "Acesse o app para aceitar a corrida",
             id: Math.floor(Math.random() * 100000),
             channelId: "mt24_delivery_alerts_v35",
-            sound: "notification_sound.mp3",
+            sound: "ring.mp3",
             extra: {
               tag: options?.tag || "mt24-delivery-new"
             }
@@ -174,6 +175,42 @@ export function sendNativeDeviceNotification(
         }
       });
     }
+  }
+}
+
+export function stopGlobalAudioAlert() {
+  if (loopTimeoutTimer) {
+    clearTimeout(loopTimeoutTimer);
+    loopTimeoutTimer = null;
+  }
+
+  if (globalAudio) {
+    const performPause = () => {
+      try {
+        globalAudio!.pause();
+        globalAudio!.currentTime = 0;
+        globalAudio!.loop = false;
+      } catch (e) {
+        console.warn("[AudioAlert] Falha ao parar áudio:", e);
+      }
+    };
+
+    if (lastPlayPromise) {
+      lastPlayPromise.then(performPause).catch(performPause);
+      lastPlayPromise = null;
+    } else {
+      performPause();
+    }
+  }
+
+  if (vibrationInterval) {
+    clearInterval(vibrationInterval);
+    vibrationInterval = null;
+  }
+
+  if (activeNotification) {
+    activeNotification.close();
+    activeNotification = null;
   }
 }
 
@@ -228,7 +265,13 @@ export function useAudioAlert() {
     triggerDeviceVibration();
   }, []);
 
+  const stopLoop = useCallback(() => {
+    stopGlobalAudioAlert();
+  }, []);
+
   const startLoop = useCallback(() => {
+    stopLoop();
+
     if (globalAudio) {
       globalAudio.loop = true;
       globalAudio.volume = 1.0;
@@ -254,38 +297,12 @@ export function useAudioAlert() {
         triggerDeviceVibration();
       }, 3500);
     }
-  }, []);
 
-  const stopLoop = useCallback(() => {
-    if (globalAudio) {
-      const performPause = () => {
-        try {
-          globalAudio!.pause();
-          globalAudio!.currentTime = 0;
-          globalAudio!.loop = false;
-        } catch (e) {
-          console.warn("[AudioAlert] Falha ao parar áudio:", e);
-        }
-      };
-
-      if (lastPlayPromise) {
-        lastPlayPromise.then(performPause).catch(performPause);
-        lastPlayPromise = null;
-      } else {
-        performPause();
-      }
-    }
-
-    if (vibrationInterval) {
-      clearInterval(vibrationInterval);
-      vibrationInterval = null;
-    }
-
-    if (activeNotification) {
-      activeNotification.close();
-      activeNotification = null;
-    }
-  }, []);
+    // Trava de segurança: para automaticamente após 30 segundos
+    loopTimeoutTimer = setTimeout(() => {
+      stopLoop();
+    }, 30000);
+  }, [stopLoop]);
 
   return {
     unlockAudio,
