@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Wallet, ArrowRight, Eye, Phone, MessageSquare, AlertCircle } from "lucide-react";
+import { MapPin, Wallet, ArrowRight, Phone, MessageSquare, AlertCircle } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { formatDateTime } from "@/lib/utils";
 import { extractDeliveryFee, cleanAddressForDriver, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
@@ -35,6 +35,7 @@ const condicionalNextLabels: Record<string, string> = {
 export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDecline, pending }: Props) {
   const isBuscaCondicional = (delivery as any).delivery_type === "BUSCA_CONDICIONAL";
   const next = isBuscaCondicional ? condicionalNextLabels[delivery.status] : normalNextLabels[delivery.status];
+  const isCompleted = ["delivered", "completed", "concluded", "cancelled", "returned"].includes(delivery.status);
   const displayStoreName = delivery.company_name?.trim() || delivery.companies?.name?.trim() || "Loja não vinculada";
 
   // Formatação do link do WhatsApp do cliente com múltiplos fallbacks
@@ -174,7 +175,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
           </div>
         </div>
 
-        {(onAccept || (next && onAdvance) || onCancel || (!onAccept && !onAdvance) || whatsappUrl) && (
+        {!isCompleted && (onAccept || (next && onAdvance) || onCancel || (whatsappUrl && !onAccept)) && (
           <div className="mt-3 flex items-center gap-2">
             {onDecline && onAccept && (
               <Button
@@ -213,7 +214,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
               </Button>
             )}
 
-            {/* Botão com o ícone oficial do WhatsApp (somente APÓS aceitar a entrega) */}
+            {/* Botão com o ícone oficial do WhatsApp (somente em entregas em andamento) */}
             {whatsappUrl && !onAccept && (
               <a
                 href={whatsappUrl}
@@ -228,16 +229,7 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
               </a>
             )}
 
-            {!onAccept && !onAdvance && (
-              <Button
-                variant="outline"
-                className="h-11 flex-1 rounded-xl font-semibold shadow-sm"
-                onClick={() => (window.location.href = `/driver/delivery/${delivery.id}`)}
-              >
-                <Eye className="mr-2 h-4 w-4" /> <span>Detalhes</span>
-              </Button>
-            )}
-            {onCancel && delivery.status !== "delivered" && delivery.status !== "cancelled" && (
+            {onCancel && (
               <Button
                 variant="outline"
                 className="h-11 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"

@@ -687,7 +687,7 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
     .from("deliveries")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(10);
 
   if (ids.length > 0) {
     query = query.in("driver_id", ids);
@@ -696,9 +696,9 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   const { data, error } = await query;
   if (error) throw error;
 
-  const historyDeliveries = (data ?? []).filter((d: any) =>
-    ["completed", "delivered", "cancelled", "returned"].includes(d.status)
-  );
+  const historyDeliveries = (data ?? [])
+    .filter((d: any) => ["completed", "delivered", "cancelled", "returned"].includes(d.status))
+    .slice(0, 10);
 
   // Se não encontrou entregas com o ID do motorista, traz histórico recente geral
   if (historyDeliveries.length === 0 && ids.length > 0) {
@@ -706,12 +706,13 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
       .from("deliveries")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(10);
     
     if (fallbackData && fallbackData.length > 0) {
       const resolvedFallbackData = await resolveDeliveryCompanies(fallbackData);
       return resolvedFallbackData
         .filter((d: any) => ["completed", "delivered", "cancelled", "returned"].includes(d.status))
+        .slice(0, 10)
         .map((d: any) => ({
           ...d,
           status: toAppStatus(d.status),
@@ -721,7 +722,7 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
   }
 
   const resolvedHistory = await resolveDeliveryCompanies(historyDeliveries);
-  return resolvedHistory.map((d: any) => ({
+  return resolvedHistory.slice(0, 10).map((d: any) => ({
     ...d,
     status: toAppStatus(d.status),
     address: cleanAddressForDriver(d.address || d.dropoff_address || d.delivery_address),

@@ -112,7 +112,7 @@ function DeliveriesPage() {
           .select("*")
           .in("status", ["completed", "cancelled", "concluida", "cancelada", "finished"])
           .order("created_at", { ascending: false })
-          .limit(40);
+          .limit(10);
         if (error) return [];
         const rides = (data ?? []) as any[];
 
@@ -122,7 +122,7 @@ function DeliveriesPage() {
           if (!isFinished) return false;
           if (!r.driver_id) return false;
           return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
-        });
+        }).slice(0, 10);
       } catch (e) {
         return [];
       }
@@ -447,7 +447,7 @@ function DeliveriesPage() {
             <Empty msg="Sem histórico ainda." />
           ) : (
             <>
-              {isRide && historyRides.data?.map((r) => {
+              {isRide && historyRides.data?.slice(0, 10).map((r) => {
                 const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
                 const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
                 const dropoff = r.dropoff_address || r.dropoff || r.destination || "Destino final";
@@ -467,7 +467,7 @@ function DeliveriesPage() {
                   </Card>
                 );
               })}
-              {!isRide && history.data?.map((d) => (
+              {!isRide && history.data?.slice(0, 10).map((d) => (
                 <DeliveryCard key={d.id} delivery={d} />
               ))}
             </>
