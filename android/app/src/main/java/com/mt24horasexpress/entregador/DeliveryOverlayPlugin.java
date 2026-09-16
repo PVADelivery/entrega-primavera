@@ -230,6 +230,21 @@ public class DeliveryOverlayPlugin extends Plugin {
 
     @PluginMethod
     public void cancelDeliveryNotification(PluginCall call) {
+        String deliveryId = call.getString("deliveryId", "");
+        try {
+            android.app.NotificationManager manager = (android.app.NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) {
+                if (deliveryId != null && !deliveryId.isEmpty()) {
+                    int hash = Math.abs(deliveryId.hashCode());
+                    manager.cancel(hash);
+                    manager.cancel(deliveryId, hash);
+                } else {
+                    manager.cancelAll();
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.e("DeliveryOverlay", "Erro ao cancelar notificacao nativa", e);
+        }
         call.resolve();
     }
 

@@ -38,29 +38,29 @@ serve(async (req) => {
     // =========================================================================
     // CASE A: UPDATE EVENT — Delivery accepted or cancelled by store/admin/driver
     // =========================================================================
-    const wasPending = oldRecord && (oldRecord.status === 'pending' || oldRecord.status === 'broadcasted')
     const isNoLongerPending = record.status !== 'pending' && record.status !== 'broadcasted'
     const isCancelled = record.status === 'cancelled' || record.status === 'cancelada'
-    const isAcceptedOrFinished = eventType === 'UPDATE' && wasPending && isNoLongerPending
+    const hasDriverAssigned = Boolean(record.driver_id && record.driver_id !== 'none' && record.driver_id !== '00000000-0000-0000-0000-000000000000')
+    const isAcceptedOrFinished = eventType === 'UPDATE' && (isNoLongerPending || hasDriverAssigned)
 
     if (isCancelled || isAcceptedOrFinished) {
-      console.log(`Corrida ${record.id} aceita ou cancelada (status: ${record.status}). Enviando comando CANCEL_DELIVERY para os entregadores...`)
+      console.log(`Corrida ${record.id} aceita ou cancelada (status: ${record.status}, driver_id: ${record.driver_id}). Enviando comando CANCEL_DELIVERY para os entregadores...`)
 
       let query = supabaseClient
         .from('delivery_drivers')
         .select('fcm_token')
         .not('fcm_token', 'is', null)
-        .eq('is_online', true)
+        .neq('fcm_token', '')
 
       // Se a corrida foi aceita por um motorista, não cancela para ele.
       // Se foi CANCELADA pelo lojista/admin, cancela para TODOS os motoristas!
       if (!isCancelled && record.driver_id) {
-        query = query.neq('id', record.driver_id)
+        query = query.neq('id', record.driver_id).neq('user_id', record.driver_id)
       }
 
       const { data: drivers } = await query
       if (!drivers || drivers.length === 0) {
-        return new Response("No online drivers to cancel notification", { status: 200 })
+        return new Response("No drivers to cancel notification", { status: 200 })
       }
 
       const tokens = drivers.map(d => d.fcm_token).filter(Boolean)
@@ -70,7 +70,9 @@ serve(async (req) => {
             token: token,
             data: {
               type: "cancel_delivery",
-              deliveryId: record.id
+              deliveryId: String(record.id),
+              rideId: String(record.id),
+              status: String(record.status || "accepted")
             },
             android: {
               priority: "HIGH",

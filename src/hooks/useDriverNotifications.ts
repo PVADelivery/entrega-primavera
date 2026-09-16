@@ -47,6 +47,7 @@ export const declineDeliveryLocally = (deliveryId: string) => {
 
     if (Capacitor.isNativePlatform()) {
       LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
+      LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
       DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
       DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
       DeliveryOverlay.stopNativeAudio().catch(() => {});
@@ -77,6 +78,7 @@ export const acceptDeliveryLocally = (deliveryId: string) => {
 
     if (Capacitor.isNativePlatform()) {
       LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
+      LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
       DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
       DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
       DeliveryOverlay.stopNativeAudio().catch(() => {});
@@ -189,14 +191,31 @@ export function useDriverNotifications() {
           }).then((handle) => { errListener = handle; }).catch(() => {});
 
           PushNotifications.addListener("pushNotificationReceived", (notification) => {
-            console.log("[FCM] Push recebido em primeiro plano:", notification);
+            console.log("[FCM] Push recebido:", notification);
+            const d = notification?.data;
+            const rideId = d?.rideId || d?.ride_id;
+            const deliveryId = d?.deliveryId || d?.delivery_id || d?.id;
+            const targetId = deliveryId || rideId;
+
+            // Se for comando de cancelamento ou encerramento de entrega aceita por outro:
+            if (d?.type === "cancel_delivery" || d?.action === "cancel") {
+              console.log("[FCM] Comando de cancelamento recebido para:", targetId);
+              if (targetId) stopRingingFor(targetId);
+              return;
+            }
+
             if (!isOnlineRef.current) {
               console.log("[FCM] Ignorando push pois o entregador está offline");
               return;
             }
-            const d = notification?.data;
-            const rideId = d?.rideId || d?.ride_id;
-            const deliveryId = d?.deliveryId || d?.delivery_id || d?.id;
+
+            // Se o status da notificação NÃO for pending/broadcasted (ex: já foi aceita):
+            const pushStatus = String(d?.status || "pending").toLowerCase().trim();
+            if (pushStatus !== "pending" && pushStatus !== "broadcasted") {
+              console.log("[FCM] Entrega já não está pendente:", pushStatus);
+              if (targetId) stopRingingFor(targetId);
+              return;
+            }
 
             if (rideId || d?.type === "ride" || d?.type === "new_ride") {
               const targetRideId = rideId || deliveryId;
@@ -284,6 +303,7 @@ export function useDriverNotifications() {
     const stopRingingFor = (deliveryId: string) => {
       if (!deliveryId) return;
       activeAlertsRef.current.delete(deliveryId);
+      seenIdsRef.current.add(deliveryId);
       const timer = scheduledDeliveriesRef.current.get(deliveryId);
       if (timer) {
         clearTimeout(timer);
@@ -292,13 +312,17 @@ export function useDriverNotifications() {
       invalidateDeliveries();
       if (activeAlertsRef.current.size === 0) {
         stopAlert();
+        stopLoop();
+        stopGlobalAudioAlert();
         if (Capacitor.isNativePlatform()) {
           DeliveryOverlay.dismissIncomingCall().catch(() => {});
           DeliveryOverlay.stopNativeAudio().catch(() => {});
         }
       }
       if (Capacitor.isNativePlatform()) {
-        LocalNotifications.cancel({ notifications: [{ id: hashId(deliveryId) }] }).catch(() => {});
+        const nid = hashId(deliveryId);
+        LocalNotifications.cancel({ notifications: [{ id: nid }] }).catch(() => {});
+        LocalNotifications.removeDeliveredNotifications({ notifications: [{ id: nid }] }).catch(() => {});
         DeliveryOverlay.cancelDeliveryNotification({ deliveryId }).catch(() => {});
         DeliveryOverlay.hideDeliveryCard({ deliveryId }).catch(() => {});
       }
@@ -320,13 +344,15 @@ export function useDriverNotifications() {
       // 1. Apenas notifica se o entregador estiver estritamente ONLINE
       if (!isOnlineRef.current) return;
 
-      // 2. Se a entrega já foi concluída, entregue ou cancelada, NUNCA notificar!
-      const status = String(rawDelivery.status || "").toLowerCase();
-      if (
-        ["completed", "delivered", "cancelled", "returned", "concluida", "cancelada", "finished", "finalizada", "entregue", "concluido"].includes(status) ||
-        rawDelivery.completed_at ||
-        rawDelivery.delivered_at
-      ) {
+      // 2. CRUCIAL: Se a entrega NÃO estiver pendente nem transmitida (ex: já foi aceita por qualquer motoboy), NUNCA NOTIFICAR!
+      const status = String(rawDelivery.status || "").toLowerCase().trim();
+      if (status !== "pending" && status !== "broadcasted") {
+        stopRingingFor(rawDelivery.id);
+        return;
+      }
+
+      if (rawDelivery.completed_at || rawDelivery.delivered_at) {
+        stopRingingFor(rawDelivery.id);
         return;
       }
 
@@ -348,8 +374,9 @@ export function useDriverNotifications() {
       const currentUserId = user?.id;
       const myIds = [currentDriverId, currentUserId].filter(Boolean).map((id) => String(id).toLowerCase().trim());
 
-      // Se atribuída diretamente a outro entregador parceiro pelo Admin, não notifica
-      if (isAssigned && myIds.length > 0 && !myIds.includes(assignedId)) {
+      // Se atribuída a outro entregador (não a mim), encerra imediatamente qualquer alerta e não notifica!
+      if (isAssigned && (!myIds.includes(assignedId) || myIds.length === 0)) {
+        stopRingingFor(rawDelivery.id);
         return;
       }
 
@@ -860,6 +887,14 @@ export function useDriverNotifications() {
             scheduledDeliveriesRef.current.clear();
             activeAlertsRef.current.clear();
             stopAlert();
+            stopLoop();
+            stopGlobalAudioAlert();
+            if (Capacitor.isNativePlatform()) {
+              LocalNotifications.removeAllDeliveredNotifications().catch(() => {});
+              DeliveryOverlay.cancelDeliveryNotification({ deliveryId: "" }).catch(() => {});
+              DeliveryOverlay.dismissIncomingCall().catch(() => {});
+              DeliveryOverlay.stopNativeAudio().catch(() => {});
+            }
           }
         } catch (e) {
           console.warn("[Notify] polling falhou:", e);
@@ -871,6 +906,14 @@ export function useDriverNotifications() {
         invalidateDeliveries();
         if (isOnlineRef.current) {
           pollDeliveries();
+        } else {
+          // Se estiver offline ao abrir o app, limpa qualquer notificação pendente da barra
+          if (Capacitor.isNativePlatform()) {
+            LocalNotifications.removeAllDeliveredNotifications().catch(() => {});
+            DeliveryOverlay.cancelDeliveryNotification({ deliveryId: "" }).catch(() => {});
+            DeliveryOverlay.dismissIncomingCall().catch(() => {});
+            DeliveryOverlay.stopNativeAudio().catch(() => {});
+          }
         }
       };
 
@@ -908,24 +951,27 @@ export function useDriverNotifications() {
             const d = payload.new as any;
             const o = payload.old as any;
 
+            // REGRA: Quando a entrega for aceita, concluída ou cancelada, encerra o alerta no mesmo instante!
             if (d?.status !== "pending" && d?.status !== "broadcasted") {
               stopRingingFor(d.id);
             }
 
-            if (d?.status === "pending" || d?.status === "broadcasted") {
+            // Se atribuída a outro entregador, encerra no mesmo instante!
+            if (d?.driver_id && d?.driver_id !== driverId && d?.driver_id !== user.id) {
+              stopRingingFor(d.id);
+            }
+
+            if ((d?.status === "pending" || d?.status === "broadcasted") && (!d?.driver_id || d?.driver_id === driverId || d?.driver_id === user.id)) {
               if (isOnlineRef.current) {
                 seenIdsRef.current.delete(d.id);
                 notifyNewDelivery(d);
               }
             }
 
-            if ((d?.driver_id === driverId || d?.driver_id === user.id) && o?.status !== d?.status && d?.status === "accepted") {
-              toast("✅ Corrida confirmada!", { description: "Vá até o ponto de retirada." });
-              activeAlertsRef.current.delete(d.id);
-              if (activeAlertsRef.current.size === 0) {
-                stopAlert();
-                DeliveryOverlay.dismissIncomingCall().catch(() => {});
-                DeliveryOverlay.stopNativeAudio().catch(() => {});
+            if ((d?.driver_id === driverId || d?.driver_id === user.id) && d?.status === "accepted") {
+              stopRingingFor(d.id);
+              if (o?.status !== d?.status) {
+                toast("✅ Corrida confirmada!", { description: "Vá até o ponto de retirada." });
               }
             }
           }
@@ -949,24 +995,27 @@ export function useDriverNotifications() {
             const r = payload.new as any;
             const o = payload.old as any;
 
+            // REGRA: Quando a corrida for aceita, concluída ou cancelada, encerra o alerta no mesmo instante!
             if (r?.status !== "pending" && r?.status !== "broadcasted") {
               stopRingingFor(r.id);
             }
 
-            if (r?.status === "pending" || r?.status === "broadcasted") {
+            // Se atribuída a outro motorista, encerra no mesmo instante!
+            if (r?.driver_id && r?.driver_id !== driverId && r?.driver_id !== user.id) {
+              stopRingingFor(r.id);
+            }
+
+            if ((r?.status === "pending" || r?.status === "broadcasted") && (!r?.driver_id || r?.driver_id === driverId || r?.driver_id === user.id)) {
               if (isOnlineRef.current) {
                 seenIdsRef.current.delete(r.id);
                 notifyNewRide(r);
               }
             }
 
-            if ((r?.driver_id === driverId || r?.driver_id === user.id) && o?.status !== r?.status && r?.status === "accepted") {
-              toast("✅ Corrida aceita!", { description: "Vá até o ponto de embarque do passageiro." });
-              activeAlertsRef.current.delete(r.id);
-              if (activeAlertsRef.current.size === 0) {
-                stopAlert();
-                DeliveryOverlay.dismissIncomingCall().catch(() => {});
-                DeliveryOverlay.stopNativeAudio().catch(() => {});
+            if ((r?.driver_id === driverId || r?.driver_id === user.id) && r?.status === "accepted") {
+              stopRingingFor(r.id);
+              if (o?.status !== r?.status) {
+                toast("✅ Corrida confirmada!", { description: "Vá até o passageiro." });
               }
             }
           }

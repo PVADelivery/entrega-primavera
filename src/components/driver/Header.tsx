@@ -6,6 +6,9 @@ import { toast } from "sonner";
 import { ThemeToggle } from "./ThemeToggle";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
+import { Capacitor } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
+import { stopGlobalAudioAlert } from "@/hooks/useAudioAlert";
 
 export function DriverHeader() {
   const { user } = useAuth();
@@ -141,8 +144,19 @@ export function DriverHeader() {
         Notification.requestPermission().catch(() => {});
       }
       startLocationTracking();
+      if (Capacitor.isNativePlatform()) {
+        DeliveryOverlay.setDriverOnlineStatus({ isOnline: true }).catch(() => {});
+      }
     } else {
       stopLocationTracking();
+      stopGlobalAudioAlert();
+      if (Capacitor.isNativePlatform()) {
+        DeliveryOverlay.setDriverOnlineStatus({ isOnline: false }).catch(() => {});
+        DeliveryOverlay.cancelDeliveryNotification({ deliveryId: "" }).catch(() => {});
+        DeliveryOverlay.dismissIncomingCall().catch(() => {});
+        DeliveryOverlay.stopNativeAudio().catch(() => {});
+        LocalNotifications.removeAllDeliveredNotifications().catch(() => {});
+      }
     }
     setOnline(value);
     if (typeof window !== "undefined") {
