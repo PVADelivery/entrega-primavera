@@ -168,6 +168,16 @@ function DeliveriesPage() {
       candidateNextStatuses = ["completed", "concluded", "finished", "delivered"];
     }
 
+    // Atualização otimista para resposta instantânea na tela
+    const nextSt = candidateNextStatuses[0] || "in_progress";
+    qc.setQueriesData({ queryKey: ["rides"] }, (old: any) => {
+      if (!Array.isArray(old)) return old;
+      if (nextSt === "completed" || nextSt === "concluded" || nextSt === "finished") {
+        return old.filter((item: any) => item.id !== rideId);
+      }
+      return old.map((item: any) => item.id === rideId ? { ...item, status: nextSt } : item);
+    });
+
     setPending(rideId);
     let success = false;
     let lastError: any = null;
@@ -227,11 +237,30 @@ function DeliveriesPage() {
   }
 
   async function handleAdvance(d: any) {
+    const nextStatusMap: Record<string, string> = {
+      pending: "accepted",
+      broadcasted: "accepted",
+      accepted: "collecting",
+      collecting: "in_transit",
+      picked_up: "in_transit",
+      in_transit: "delivered",
+      in_route: "delivered",
+    };
+    const nextSt = nextStatusMap[d.status] || "collecting";
+
+    // 1. Atualização otimista instantânea no cache local
+    qc.setQueriesData({ queryKey: ["deliveries"] }, (old: any) => {
+      if (!Array.isArray(old)) return old;
+      if (nextSt === "delivered") {
+        return old.filter((item: any) => item.id !== d.id);
+      }
+      return old.map((item: any) => item.id === d.id ? { ...item, status: nextSt } : item);
+    });
+
     setPending(d.id);
     try {
       await advanceDelivery(d);
       toast.success("Status atualizado com sucesso!");
-      qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
       console.error("[handleAdvance] Erro:", err);
       const rawMsg = String(err?.message || "").toLowerCase();
@@ -240,6 +269,7 @@ function DeliveriesPage() {
         : (err?.message || "Erro desconhecido");
       toast.error(`Falha ao atualizar: ${userMsg}`);
     } finally {
+      qc.invalidateQueries({ queryKey: ["deliveries"] });
       setPending(null);
     }
   }

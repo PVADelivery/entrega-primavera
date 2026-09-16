@@ -190,6 +190,10 @@ export function useDriverNotifications() {
 
           PushNotifications.addListener("pushNotificationReceived", (notification) => {
             console.log("[FCM] Push recebido em primeiro plano:", notification);
+            if (!isOnlineRef.current) {
+              console.log("[FCM] Ignorando push pois o entregador está offline");
+              return;
+            }
             const d = notification?.data;
             const rideId = d?.rideId || d?.ride_id;
             const deliveryId = d?.deliveryId || d?.delivery_id || d?.id;
@@ -313,17 +317,30 @@ export function useDriverNotifications() {
     window.addEventListener("delivery-accepted", handleAcceptEvent);
 
     const notifyNewDelivery = async (rawDelivery: any) => {
-      const isOnlineNow = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
-      if (!isOnlineNow) return;
+      // 1. Apenas notifica se o entregador estiver estritamente ONLINE
+      if (!isOnlineRef.current) return;
 
+      // 2. Se a entrega já foi concluída, entregue ou cancelada, NUNCA notificar!
       const status = String(rawDelivery.status || "").toLowerCase();
-      if (["completed", "delivered", "cancelled", "returned", "concluida", "cancelada"].includes(status)) {
+      if (
+        ["completed", "delivered", "cancelled", "returned", "concluida", "cancelada", "finished", "finalizada", "entregue", "concluido"].includes(status) ||
+        rawDelivery.completed_at ||
+        rawDelivery.delivered_at
+      ) {
         return;
       }
 
       const declined = getDeclinedDeliveries();
       if (declined.has(rawDelivery.id)) return;
       if (seenIdsRef.current.has(rawDelivery.id)) return;
+
+      // 3. Ignora entregas antigas (mais de 10 min) para não tocar som em entregas que já estavam lá
+      const createdAt = rawDelivery.created_at || new Date().toISOString();
+      const elapsed = getElapsedSeconds(createdAt);
+      if (elapsed > 600) {
+        seenIdsRef.current.add(rawDelivery.id);
+        return;
+      }
 
       const assignedId = rawDelivery.driver_id ? String(rawDelivery.driver_id).toLowerCase().trim() : "";
       const isAssigned = Boolean(assignedId && assignedId !== "none" && assignedId !== "00000000-0000-0000-0000-000000000000");
@@ -338,8 +355,6 @@ export function useDriverNotifications() {
 
       // REGRA: A notificação e áudio disparam IMEDIATAMENTE no momento da criação/push!
       // Se for entrega pendente geral dentro dos 2 minutos, agenda para aparecer no app para aceite ao completar 120s
-      const createdAt = rawDelivery.created_at || new Date().toISOString();
-      const elapsed = getElapsedSeconds(createdAt);
       if (elapsed < ADMIN_WINDOW_SECONDS && !isAssigned && status !== "broadcasted") {
         if (!scheduledDeliveriesRef.current.has(rawDelivery.id)) {
           const remainingMs = Math.max(500, (ADMIN_WINDOW_SECONDS - elapsed) * 1000 + 500);
@@ -489,8 +504,15 @@ export function useDriverNotifications() {
     };
 
     const notifyNewRide = async (rawRide: any) => {
-      const isOnlineNow = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
-      if (!isOnlineNow) return;
+      if (!isOnlineRef.current) return;
+
+      const statusLower = String(rawRide.status || "").toLowerCase();
+      if (
+        ["completed", "cancelled", "concluida", "cancelada", "finished", "finalizada", "delivered"].includes(statusLower) ||
+        rawRide.completed_at
+      ) {
+        return;
+      }
 
       const declined = getDeclinedDeliveries();
       if (declined.has(rawRide.id)) return;
@@ -504,7 +526,6 @@ export function useDriverNotifications() {
         return;
       }
 
-      const statusLower = String(rawRide.status || "").toLowerCase();
       if (statusLower !== "pending" && statusLower !== "broadcasted") {
         return;
       }
@@ -746,38 +767,38 @@ export function useDriverNotifications() {
         );
       }
 
-      // Seed inicial
-      const isOnlineNow = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
-      if (isOnlineNow) {
-        try {
-          const { data: initial } = await supabase
-            .from("deliveries")
-            .select("*, companies(name, address)")
-            .in("status", ["pending", "broadcasted"])
-            .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`);
-          if (initial && !cancelled) {
-            initial.forEach((d: any) => notifyNewDelivery(d));
-          }
-
-          // Seed inicial de Corridas (Táxi e Moto Táxi)
-          const { data: initialRides } = await supabase
-            .from("ride_requests")
-            .select("*")
-            .in("status", ["pending", "broadcasted"])
-            .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`)
-            .limit(10);
-          if (initialRides && !cancelled) {
-            initialRides.forEach((r: any) => notifyNewRide(r));
-          }
-        } catch (e) {
-          console.warn("[Notify] seed inicial falhou:", e);
+      // Seed inicial: Apenas marcar entregas e corridas existentes no banco como JÁ VISTAS para NUNCA tocar som ao abrir o app
+      try {
+        const { data: initial } = await supabase
+          .from("deliveries")
+          .select("id, status, created_at, completed_at")
+          .in("status", ["pending", "broadcasted"])
+          .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`);
+        if (initial && !cancelled) {
+          initial.forEach((d: any) => {
+            seenIdsRef.current.add(d.id);
+          });
         }
+
+        // Seed inicial de Corridas (Táxi e Moto Táxi)
+        const { data: initialRides } = await supabase
+          .from("ride_requests")
+          .select("id, status, created_at")
+          .in("status", ["pending", "broadcasted"])
+          .or(`driver_id.is.null,driver_id.eq.${driverId},driver_id.eq.${user.id}`)
+          .limit(20);
+        if (initialRides && !cancelled) {
+          initialRides.forEach((r: any) => {
+            seenIdsRef.current.add(r.id);
+          });
+        }
+      } catch (e) {
+        console.warn("[Notify] seed inicial falhou:", e);
       }
 
       // Polling contínuo para manter sincronizado com o banco
       const pollDeliveries = async () => {
-        const isNowOnline = isOnlineRef.current || (typeof window !== "undefined" && user?.id && localStorage.getItem(`driver_is_online_${user.id}`) === "true");
-        if (cancelled || !isNowOnline) return;
+        if (cancelled || !isOnlineRef.current) return;
         try {
           const { data } = await supabase
             .from("deliveries")
@@ -799,8 +820,28 @@ export function useDriverNotifications() {
           const freshRideIds = new Set((ridesData || []).map((r: any) => r.id));
           const freshIds = new Set([...freshDeliveryIds, ...freshRideIds]);
 
-          data?.forEach((d: any) => notifyNewDelivery(d));
-          ridesData?.forEach((r: any) => notifyNewRide(r));
+          // Notifica APENAS se a entrega for recente (< 2 min) e ainda não foi vista
+          data?.forEach((d: any) => {
+            if (!seenIdsRef.current.has(d.id)) {
+              const elapsed = getElapsedSeconds(d.created_at || "");
+              if (elapsed <= 120) {
+                notifyNewDelivery(d);
+              } else {
+                seenIdsRef.current.add(d.id);
+              }
+            }
+          });
+
+          ridesData?.forEach((r: any) => {
+            if (!seenIdsRef.current.has(r.id)) {
+              const elapsed = getElapsedSeconds(r.created_at || "");
+              if (elapsed <= 120) {
+                notifyNewRide(r);
+              } else {
+                seenIdsRef.current.add(r.id);
+              }
+            }
+          });
 
           // Limpa timers agendados de corridas que não estão mais pendentes
           scheduledDeliveriesRef.current.forEach((timer, id) => {

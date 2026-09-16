@@ -205,6 +205,9 @@ serve(async (req) => {
 
     if (record.driver_id) {
        query = query.or(`id.eq.${record.driver_id},user_id.eq.${record.driver_id}`);
+    } else {
+       // Apenas notificar entregadores que estão REALMENTE online/ativos!
+       query = query.or('is_online.eq.true,online.eq.true');
     }
 
     const { data: drivers, error } = await query;

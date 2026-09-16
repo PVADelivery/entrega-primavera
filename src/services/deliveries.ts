@@ -406,53 +406,20 @@ export function useUpdateDeliveryStatus() {
         } catch {}
       }
 
-      // Fallback: Original REST-based combination updates (backward compatible)
-      // Combination 1: dbStatus + completed_at (Ideal normalized database state)
+      // Fallback: Atualização direta REST sem colunas inexistentes como delivered_at
       const updates1: Record<string, unknown> = { status: dbStatus, updated_at: now };
       if (status === "accepted") updates1.accepted_at = now;
       if (status === "collecting") updates1.collected_at = now;
       if (status === "delivered") updates1.completed_at = now;
       if (status === "cancelled") updates1.cancelled_at = now;
 
-      const res1 = await supabase.from("deliveries").update(updates1 as any).eq("id", id).select();
-
-      if (res1.error || !res1.data || res1.data.length === 0) {
-        // Combination 2: dbStatus + delivered_at
-        const updates2: Record<string, unknown> = { status: dbStatus, updated_at: now };
-        if (status === "accepted") updates2.accepted_at = now;
-        if (status === "collecting") updates2.collected_at = now;
-        if (status === "delivered") updates2.delivered_at = now;
-        if (status === "cancelled") updates2.cancelled_at = now;
-
-        const res2 = await supabase.from("deliveries").update(updates2 as any).eq("id", id).select();
-
-        if (res2.error || !res2.data || res2.data.length === 0) {
-          // Combination 3: appStatus (status) + completed_at
-          const updates3: Record<string, unknown> = { status: status, updated_at: now };
-          if (status === "accepted") updates3.accepted_at = now;
-          if (status === "collecting") updates3.collected_at = now;
-          if (status === "delivered") updates3.completed_at = now;
-          if (status === "cancelled") updates3.cancelled_at = now;
-
-          const res3 = await supabase.from("deliveries").update(updates3 as any).eq("id", id).select();
-
-          if (res3.error || !res3.data || res3.data.length === 0) {
-            // Combination 4: appStatus (status) + delivered_at (Legacy and default database states)
-            const updates4: Record<string, unknown> = { status: status, updated_at: now };
-            if (status === "accepted") updates4.accepted_at = now;
-            if (status === "collecting") updates4.collected_at = now;
-            if (status === "delivered") updates4.delivered_at = now;
-            if (status === "cancelled") updates4.cancelled_at = now;
-
-            const res4 = await supabase.from("deliveries").update(updates4 as any).eq("id", id).select();
-
-            if (res4.error) {
-              throw res4.error;
-            }
-            if (!res4.data || res4.data.length === 0) {
-              throw new Error("Update failed: Row level security (RLS) blocked the action or delivery not found.");
-            }
-          }
+      const { error: resErr } = await supabase.from("deliveries").update(updates1 as any).eq("id", id);
+      if (resErr) {
+        if (status === "delivered") {
+          const { error: resErr2 } = await supabase.from("deliveries").update({ status: "completed", completed_at: now, updated_at: now }).eq("id", id);
+          if (resErr2) throw resErr2;
+        } else {
+          throw resErr;
         }
       }
 
@@ -861,122 +828,61 @@ export async function advanceDelivery(delivery: any) {
   const now = new Date().toISOString();
   const dbNextStatus = toDbStatus(next);
 
-  // Status candidatos para garantir compatibilidade com enum e colunas do banco
-  const candidates = (next === "delivered" || dbNextStatus === "delivered")
-    ? ["delivered", "completed", "concluded"]
-    : (next === "in_transit" || dbNextStatus === "in_transit")
-    ? ["in_transit", "in_route"]
-    : [next, dbNextStatus];
+  // 1. Atualização direta via REST no Supabase (rápida, direta e sem colunas inexistentes)
+  const updatePayload: Record<string, any> = {
+    status: dbNextStatus,
+    updated_at: now,
+  };
 
-  let lastError: any = null;
-
-  // 1. Tenta RPC segura update_delivery_status_safe com os candidatos passando p_driver_id para evitar erro PGRST203
-  for (const st of candidates) {
-    try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
-        p_delivery_id: delivery.id,
-        p_status: st,
-        p_driver_id: delivery.driver_id || null,
-      });
-      if (!rpcError && rpcData && (rpcData as any).success) {
-        return;
-      }
-      if (rpcError) lastError = rpcError;
-    } catch (e: any) {
-      lastError = e;
-    }
-
-    // Fallback com 2 parâmetros se a RPC do banco for estrita
-    try {
-      const { data: rpcData2, error: rpcError2 } = await supabase.rpc("update_delivery_status_safe", {
-        p_delivery_id: delivery.id,
-        p_status: st,
-      });
-      if (!rpcError2 && rpcData2 && (rpcData2 as any).success) {
-        return;
-      }
-    } catch {}
-
-    try {
-      const { data: rpcData3, error: rpcError3 } = await supabase.rpc("update_delivery_status_safe", {
-        _delivery_id: delivery.id,
-        _status: st,
-      });
-      if (!rpcError3 && rpcData3 && (rpcData3 as any).success) {
-        return;
-      }
-    } catch {}
+  if (next === "delivered") {
+    updatePayload.completed_at = now;
+  } else if (next === "collecting") {
+    updatePayload.collected_at = now;
+  } else if (next === "accepted") {
+    updatePayload.accepted_at = now;
   }
 
-  // 2. Fallback REST direto no banco com candidatos (sem travar em RLS do .select())
-  for (const st of candidates) {
-    try {
-      const updatePayload: Record<string, any> = {
-        status: st,
-        updated_at: now,
-      };
-      if (st === "delivered" || st === "completed") {
-        updatePayload.delivered_at = now;
-        updatePayload.completed_at = now;
-      } else if (st === "collecting") {
-        updatePayload.collected_at = now;
-      } else if (st === "accepted") {
-        updatePayload.accepted_at = now;
-      }
-
-      const { error: directErr } = await supabase
-        .from("deliveries")
-        .update(updatePayload)
-        .eq("id", delivery.id);
-
-      if (!directErr) {
-        return;
-      }
-      if (directErr) {
-        lastError = directErr;
-        const msg = directErr.message || "";
-        if (msg.includes("tuple to be updated") || msg.includes("already modified") || directErr.code === "27000") {
-          return;
-        }
-      }
-    } catch (err: any) {
-      lastError = err;
-      const msg = String(err?.message || "");
-      if (msg.includes("tuple to be updated") || msg.includes("already modified") || msg.includes("27000")) {
-        return;
-      }
-    }
-  }
-
-  // 3. Fallback no endpoint do servidor
-  try {
-    const result = await updateDriverDelivery({
-      data: { deliveryId: delivery.id, status: dbNextStatus as any },
-    });
-    if (result && (result as any).success) return;
-  } catch (serverError: any) {
-    const serverMsg = String(serverError?.message || "");
-    if (
-      serverMsg.includes("tuple to be updated") ||
-      serverMsg.includes("already modified") ||
-      serverMsg.includes("27000")
-    ) {
-      return;
-    }
-  }
-
-  // 4. Confere se o status no banco já mudou para o status esperado
-  const { data: check } = await supabase
+  const { error: directErr } = await supabase
     .from("deliveries")
-    .select("id,status,driver_id")
-    .eq("id", delivery.id)
-    .maybeSingle();
+    .update(updatePayload)
+    .eq("id", delivery.id);
 
-  if (check && (statusCandidates(dbNextStatus).includes(String(check.status)) || check.status === next || check.status === dbNextStatus || (next === "delivered" && ["delivered", "completed"].includes(String(check.status))))) {
+  if (!directErr) {
     return;
   }
 
-  throw new Error(lastError?.message || "Falha ao atualizar status da entrega no banco.");
+  // 2. Se falhar por RLS ou ambiguidade, chamar a RPC segura
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
+      p_delivery_id: delivery.id,
+      p_status: next,
+      p_driver_id: delivery.driver_id || null,
+    });
+    if (!rpcError && rpcData && (rpcData as any).success) {
+      return;
+    }
+  } catch {}
+
+  try {
+    const { data: rpcData2, error: rpcError2 } = await supabase.rpc("update_delivery_status_safe", {
+      p_delivery_id: delivery.id,
+      p_status: next,
+    });
+    if (!rpcError2 && rpcData2 && (rpcData2 as any).success) {
+      return;
+    }
+  } catch {}
+
+  // 3. Fallback adicional com 'completed' se o enum do banco usar completed
+  if (next === "delivered") {
+    const { error: compErr } = await supabase
+      .from("deliveries")
+      .update({ status: "completed", completed_at: now, updated_at: now })
+      .eq("id", delivery.id);
+    if (!compErr) return;
+  }
+
+  throw new Error(directErr?.message || "Falha ao atualizar status da entrega no banco.");
 }
 
 export async function releaseDeliveryToPool(deliveryId: string) {

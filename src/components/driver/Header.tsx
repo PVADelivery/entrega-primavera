@@ -43,11 +43,9 @@ export function DriverHeader() {
         if (drv && typeof drv.is_online === "boolean") {
           setOnline(drv.is_online);
           localStorage.setItem(`driver_is_online_${user.id}`, String(drv.is_online));
-        } else if (localStatus === "true") {
-          await supabase
-            .from("delivery_drivers")
-            .update({ is_online: true } as any)
-            .eq("user_id", user.id);
+        } else {
+          setOnline(false);
+          localStorage.setItem(`driver_is_online_${user.id}`, "false");
         }
 
         const finalName = prof?.full_name || drv?.full_name;
