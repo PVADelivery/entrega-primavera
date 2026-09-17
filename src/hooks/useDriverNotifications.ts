@@ -723,40 +723,49 @@ export function useDriverNotifications() {
 
       const chUnique = `${driverId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-      // Listener de status online/offline com nome de canal exclusivo
-      const driverChannel = supabase
-        .channel(`mt24-driver-status-${chUnique}`)
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "delivery_drivers", filter: `id=eq.${driverId}` },
-          (payload) => {
-            const updated = payload.new as any;
-            const wasOnline = isOnlineRef.current;
-            if (typeof updated?.is_online === "boolean") {
-              isOnlineRef.current = updated.is_online;
-              if (typeof window !== "undefined") {
-                localStorage.setItem(`driver_is_online_${user.id}`, String(updated.is_online));
-              }
-              if (Capacitor.isNativePlatform()) {
-                DeliveryOverlay.setDriverOnlineStatus({ isOnline: updated.is_online }).catch(() => {});
-              }
-              if (!updated.is_online && wasOnline) {
-                activeAlertsRef.current.clear();
-                stopAlert();
+      // Listener de status online/offline com nome de canal exclusivo e protegido contra unhandled rejection
+      let driverChannel: any = null;
+      try {
+        driverChannel = supabase
+          .channel(`mt24-driver-status-${chUnique}`)
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "delivery_drivers", filter: `id=eq.${driverId}` },
+            (payload) => {
+              const updated = payload.new as any;
+              const wasOnline = isOnlineRef.current;
+              if (typeof updated?.is_online === "boolean") {
+                isOnlineRef.current = updated.is_online;
+                if (typeof window !== "undefined") {
+                  localStorage.setItem(`driver_is_online_${user.id}`, String(updated.is_online));
+                }
                 if (Capacitor.isNativePlatform()) {
-                  DeliveryOverlay.stopNativeAudio().catch(() => {});
+                  DeliveryOverlay.setDriverOnlineStatus({ isOnline: updated.is_online }).catch(() => {});
+                }
+                if (!updated.is_online && wasOnline) {
+                  activeAlertsRef.current.clear();
+                  stopAlert();
+                  if (Capacitor.isNativePlatform()) {
+                    DeliveryOverlay.stopNativeAudio().catch(() => {});
+                  }
                 }
               }
             }
-          }
-        )
-        .subscribe();
+          )
+          .subscribe();
+      } catch (e) {
+        console.warn("[Realtime] Falha ao assinar driverChannel:", e);
+      }
       
       if (cancelled) {
-        supabase.removeChannel(driverChannel);
+        if (driverChannel) {
+          try { supabase.removeChannel(driverChannel); } catch {}
+        }
         return;
       }
-      channelsRef.current.push(driverChannel);
+      if (driverChannel) {
+        channelsRef.current.push(driverChannel);
+      }
 
       // Listener para resposta dos botões da Tela Cheia / Popup Nativo (IncomingCallActivity)
       if (Capacitor.isNativePlatform()) {
@@ -953,103 +962,105 @@ export function useDriverNotifications() {
       const broadcastUnique = `${driverId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
       // Realtime — novas entregas, corridas e mudanças de status (nome exclusivo para evitar conflito de subscribe())
-      const broadcastChannel = supabase
-        .channel(`mt24-driver-broadcast-${broadcastUnique}`)
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "deliveries" },
-          (payload) => {
-            invalidateDeliveries();
-            const d = payload.new as any;
-            if (isOnlineRef.current && (d?.status === "pending" || d?.status === "broadcasted")) {
-              notifyNewDelivery(d);
-            }
-          }
-        )
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "deliveries" },
-          (payload) => {
-            invalidateDeliveries();
-            const d = payload.new as any;
-            const o = payload.old as any;
-
-            // REGRA: Quando a entrega for aceita, concluída ou cancelada, encerra o alerta no mesmo instante!
-            if (d?.status !== "pending" && d?.status !== "broadcasted") {
-              stopRingingFor(d.id);
-            }
-
-            // Se atribuída a outro entregador, encerra no mesmo instante!
-            if (d?.driver_id && d?.driver_id !== driverId && d?.driver_id !== user.id) {
-              stopRingingFor(d.id);
-            }
-
-            if ((d?.status === "pending" || d?.status === "broadcasted") && (!d?.driver_id || d?.driver_id === driverId || d?.driver_id === user.id)) {
-              if (isOnlineRef.current) {
-                seenIdsRef.current.delete(d.id);
+      let broadcastChannel: any = null;
+      try {
+        broadcastChannel = supabase
+          .channel(`mt24-driver-broadcast-${broadcastUnique}`)
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "deliveries" },
+            (payload) => {
+              invalidateDeliveries();
+              const d = payload.new as any;
+              if (isOnlineRef.current && (d?.status === "pending" || d?.status === "broadcasted")) {
                 notifyNewDelivery(d);
               }
             }
+          )
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "deliveries" },
+            (payload) => {
+              invalidateDeliveries();
+              const d = payload.new as any;
+              const o = payload.old as any;
 
-            if ((d?.driver_id === driverId || d?.driver_id === user.id) && d?.status === "accepted") {
-              stopRingingFor(d.id);
-              if (o?.status !== d?.status) {
+              // REGRA: Quando a entrega for aceita, concluída ou cancelada, encerra o alerta no mesmo instante!
+              if (d?.status !== "pending" && d?.status !== "broadcasted") {
+                stopRingingFor(d.id);
+              }
+
+              // Quando a entrega voltar a ficar pendente, dispara novamente o som/alerta se online
+              if ((d?.status === "pending" || d?.status === "broadcasted") && isOnlineRef.current) {
+                seenIdsRef.current.delete(d.id);
+                notifyNewDelivery(d);
+              }
+
+              // Se atribuída a este motorista diretamente, confirma notificação de corrida aceita
+              if ((d?.driver_id === driverId || d?.driver_id === user.id) && o?.status !== d?.status && d?.status === "accepted") {
                 toast("✅ Corrida confirmada!", { description: "Vá até o ponto de retirada." });
+                stopRingingFor(d.id);
               }
             }
-          }
-        )
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "ride_requests" },
-          (payload) => {
-            invalidateDeliveries();
-            const r = payload.new as any;
-            if (isOnlineRef.current && (r?.status === "pending" || r?.status === "broadcasted")) {
-              notifyNewRide(r);
-            }
-          }
-        )
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "ride_requests" },
-          (payload) => {
-            invalidateDeliveries();
-            const r = payload.new as any;
-            const o = payload.old as any;
-
-            // REGRA: Quando a corrida for aceita, concluída ou cancelada, encerra o alerta no mesmo instante!
-            if (r?.status !== "pending" && r?.status !== "broadcasted") {
-              stopRingingFor(r.id);
-            }
-
-            // Se atribuída a outro motorista, encerra no mesmo instante!
-            if (r?.driver_id && r?.driver_id !== driverId && r?.driver_id !== user.id) {
-              stopRingingFor(r.id);
-            }
-
-            if ((r?.status === "pending" || r?.status === "broadcasted") && (!r?.driver_id || r?.driver_id === driverId || r?.driver_id === user.id)) {
-              if (isOnlineRef.current) {
-                seenIdsRef.current.delete(r.id);
+          )
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "ride_requests" },
+            (payload) => {
+              invalidateDeliveries();
+              const r = payload.new as any;
+              if (isOnlineRef.current && (r?.status === "pending" || r?.status === "broadcasted")) {
                 notifyNewRide(r);
               }
             }
+          )
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "ride_requests" },
+            (payload) => {
+              invalidateDeliveries();
+              const r = payload.new as any;
+              const o = payload.old as any;
 
-            if ((r?.driver_id === driverId || r?.driver_id === user.id) && r?.status === "accepted") {
-              stopRingingFor(r.id);
-              if (o?.status !== r?.status) {
-                toast("✅ Corrida confirmada!", { description: "Vá até o passageiro." });
+              // REGRA: Quando a corrida for aceita, concluída ou cancelada, encerra o alerta no mesmo instante!
+              if (r?.status !== "pending" && r?.status !== "broadcasted") {
+                stopRingingFor(r.id);
+              }
+
+              // Se atribuída a outro motorista, encerra no mesmo instante!
+              if (r?.driver_id && r?.driver_id !== driverId && r?.driver_id !== user.id) {
+                stopRingingFor(r.id);
+              }
+
+              if ((r?.status === "pending" || r?.status === "broadcasted") && (!r?.driver_id || r?.driver_id === driverId || r?.driver_id === user.id)) {
+                if (isOnlineRef.current) {
+                  seenIdsRef.current.delete(r.id);
+                  notifyNewRide(r);
+                }
+              }
+
+              if ((r?.driver_id === driverId || r?.driver_id === user.id) && r?.status === "accepted") {
+                stopRingingFor(r.id);
+                if (o?.status !== r?.status) {
+                  toast("✅ Corrida confirmada!", { description: "Vá até o passageiro." });
+                }
               }
             }
-          }
-        )
-        .subscribe();
+          )
+          .subscribe();
+      } catch (e) {
+        console.warn("[Realtime] Falha ao assinar broadcastChannel:", e);
+      }
 
       if (cancelled) {
-        supabase.removeChannel(broadcastChannel);
+        if (broadcastChannel) {
+          try { supabase.removeChannel(broadcastChannel); } catch {}
+        }
         return () => {};
       }
-      channelsRef.current.push(broadcastChannel);
+      if (broadcastChannel) {
+        channelsRef.current.push(broadcastChannel);
+      }
 
       return () => {
         window.removeEventListener("pageshow", handleAppWakeup);

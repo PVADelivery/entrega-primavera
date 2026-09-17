@@ -95,8 +95,9 @@ function ChatPage() {
     // 3. Inscrição Realtime caso a tabela esteja disponível
     let channel: any = null;
     try {
+      const chUnique = `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       channel = supabase
-        .channel(`chat-driver-${user.id}`)
+        .channel(`chat-driver-${chUnique}`)
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "chat_messages" },

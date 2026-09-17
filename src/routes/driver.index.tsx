@@ -306,20 +306,27 @@ function DriverHome() {
 
   useEffect(() => {
     if (!driverId) return;
-    const channelName = `deliveries-home-${Math.random().toString(36).slice(2, 7)}`;
-    const channel = supabase
-      .channel(channelName)
-      .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
-        qc.invalidateQueries({ queryKey: ["deliveries", "available"] });
-        qc.invalidateQueries({ queryKey: ["deliveries", "active"] });
-        qc.invalidateQueries({ queryKey: ["earnings"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => {
-        qc.invalidateQueries({ queryKey: ["rides"] });
-      })
-      .subscribe();
+    let channel: any = null;
+    try {
+      const channelName = `deliveries-home-${Math.random().toString(36).slice(2, 7)}`;
+      channel = supabase
+        .channel(channelName)
+        .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
+          qc.invalidateQueries({ queryKey: ["deliveries", "available"] });
+          qc.invalidateQueries({ queryKey: ["deliveries", "active"] });
+          qc.invalidateQueries({ queryKey: ["earnings"] });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => {
+          qc.invalidateQueries({ queryKey: ["rides"] });
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn("[DriverHome] Falha ao assinar deliveries-home:", e);
+    }
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        try { supabase.removeChannel(channel); } catch {}
+      }
     };
   }, [driverId, qc]);
 

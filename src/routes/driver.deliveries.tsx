@@ -142,20 +142,27 @@ function DeliveriesPage() {
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
-    const channelName = `deliveries-page-${Math.random().toString(36).slice(2, 7)}`;
-    const channel = supabase
-      .channel(channelName)
-      .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
-        qc.invalidateQueries({ queryKey: ["deliveries"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => {
-        qc.invalidateQueries({ queryKey: ["rides"] });
-      })
-      .subscribe();
+    let channel: any = null;
+    try {
+      const channelName = `deliveries-page-${Math.random().toString(36).slice(2, 7)}`;
+      channel = supabase
+        .channel(channelName)
+        .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
+          qc.invalidateQueries({ queryKey: ["deliveries"] });
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => {
+          qc.invalidateQueries({ queryKey: ["rides"] });
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn("[DeliveriesPage] Falha ao assinar deliveries-page:", e);
+    }
     return () => {
       window.removeEventListener("pageshow", handleWake);
       document.removeEventListener("visibilitychange", handleVisibility);
-      supabase.removeChannel(channel);
+      if (channel) {
+        try { supabase.removeChannel(channel); } catch {}
+      }
     };
   }, [qc]);
 

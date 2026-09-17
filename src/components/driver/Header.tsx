@@ -73,17 +73,25 @@ export function DriverHeader() {
         }, 2000);
       };
 
-      // Realtime listener para refletir alterações do Admin instantaneamente
-      const ch = supabase
-        .channel(`driver-profile-sync-${user.id}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, (p) => debouncedLoadDriverInfo(p))
-        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` }, (p) => debouncedLoadDriverInfo(p))
-        .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` }, (p) => debouncedLoadDriverInfo(p))
-        .subscribe();
+      // Realtime listener para refletir alterações do Admin instantaneamente com ID único
+      let ch: any = null;
+      try {
+        const chUnique = `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        ch = supabase
+          .channel(`driver-profile-sync-${chUnique}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, (p) => debouncedLoadDriverInfo(p))
+          .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` }, (p) => debouncedLoadDriverInfo(p))
+          .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` }, (p) => debouncedLoadDriverInfo(p))
+          .subscribe();
+      } catch (e) {
+        console.warn("[Header] Falha ao assinar driver-profile-sync:", e);
+      }
 
     return () => {
       clearTimeout(debounceTimer);
-      supabase.removeChannel(ch);
+      if (ch) {
+        try { supabase.removeChannel(ch); } catch {}
+      }
     };
   }, [user]);
 

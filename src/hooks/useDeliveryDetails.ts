@@ -95,23 +95,31 @@ export function useDeliveryDetails(deliveryId?: string | null, initialData?: any
 
     loadFullDetails();
 
-    // Inscrição em tempo real para atualizações deste pedido
-    const channel = supabase
-      .channel(`delivery-details-${deliveryId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "deliveries", filter: `id=eq.${deliveryId}` },
-        (payload) => {
-          if (isMounted && payload.new) {
-            setDetails((prev) => prev ? { ...prev, ...payload.new } : (payload.new as any));
+    // Inscrição em tempo real para atualizações deste pedido com ID exclusivo
+    let channel: any = null;
+    try {
+      const chUnique = `${deliveryId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      channel = supabase
+        .channel(`delivery-details-${chUnique}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "deliveries", filter: `id=eq.${deliveryId}` },
+          (payload) => {
+            if (isMounted && payload.new) {
+              setDetails((prev) => prev ? { ...prev, ...payload.new } : (payload.new as any));
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    } catch (e) {
+      console.warn("[DeliveryDetails] Falha ao assinar realtime:", e);
+    }
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
+      if (channel) {
+        try { supabase.removeChannel(channel); } catch {}
+      }
     };
   }, [deliveryId]);
 

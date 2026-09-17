@@ -114,18 +114,26 @@ function ProfilePage() {
     if (!user) return;
     loadProfile();
 
-    const ch = supabase
-      .channel(`driver-profile-page-sync-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, () => loadProfile())
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` }, () => loadProfile())
-      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` }, () => {
-        loadProfile();
-        fetchDriverData();
-      })
-      .subscribe();
+    let ch: any = null;
+    try {
+      const chUnique = `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      ch = supabase
+        .channel(`driver-profile-page-sync-${chUnique}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, () => loadProfile())
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` }, () => loadProfile())
+        .on("postgres_changes", { event: "*", schema: "public", table: "delivery_drivers", filter: `user_id=eq.${user.id}` }, () => {
+          loadProfile();
+          fetchDriverData();
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn("[Profile] Falha ao assinar driver-profile-page-sync:", e);
+    }
 
     return () => {
-      supabase.removeChannel(ch);
+      if (ch) {
+        try { supabase.removeChannel(ch); } catch {}
+      }
     };
   }, [user]);
 
