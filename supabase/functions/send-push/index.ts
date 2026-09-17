@@ -201,15 +201,13 @@ serve(async (req) => {
 
     let query = supabaseClient
       .from('delivery_drivers')
-      .select('fcm_token')
+      .select('fcm_token, is_online')
+      .eq('is_online', true)
       .not('fcm_token', 'is', null)
       .neq('fcm_token', '');
 
     if (record.driver_id) {
        query = query.or(`id.eq.${record.driver_id},user_id.eq.${record.driver_id}`);
-    } else {
-       // Apenas notificar entregadores que estão REALMENTE online/ativos!
-       query = query.or('is_online.eq.true,online.eq.true');
     }
 
     const { data: drivers, error } = await query;

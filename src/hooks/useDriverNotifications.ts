@@ -204,8 +204,10 @@ export function useDriverNotifications() {
               return;
             }
 
-            if (!isOnlineRef.current) {
+            const isLocalOnline = typeof window !== "undefined" && user?.id ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : false;
+            if (!isOnlineRef.current || !isLocalOnline) {
               console.log("[FCM] Ignorando push pois o entregador está offline");
+              if (targetId) stopRingingFor(targetId);
               return;
             }
 
@@ -328,6 +330,31 @@ export function useDriverNotifications() {
       }
     };
 
+    const checkDriverOnline = () => {
+      const localOnline = typeof window !== "undefined" && user?.id ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : false;
+      return Boolean(isOnlineRef.current && localOnline);
+    };
+
+    const handleStatusChangeEvent = (e: any) => {
+      const isOnline = Boolean(e.detail?.isOnline);
+      isOnlineRef.current = isOnline;
+      if (!isOnline) {
+        activeAlertsRef.current.clear();
+        stopAlert();
+        stopLoop();
+        stopGlobalAudioAlert();
+        scheduledDeliveriesRef.current.forEach((t) => clearTimeout(t));
+        scheduledDeliveriesRef.current.clear();
+        if (Capacitor.isNativePlatform()) {
+          LocalNotifications.removeAllDeliveredNotifications().catch(() => {});
+          DeliveryOverlay.cancelDeliveryNotification({ deliveryId: "" }).catch(() => {});
+          DeliveryOverlay.dismissIncomingCall().catch(() => {});
+          DeliveryOverlay.stopNativeAudio().catch(() => {});
+        }
+      }
+    };
+    window.addEventListener("driver-status-changed", handleStatusChangeEvent);
+
     const handleDeclineEvent = (e: any) => {
       const { deliveryId } = e.detail || {};
       if (deliveryId) stopRingingFor(deliveryId);
@@ -342,7 +369,7 @@ export function useDriverNotifications() {
 
     const notifyNewDelivery = async (rawDelivery: any) => {
       // 1. Apenas notifica se o entregador estiver estritamente ONLINE
-      if (!isOnlineRef.current) return;
+      if (!checkDriverOnline()) return;
 
       // 2. CRUCIAL: Se a entrega NÃO estiver pendente nem transmitida (ex: já foi aceita por qualquer motoboy), NUNCA NOTIFICAR!
       const status = String(rawDelivery.status || "").toLowerCase().trim();
@@ -531,7 +558,7 @@ export function useDriverNotifications() {
     };
 
     const notifyNewRide = async (rawRide: any) => {
-      if (!isOnlineRef.current) return;
+      if (!checkDriverOnline()) return;
 
       const statusLower = String(rawRide.status || "").toLowerCase();
       if (
@@ -853,7 +880,7 @@ export function useDriverNotifications() {
 
       // Polling contínuo para manter sincronizado com o banco
       const pollDeliveries = async () => {
-        if (cancelled || !isOnlineRef.current) return;
+        if (cancelled || !checkDriverOnline()) return;
         try {
           const { data } = await supabase
             .from("deliveries")
@@ -932,10 +959,14 @@ export function useDriverNotifications() {
       const handleAppWakeup = () => {
         ensureRealtimeConnected();
         invalidateDeliveries();
-        if (isOnlineRef.current) {
+        if (checkDriverOnline()) {
           pollDeliveries();
         } else {
           // Se estiver offline ao abrir o app, limpa qualquer notificação pendente da barra
+          activeAlertsRef.current.clear();
+          stopAlert();
+          stopLoop();
+          stopGlobalAudioAlert();
           if (Capacitor.isNativePlatform()) {
             LocalNotifications.removeAllDeliveredNotifications().catch(() => {});
             DeliveryOverlay.cancelDeliveryNotification({ deliveryId: "" }).catch(() => {});
@@ -972,7 +1003,7 @@ export function useDriverNotifications() {
             (payload) => {
               invalidateDeliveries();
               const d = payload.new as any;
-              if (isOnlineRef.current && (d?.status === "pending" || d?.status === "broadcasted")) {
+              if (checkDriverOnline() && (d?.status === "pending" || d?.status === "broadcasted")) {
                 notifyNewDelivery(d);
               }
             }
@@ -991,7 +1022,7 @@ export function useDriverNotifications() {
               }
 
               // Quando a entrega voltar a ficar pendente, dispara novamente o som/alerta se online
-              if ((d?.status === "pending" || d?.status === "broadcasted") && isOnlineRef.current) {
+              if ((d?.status === "pending" || d?.status === "broadcasted") && checkDriverOnline()) {
                 seenIdsRef.current.delete(d.id);
                 notifyNewDelivery(d);
               }
@@ -1009,7 +1040,7 @@ export function useDriverNotifications() {
             (payload) => {
               invalidateDeliveries();
               const r = payload.new as any;
-              if (isOnlineRef.current && (r?.status === "pending" || r?.status === "broadcasted")) {
+              if (checkDriverOnline() && (r?.status === "pending" || r?.status === "broadcasted")) {
                 notifyNewRide(r);
               }
             }
@@ -1033,7 +1064,7 @@ export function useDriverNotifications() {
               }
 
               if ((r?.status === "pending" || r?.status === "broadcasted") && (!r?.driver_id || r?.driver_id === driverId || r?.driver_id === user.id)) {
-                if (isOnlineRef.current) {
+                if (checkDriverOnline()) {
                   seenIdsRef.current.delete(r.id);
                   notifyNewRide(r);
                 }
@@ -1074,6 +1105,7 @@ export function useDriverNotifications() {
 
     return () => {
       cancelled = true;
+      window.removeEventListener("driver-status-changed", handleStatusChangeEvent);
       window.removeEventListener("delivery-declined", handleDeclineEvent);
       window.removeEventListener("delivery-accepted", handleAcceptEvent);
       channelsRef.current.forEach((ch) => supabase.removeChannel(ch));

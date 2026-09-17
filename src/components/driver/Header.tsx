@@ -115,6 +115,12 @@ export function DriverHeader() {
 
     locationWatchRef.current = navigator.geolocation.watchPosition(
       async (pos) => {
+        const isCurrentOnline = typeof window !== "undefined" && localStorage.getItem(`driver_is_online_${user.id}`) === "true";
+        if (!isCurrentOnline) {
+          stopLocationTracking();
+          return;
+        }
+
         const lat = Number(pos.coords?.latitude);
         const lng = Number(pos.coords?.longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
@@ -134,7 +140,7 @@ export function DriverHeader() {
         try {
           await supabase
             .from("delivery_drivers")
-            .update({ latitude: lat, longitude: lng, is_online: true } as any)
+            .update({ latitude: lat, longitude: lng } as any)
             .eq("user_id", user.id);
         } catch (e) {
           console.warn("[GPS] Falha ao sincronizar posição:", e);
@@ -169,16 +175,17 @@ export function DriverHeader() {
     setOnline(value);
     if (typeof window !== "undefined") {
       localStorage.setItem(`driver_is_online_${user.id}`, String(value));
+      window.dispatchEvent(new CustomEvent("driver-status-changed", { detail: { isOnline: value, userId: user.id } }));
     }
 
     try {
       const p1 = supabase
         .from("delivery_drivers")
-        .update({ is_online: value } as any)
+        .update({ is_online: value, online: value } as any)
         .eq("user_id", user.id);
       const p2 = supabase
         .from("delivery_drivers")
-        .update({ is_online: value } as any)
+        .update({ is_online: value, online: value } as any)
         .eq("id", user.id);
 
       const [r1, r2] = await Promise.allSettled([p1, p2]);
@@ -204,6 +211,7 @@ export function DriverHeader() {
       setOnline(!value);
       if (typeof window !== "undefined") {
         localStorage.setItem(`driver_is_online_${user.id}`, String(!value));
+        window.dispatchEvent(new CustomEvent("driver-status-changed", { detail: { isOnline: !value, userId: user.id } }));
       }
     }
   }
