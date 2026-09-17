@@ -929,6 +929,35 @@ export async function cancelDelivery(deliveryId: string) {
   }
 }
 
+export async function cancelRide(rideId: string) {
+  const now = new Date().toISOString();
+
+  // 1. Tenta desvincular via RPC unassign_ride_driver (SECURITY DEFINER)
+  try {
+    const { data: rpcData, error: rpcError } = await (supabase as any).rpc("unassign_ride_driver", {
+      p_ride_id: rideId,
+    });
+    if (!rpcError && (rpcData as any)?.success) {
+      return;
+    }
+  } catch {}
+
+  // 2. Fallback REST: remove o motorista (driver_id = null) e reseta o status para 'pending'
+  const { error } = await (supabase as any)
+    .from("ride_requests")
+    .update({ 
+      driver_id: null,
+      status: "pending",
+      updated_at: now
+    })
+    .eq("id", rideId);
+
+  if (error) {
+    console.error("[cancelRide] Erro ao devolver corrida para a fila:", error);
+    throw new Error(error?.message || "Não foi possível recusar a corrida.");
+  }
+}
+
 export async function getDriverIdFromUser(userId: string): Promise<string | null> {
   const { data } = await supabase
     .from("delivery_drivers")

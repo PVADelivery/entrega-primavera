@@ -709,9 +709,23 @@ export function useDriverNotifications() {
         });
       }
 
-      // Listener de status online/offline
+      if (cancelled) return;
+
+      // Limpa canais anteriores deste driver para evitar conflitos de re-subscrição
+      try {
+        const existingChannels = supabase.getChannels();
+        for (const ch of existingChannels) {
+          if (ch.topic.includes(`mt24-driver-status-${driverId}`) || ch.topic.includes(`mt24-driver-broadcast-${driverId}`)) {
+            supabase.removeChannel(ch);
+          }
+        }
+      } catch {}
+
+      const chUnique = `${driverId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      // Listener de status online/offline com nome de canal exclusivo
       const driverChannel = supabase
-        .channel(`mt24-driver-status-${driverId}`)
+        .channel(`mt24-driver-status-${chUnique}`)
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "delivery_drivers", filter: `id=eq.${driverId}` },
@@ -737,6 +751,11 @@ export function useDriverNotifications() {
           }
         )
         .subscribe();
+      
+      if (cancelled) {
+        supabase.removeChannel(driverChannel);
+        return;
+      }
       channelsRef.current.push(driverChannel);
 
       // Listener para resposta dos botões da Tela Cheia / Popup Nativo (IncomingCallActivity)
@@ -929,9 +948,13 @@ export function useDriverNotifications() {
       window.addEventListener("focus", handleAppWakeup);
       window.addEventListener("online", handleAppWakeup);
 
-      // Realtime — novas entregas, corridas e mudanças de status
+      if (cancelled) return;
+
+      const broadcastUnique = `${driverId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      // Realtime — novas entregas, corridas e mudanças de status (nome exclusivo para evitar conflito de subscribe())
       const broadcastChannel = supabase
-        .channel(`mt24-driver-broadcast-${driverId}`)
+        .channel(`mt24-driver-broadcast-${broadcastUnique}`)
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "deliveries" },

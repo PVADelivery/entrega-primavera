@@ -306,8 +306,9 @@ function DriverHome() {
 
   useEffect(() => {
     if (!driverId) return;
+    const channelName = `deliveries-home-${Math.random().toString(36).slice(2, 7)}`;
     const channel = supabase
-      .channel("deliveries-home")
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
         qc.invalidateQueries({ queryKey: ["deliveries", "available"] });
         qc.invalidateQueries({ queryKey: ["deliveries", "active"] });

@@ -12,6 +12,7 @@ import {
   acceptDelivery,
   advanceDelivery,
   cancelDelivery,
+  cancelRide,
   ensureDriverRow,
   fetchAvailableDeliveries,
   fetchMyActiveDeliveries,
@@ -141,8 +142,9 @@ function DeliveriesPage() {
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
+    const channelName = `deliveries-page-${Math.random().toString(36).slice(2, 7)}`;
     const channel = supabase
-      .channel("deliveries-page")
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
         qc.invalidateQueries({ queryKey: ["deliveries"] });
       })
@@ -221,17 +223,21 @@ function DeliveriesPage() {
   async function handleCancelRide(rideId: string) {
     if (!confirm("Recusar esta corrida e disponibilizar para outros motoristas?")) return;
     setPending(rideId);
+
+    // 1. Atualização otimista: remove imediatamente da lista ativa do motorista
+    qc.setQueriesData({ queryKey: ["rides"] }, (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.filter((item: any) => item.id !== rideId);
+    });
+
     try {
-      const { error } = await (supabase as any)
-        .from("ride_requests")
-        .update({ driver_id: null, status: "pending", updated_at: new Date().toISOString() })
-        .eq("id", rideId);
-      if (error) throw error;
+      await cancelRide(rideId);
       toast.success("Corrida devolvida para a fila de disponíveis!");
-      qc.invalidateQueries({ queryKey: ["rides"] });
     } catch (err: any) {
+      console.error("[handleCancelRide] Erro:", err);
       toast.error(`Erro ao devolver corrida: ${err?.message || JSON.stringify(err)}`);
     } finally {
+      qc.invalidateQueries({ queryKey: ["rides"] });
       setPending(null);
     }
   }
