@@ -12,7 +12,21 @@ import iconPrimavera from "@/assets/primavera-icon-v3.png";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
-  head: () => ({ meta: [{ title: "Entrar — MT 24horas express Entregador" }] }),
+  head: () => ({
+    meta: [
+      { title: "Entrar — MT 24 Horas Express Entregador" },
+      { name: "description", content: "Acesse sua conta de entregador ou motorista parceiro no MT 24 Horas Express." },
+      { property: "og:title", content: "Entrar — MT 24 Horas Express Entregador" },
+      { property: "og:description", content: "Acesse sua conta de entregador ou motorista parceiro no MT 24 Horas Express." },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+      { property: "og:image:secure_url", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Entrar — MT 24 Horas Express Entregador" },
+      { name: "twitter:description", content: "Acesse sua conta de entregador ou motorista parceiro no MT 24 Horas Express." },
+      { name: "twitter:image", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+    ],
+  }),
 });
 
 function LoginPage() {

@@ -30,7 +30,21 @@ import { getElapsedSeconds } from "@/utils/time";
 
 export const Route = createFileRoute("/driver/")({
   component: DriverHome,
-  head: () => ({ meta: [{ title: "Início — MT 24horas express Entregador" }] }),
+  head: () => ({
+    meta: [
+      { title: "Painel do Entregador & Motorista — MT 24 Horas Express" },
+      { name: "description", content: "Gerencie corridas, entregas e ganhos em tempo real no MT 24 Horas Express." },
+      { property: "og:title", content: "Painel do Entregador & Motorista — MT 24 Horas Express" },
+      { property: "og:description", content: "Gerencie corridas, entregas e ganhos em tempo real no MT 24 Horas Express." },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+      { property: "og:image:secure_url", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Painel do Entregador & Motorista — MT 24 Horas Express" },
+      { name: "twitter:description", content: "Gerencie corridas, entregas e ganhos em tempo real no MT 24 Horas Express." },
+      { name: "twitter:image", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+    ],
+  }),
 });
 
 function DriverHome() {
