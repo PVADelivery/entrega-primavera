@@ -488,17 +488,7 @@ export function useDriverNotifications() {
       const title = `🏬 ${storeName}${feeText ? ` — ${feeText}` : ""}`;
 
       if (Capacitor.isNativePlatform()) {
-        (DeliveryOverlay as any).showIncomingCall?.({
-          deliveryId: delivery.id,
-          storeName: storeName,
-          pickup: pickup,
-          dropoff: dropoff,
-          fee: feeText,
-          customerName: delivery.customer_name || "Cliente",
-          customerPhone: delivery.customer_phone || "",
-        })?.catch?.(() => {});
-
-        // Posta na central de notificações nativa do Android
+        // Posta DIRETAMENTE na central de notificações nativa do aparelho
         DeliveryOverlay.postNotification({
           deliveryId: delivery.id,
           storeName: storeName,
@@ -658,17 +648,7 @@ export function useDriverNotifications() {
       });
 
       if (Capacitor.isNativePlatform()) {
-        (DeliveryOverlay as any).showIncomingCall?.({
-          deliveryId: rawRide.id,
-          storeName: isTaxi ? "🚕 TÁXI EXPRESS" : "🏍️ MOTO TÁXI EXPRESS",
-          pickup: pickup,
-          dropoff: dropoff,
-          fee: feeText,
-          customerName: passenger,
-          customerPhone: rawRide.customer_phone || "",
-        })?.catch?.(() => {});
-
-        // Posta na central de notificações nativa do Android
+        // Posta DIRETAMENTE na central de notificações nativa do aparelho (igualzinho às entregas)
         DeliveryOverlay.postNotification({
           deliveryId: rawRide.id,
           storeName: isTaxi ? "🚕 TÁXI EXPRESS" : "🏍️ MOTO TÁXI EXPRESS",
