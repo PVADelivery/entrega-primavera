@@ -196,8 +196,8 @@ serve(async (req) => {
       : `🏬 ${companyName}`;
 
     const pushBody = isRideRequest
-      ? `🏁 Destino: ${dropoffAddr}`
-      : `🏁 Entrega: ${dropoffAddr}`;
+      ? (pickupAddr && dropoffAddr ? `Embarque: ${pickupAddr} ➔ Destino: ${dropoffAddr}` : (pickupAddr ? `Embarque: ${pickupAddr}` : `Destino: ${dropoffAddr}`))
+      : (pickupAddr && dropoffAddr ? `Retirada: ${pickupAddr} ➔ Entrega: ${dropoffAddr}` : `Entrega: ${dropoffAddr}`);
 
     let query = supabaseClient
       .from('delivery_drivers')
@@ -263,7 +263,7 @@ serve(async (req) => {
           token: token,
           notification: {
             title: pushTitle,
-            body: `${dropoffAddr} • Ganhos: ${feeText}`,
+            body: pushBody,
           },
           data: {
             type: isRideRequest ? "ride" : "delivery",
@@ -288,7 +288,7 @@ serve(async (req) => {
             direct_boot_ok: true,
             notification: {
               title: pushTitle,
-              body: `${dropoffAddr} • Ganhos: ${feeText}`,
+              body: pushBody,
               channel_id: "mt24_delivery_alerts_v35",
               sound: "ring",
               notification_priority: "PRIORITY_MAX",
@@ -304,7 +304,7 @@ serve(async (req) => {
             },
             notification: {
               title: pushTitle,
-              body: `${dropoffAddr} • Ganhos: ${feeText}`,
+              body: pushBody,
               icon: "/favicon-v3.png",
               badge: "/favicon-v3.png",
               vibrate: [500, 200, 500, 200, 500],
