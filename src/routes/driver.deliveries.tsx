@@ -379,8 +379,12 @@ function DeliveriesPage() {
 
                 const phoneRaw = r.customer_phone || r.phone || r.whatsapp || r.customer_whatsapp || "";
                 const phoneClean = String(phoneRaw).replace(/\D/g, "");
+                const isTaxi = r.vehicle_type === "taxi" || r.vehicle_type === "carro";
+                const vehLabel = isTaxi ? "Táxi (Carro)" : "Moto Táxi";
+                const rideCode = r.id ? `#${String(r.id).slice(0, 6).toUpperCase()}` : "";
+                const driverMsgText = `Olá ${cleanCustomer}! Sou o seu motorista da corrida de ${vehLabel} (${rideCode}) pelo MT 24horas express.\nJá estou a caminho para te buscar no endereço de embarque: ${pickup}`;
                 const whatsappUrl = phoneClean
-                  ? `https://wa.me/55${phoneClean}?text=${encodeURIComponent(`Olá ${cleanCustomer}, sou o seu motorista!`)}`
+                  ? `https://wa.me/55${phoneClean}?text=${encodeURIComponent(driverMsgText)}`
                   : null;
 
                 return (
