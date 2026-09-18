@@ -197,22 +197,26 @@ function DriverHome() {
     // Se o motorista possui lista de service_types
     if (Array.isArray(driverServices) && driverServices.length > 0) {
       const normServices = driverServices.map(s => String(s).toLowerCase().replace(/_/g, ""));
-      
-      if (rVeh === "mototaxi" || rVeh === "moto") {
-        return normServices.some(s => s.includes("mototaxi") || s.includes("moto"));
-      }
-      if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
-        return normServices.some(s => s.includes("taxi") || s.includes("car"));
+      const hasRideSpecificCategories = normServices.some(s =>
+        s.includes("taxi") || s.includes("mototaxi") || s.includes("passageiro") || s.includes("corrida")
+      );
+      if (hasRideSpecificCategories) {
+        if (rVeh === "mototaxi" || rVeh === "moto") {
+          return normServices.some(s => s.includes("mototaxi") || s.includes("moto"));
+        }
+        if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
+          return normServices.some(s => s.includes("taxi") || s.includes("car"));
+        }
       }
     }
 
     // Fallback por tipo de veículo principal do motorista
-    const dVeh = String(driverVehicle || "moto").toLowerCase().replace(/_/g, "");
+    const dVeh = String(driverVehicle || "").toLowerCase().replace(/_/g, "");
     if (rVeh === "mototaxi" || rVeh === "moto") {
-      return dVeh === "moto" || dVeh === "mototaxi";
+      return dVeh.includes("moto") || !dVeh.includes("car");
     }
     if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
-      return dVeh === "carro" || dVeh === "car" || dVeh === "taxi";
+      return dVeh.includes("car") || dVeh.includes("taxi") || !dVeh.includes("moto");
     }
 
     return true;
@@ -243,7 +247,7 @@ function DriverHome() {
           const isUnassigned = !r.driver_id || String(r.driver_id).trim() === "" || r.driver_id === "none" || r.driver_id === "00000000-0000-0000-0000-000000000000";
           if (!isUnassigned) return false;
 
-          const driverVeh = driverInfo?.vehicle_type || driverInfo?.vehicle || "moto";
+          const driverVeh = driverInfo?.vehicle_type || driverInfo?.vehicle || "";
           return isRideVehicleCompatible(r.vehicle_type, safeServices, driverVeh);
         });
 
@@ -254,9 +258,10 @@ function DriverHome() {
       }
     },
     enabled: true,
-    staleTime: 10000,
+    staleTime: 2000,
+    refetchInterval: 3000,
     gcTime: 300000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 

@@ -331,8 +331,9 @@ export function useDriverNotifications() {
     };
 
     const checkDriverOnline = () => {
-      const localOnline = typeof window !== "undefined" && user?.id ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : false;
-      return Boolean(isOnlineRef.current && localOnline);
+      if (typeof window === "undefined") return false;
+      const localOnline = user?.id ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : false;
+      return Boolean(isOnlineRef.current || localOnline);
     };
 
     const handleStatusChangeEvent = (e: any) => {
@@ -536,23 +537,28 @@ export function useDriverNotifications() {
       const rVeh = String(rideVehicle || "").toLowerCase().replace(/_/g, "");
       const info = driverVehicleInfoRef.current;
       const services = Array.isArray(info?.service_types) ? info.service_types : [];
-      const dVeh = String(info?.vehicle_type || info?.vehicle || "moto").toLowerCase().replace(/_/g, "");
+      const dVeh = String(info?.vehicle_type || info?.vehicle || "").toLowerCase().replace(/_/g, "");
 
       if (services.length > 0) {
         const normServices = services.map((s: any) => String(s).toLowerCase().replace(/_/g, ""));
-        if (rVeh === "mototaxi" || rVeh === "moto") {
-          return normServices.some((s: any) => s.includes("mototaxi") || s.includes("moto"));
-        }
-        if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
-          return normServices.some((s: any) => s.includes("taxi") || s.includes("car"));
+        const hasRideSpecificCategories = normServices.some((s: any) =>
+          s.includes("taxi") || s.includes("mototaxi") || s.includes("passageiro") || s.includes("corrida")
+        );
+        if (hasRideSpecificCategories) {
+          if (rVeh === "mototaxi" || rVeh === "moto") {
+            return normServices.some((s: any) => s.includes("mototaxi") || s.includes("moto"));
+          }
+          if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
+            return normServices.some((s: any) => s.includes("taxi") || s.includes("car"));
+          }
         }
       }
 
       if (rVeh === "mototaxi" || rVeh === "moto") {
-        return dVeh === "moto" || dVeh === "mototaxi";
+        return dVeh.includes("moto") || !dVeh.includes("car");
       }
       if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
-        return dVeh === "carro" || dVeh === "car" || dVeh === "taxi";
+        return dVeh.includes("car") || dVeh.includes("taxi") || !dVeh.includes("moto");
       }
       return true;
     };
