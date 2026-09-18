@@ -201,7 +201,7 @@ serve(async (req) => {
 
     let query = supabaseClient
       .from('delivery_drivers')
-      .select('fcm_token, is_online')
+      .select('fcm_token, is_online, vehicle_type, vehicle, service_types, id, user_id')
       .eq('is_online', true)
       .not('fcm_token', 'is', null)
       .neq('fcm_token', '');
@@ -210,15 +210,51 @@ serve(async (req) => {
        query = query.or(`id.eq.${record.driver_id},user_id.eq.${record.driver_id}`);
     }
 
-    const { data: drivers, error } = await query;
+    const { data: rawDrivers, error } = await query;
 
-    if (error || !drivers || drivers.length === 0) {
-      console.log("Nenhum entregador com token FCM encontrado para notificar");
+    if (error || !rawDrivers || rawDrivers.length === 0) {
+      console.log("Nenhum entregador online com token FCM encontrado");
       return new Response("No drivers with push tokens found", { status: 200 });
     }
 
+    // Filtra motoristas estritamente habilitados para o tipo de serviço (Corrida vs Entrega)
+    const drivers = rawDrivers.filter(drv => {
+      const services = Array.isArray(drv.service_types) ? drv.service_types.map((s: any) => String(s).toLowerCase().replace(/_/g, "")) : [];
+      const dVeh = String(drv.vehicle_type || drv.vehicle || "").toLowerCase().replace(/_/g, "");
+
+      if (isRideRequest) {
+        // Se for corrida de passageiro (Táxi ou Moto Táxi)
+        if (isTaxi) {
+          // Táxi (Carro)
+          if (services.length > 0) {
+            return services.some((s: any) => s.includes("taxi") || s.includes("car") || s.includes("passageiro") || s.includes("corrida"));
+          }
+          return dVeh.includes("car") || dVeh.includes("taxi") || !dVeh.includes("moto");
+        } else {
+          // Moto Táxi
+          if (services.length > 0) {
+            return services.some((s: any) => s.includes("mototaxi") || s.includes("moto") || s.includes("passageiro") || s.includes("corrida"));
+          }
+          return dVeh.includes("moto") || !dVeh.includes("car");
+        }
+      } else {
+        // Se for entrega de pedidos/encomendas
+        if (services.length > 0) {
+          const isExclusiveTaxi = services.every((s: any) => s.includes("taxi") || s.includes("car")) &&
+            !services.some((s: any) => s.includes("entrega") || s.includes("delivery") || s.includes("moto") || s.includes("motoboy") || s.includes("encomenda"));
+          if (isExclusiveTaxi && !record.driver_id) return false;
+        }
+        return true;
+      }
+    });
+
+    if (drivers.length === 0) {
+      console.log("Nenhum motorista habilitado para este tipo de corrida/entrega");
+      return new Response("No eligible drivers found", { status: 200 });
+    }
+
     const tokens = drivers.map(d => d.fcm_token).filter(Boolean)
-    console.log(`Enviando push para ${tokens.length} dispositivos...`)
+    console.log(`Enviando push para ${tokens.length} dispositivos elegíveis...`)
 
     // Firebase HTTP v1 API aceita apenas 1 mensagem por request
     const requests = tokens.map(token => {

@@ -408,6 +408,18 @@ export function useDriverNotifications() {
         return;
       }
 
+      // Verifica se o motorista é habilitado para entregas de mercadorias
+      const info = driverVehicleInfoRef.current;
+      const services = Array.isArray(info?.service_types) ? info.service_types : [];
+      if (services.length > 0) {
+        const normServices = services.map((s: any) => String(s).toLowerCase().replace(/_/g, ""));
+        const isExclusiveTaxi = normServices.every((s: any) => s.includes("taxi") || s.includes("car")) &&
+          !normServices.some((s: any) => s.includes("entrega") || s.includes("delivery") || s.includes("moto") || s.includes("motoboy") || s.includes("encomenda"));
+        if (isExclusiveTaxi && !isAssigned) {
+          return;
+        }
+      }
+
       // REGRA: A notificação e áudio disparam IMEDIATAMENTE no momento da criação/push!
       // Se for entrega pendente geral dentro dos 2 minutos, agenda para aparecer no app para aceite ao completar 120s
       if (elapsed < ADMIN_WINDOW_SECONDS && !isAssigned && status !== "broadcasted") {
@@ -544,16 +556,26 @@ export function useDriverNotifications() {
         const hasRideSpecificCategories = normServices.some((s: any) =>
           s.includes("taxi") || s.includes("mototaxi") || s.includes("passageiro") || s.includes("corrida")
         );
+        const hasDeliveryOnly = normServices.every((s: any) =>
+          s.includes("entrega") || s.includes("delivery") || s.includes("encomenda") || s.includes("motoboy")
+        );
+
+        // Se o entregador possui apenas serviços de entregas/encomendas e NENHUM serviço de corrida/táxi, NÃO notifica corrida
+        if (hasDeliveryOnly && !hasRideSpecificCategories) {
+          return false;
+        }
+
         if (hasRideSpecificCategories) {
           if (rVeh === "mototaxi" || rVeh === "moto") {
-            return normServices.some((s: any) => s.includes("mototaxi") || s.includes("moto"));
+            return normServices.some((s: any) => s.includes("mototaxi") || s.includes("moto") || s.includes("passageiro") || s.includes("corrida"));
           }
           if (rVeh === "taxi" || rVeh === "carro" || rVeh === "car") {
-            return normServices.some((s: any) => s.includes("taxi") || s.includes("car"));
+            return normServices.some((s: any) => s.includes("taxi") || s.includes("car") || s.includes("passageiro") || s.includes("corrida"));
           }
         }
       }
 
+      // Fallback por tipo de veículo principal do motorista
       if (rVeh === "mototaxi" || rVeh === "moto") {
         return dVeh.includes("moto") || !dVeh.includes("car");
       }
@@ -590,7 +612,7 @@ export function useDriverNotifications() {
         return;
       }
 
-      // Checa compatibilidade de veículo
+      // Checa compatibilidade de veículo e serviço de corridas
       if (!isRideVehicleCompatible(rawRide.vehicle_type)) {
         return;
       }
@@ -636,7 +658,7 @@ export function useDriverNotifications() {
       });
 
       if (Capacitor.isNativePlatform()) {
-        DeliveryOverlay.showIncomingCall({
+        (DeliveryOverlay as any).showIncomingCall?.({
           deliveryId: rawRide.id,
           storeName: isTaxi ? "🚕 TÁXI EXPRESS" : "🏍️ MOTO TÁXI EXPRESS",
           pickup: pickup,
@@ -644,17 +666,18 @@ export function useDriverNotifications() {
           fee: feeText,
           customerName: passenger,
           customerPhone: rawRide.customer_phone || "",
-        }).catch(() => {
-          DeliveryOverlay.postNotification({
-            deliveryId: rawRide.id,
-            storeName: isTaxi ? "🚕 TÁXI EXPRESS" : "🏍️ MOTO TÁXI EXPRESS",
-            pickup: pickup,
-            dropoff: dropoff,
-            fee: feeText,
-            status: rawRide.status || "pending",
-            driverId: rawRide.driver_id || "",
-          }).catch((e) => console.warn("[DeliveryOverlay] erro corrida:", e));
-        });
+        })?.catch?.(() => {});
+
+        // Posta na central de notificações nativa do Android
+        DeliveryOverlay.postNotification({
+          deliveryId: rawRide.id,
+          storeName: isTaxi ? "🚕 TÁXI EXPRESS" : "🏍️ MOTO TÁXI EXPRESS",
+          pickup: pickup,
+          dropoff: dropoff,
+          fee: feeText,
+          status: rawRide.status || "pending",
+          driverId: rawRide.driver_id || "",
+        }).catch((e) => console.warn("[DeliveryOverlay] erro corrida:", e));
 
         LocalNotifications.schedule({
           notifications: [
