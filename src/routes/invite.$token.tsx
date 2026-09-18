@@ -12,7 +12,21 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/invite/$token")({
   component: InvitePage,
-  head: () => ({ meta: [{ title: "Cadastro de Entregador — MT 24horas express" }] }),
+  head: () => ({
+    meta: [
+      { title: "Convite de Cadastro — MT 24 Horas Express Entregador" },
+      { name: "description", content: "Você foi convidado para se cadastrar como entregador ou motorista parceiro no MT 24 Horas Express." },
+      { property: "og:title", content: "Convite de Cadastro — MT 24 Horas Express Entregador" },
+      { property: "og:description", content: "Você foi convidado para se cadastrar como entregador ou motorista parceiro no MT 24 Horas Express." },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+      { property: "og:image:secure_url", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Convite de Cadastro — MT 24 Horas Express Entregador" },
+      { name: "twitter:description", content: "Você foi convidado para se cadastrar como entregador ou motorista parceiro no MT 24 Horas Express." },
+      { name: "twitter:image", content: "https://entregador.mt24horasexpress.com/pwa-512x512-v3.png" },
+    ],
+  }),
 });
 
 function InvitePage() {
