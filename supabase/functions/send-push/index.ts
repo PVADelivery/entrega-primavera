@@ -2,7 +2,17 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4"
 import { JWT } from "npm:google-auth-library@9"
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret, x-application-name',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
+}
+
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     const payload = await req.json()
     const record = payload.record
@@ -10,7 +20,7 @@ serve(async (req) => {
     const eventType = payload.type // 'INSERT' or 'UPDATE'
     
     if (!record) {
-      return new Response("No record payload", { status: 200 })
+      return new Response("No record payload", { status: 200, headers: corsHeaders })
     }
 
     const supabaseClient = createClient(
@@ -345,14 +355,14 @@ serve(async (req) => {
     console.log("FCM Results:", results)
 
     return new Response(JSON.stringify({ success: true, count: tokens.length, results: results }), {
-      headers: { "Content-Type": "application/json" }
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     })
 
   } catch (error) {
     console.error(error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" }
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     })
   }
 })
