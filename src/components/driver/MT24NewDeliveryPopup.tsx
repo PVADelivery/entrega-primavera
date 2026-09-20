@@ -46,11 +46,13 @@ export function MT24NewDeliveryPopup({ delivery, open, onAccept, onDecline, pend
 
   const isBuscaCondicional = (delivery as any).delivery_type === "BUSCA_CONDICIONAL";
 
-  const displayStoreName =
-    delivery.company_name?.trim() ||
-    delivery.companies?.name?.trim() ||
-    (delivery as any).store_name?.trim() ||
-    "Loja MT 24 Horas";
+  const isCustomerErrand = (delivery as any).is_customer_errand || !delivery.company_id;
+  const displayStoreName = isCustomerErrand
+    ? "CLIENTE MARKETPLACE"
+    : (delivery.company_name?.trim() ||
+       delivery.companies?.name?.trim() ||
+       (delivery as any).store_name?.trim() ||
+       "CLIENTE MARKETPLACE");
 
   const grossFee = extractDeliveryFee(delivery);
   // Repasse de comissão para o entregador

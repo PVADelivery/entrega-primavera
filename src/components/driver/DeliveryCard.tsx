@@ -36,7 +36,8 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
   const isBuscaCondicional = (delivery as any).delivery_type === "BUSCA_CONDICIONAL";
   const next = isBuscaCondicional ? condicionalNextLabels[delivery.status] : normalNextLabels[delivery.status];
   const isCompleted = ["delivered", "completed", "concluded", "cancelled", "returned"].includes(delivery.status);
-  const displayStoreName = delivery.company_name?.trim() || delivery.companies?.name?.trim() || "Loja não vinculada";
+  const isCustomerErrand = (delivery as any).is_customer_errand || !delivery.company_id;
+  const displayStoreName = isCustomerErrand ? "CLIENTE MARKETPLACE" : (delivery.company_name?.trim() || delivery.companies?.name?.trim() || "CLIENTE MARKETPLACE");
 
   // Formatação do link do WhatsApp do cliente com múltiplos fallbacks
   const rawCustomerPhone = delivery.customer_phone || (delivery as any).phone || (delivery as any).customer?.phone || (delivery as any).customers?.phone || "";

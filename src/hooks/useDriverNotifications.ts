@@ -465,8 +465,10 @@ export function useDriverNotifications() {
         }
       }
 
-      const storeName = delivery.companies?.name ||
-        delivery.company_name || delivery.store_name || APP_NAME;
+      const isCustomerErrand = (delivery as any).is_customer_errand || !delivery.company_id;
+      const storeName = isCustomerErrand
+        ? "CLIENTE MARKETPLACE"
+        : (delivery.companies?.name || delivery.company_name || delivery.store_name || "CLIENTE MARKETPLACE");
       const pickup = delivery.pickup_address || delivery.origin_address ||
         delivery.store_address || delivery.companies?.address || "Retirada na Loja";
       const dropoff = delivery.delivery_address || delivery.dropoff_address ||
