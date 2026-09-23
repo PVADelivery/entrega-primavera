@@ -16,7 +16,18 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { ensureDriverRow, deliveryGrossFee, deliveryDoneAt } from "@/services/deliveries";
+import {
+  ensureDriverRow,
+  deliveryGrossFee,
+  deliveryDoneAt,
+  getDriverShareFactor,
+  getDriverDeliveryEarnings,
+  getLocalYMD,
+  APP_TIMEZONE,
+  isSameLocalDay,
+  isSameLocalWeek,
+  isSameLocalMonth,
+} from "@/services/deliveries";
 import { useWorkMode, SERVICE_LABELS } from "@/hooks/useWorkMode";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -43,9 +54,9 @@ function fmtDate(iso: string) {
   if (!iso) return "-";
   const d = new Date(iso);
   return (
-    d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) +
+    d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: APP_TIMEZONE }) +
     " " +
-    d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: APP_TIMEZONE })
   );
 }
 
@@ -142,18 +153,24 @@ function ProfilePage() {
     fetchDriverData();
   }, [user, period, customDate, mode]);
 
-  function buildChart(rows: any[], days: number, done: string[]) {
+  function buildChart(rows: any[], days: number, done: string[], driverShare = 0.75) {
     const result: { day: string; gross: number; net: number }[] = [];
+    const now = new Date();
     for (let i = days - 1; i >= 0; i--) {
-      const s = new Date(); s.setDate(s.getDate() - i); s.setHours(0, 0, 0, 0);
-      const e = new Date(s); e.setHours(23, 59, 59, 999);
+      const dRef = new Date(now.getTime() - i * 86400000);
+      const targetYMD = getLocalYMD(dRef);
       let g = 0;
+      let n = 0;
       for (const r of rows) {
         const ts = deliveryDoneAt(r);
-        const fee = deliveryGrossFee(r);
-        if (ts != null && ts >= s.getTime() && ts <= e.getTime() && done.includes(String(r.status))) g += fee;
+        if (ts != null && done.includes(String(r.status)) && getLocalYMD(ts) === targetYMD) {
+          const { gross, net } = getDriverDeliveryEarnings(r, driverShare);
+          g += gross;
+          n += net;
+        }
       }
-      result.push({ day: s.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""), gross: g, net: +(g * 0.75).toFixed(2) });
+      const label = dRef.toLocaleDateString("pt-BR", { weekday: "short", timeZone: APP_TIMEZONE }).replace(".", "");
+      result.push({ day: label, gross: g, net: +n.toFixed(2) });
     }
     return result;
   }
@@ -169,22 +186,25 @@ function ProfilePage() {
       }
       const driver: any = driverRow ?? { id: user.id };
       if (driver.service_types) setServiceTypes(driver.service_types);
+      const driverShareFactor = getDriverShareFactor(driver.commission_rate);
 
       const DONE = ["completed", "delivered"];
       const cids = Array.from(new Set([driver.id, user.id].filter(Boolean)));
 
-      let start = new Date(), end = new Date();
-      start.setHours(0, 0, 0, 0); end.setHours(23, 59, 59, 999);
-      if (period === "yesterday") { start.setDate(start.getDate() - 1); end.setDate(end.getDate() - 1); }
-      else if (period === "week") { start.setDate(start.getDate() - start.getDay()); }
-      else if (period === "month") { start.setDate(1); }
-      else if (period === "custom" && customDate) {
-        const [y, m, d] = customDate.split("-").map(Number);
-        start = new Date(y, m - 1, d, 0, 0, 0, 0);
-        end = new Date(y, m - 1, d, 23, 59, 59, 999);
-      }
+      const now = new Date();
+      const todayYMD = getLocalYMD(now);
+      const yesterdayYMD = getLocalYMD(new Date(now.getTime() - 86400000));
 
-      let gross = 0, periodCount = 0, cancelled = 0, total = 0;
+      const isPeriodMatch = (ts: number) => {
+        if (period === "today") return isSameLocalDay(ts, now);
+        if (period === "yesterday") return getLocalYMD(ts) === yesterdayYMD;
+        if (period === "week") return isSameLocalWeek(ts, now);
+        if (period === "month") return isSameLocalMonth(ts, now);
+        if (period === "custom" && customDate) return getLocalYMD(ts) === customDate;
+        return true;
+      };
+
+      let gross = 0, netTotal = 0, periodCount = 0, cancelled = 0, total = 0;
 
       if (mode === "delivery") {
         // select("*") evita erro 400 em bancos sem alguma dessas colunas
@@ -197,39 +217,57 @@ function ProfilePage() {
         if (allError) throw allError;
         const rows = all ?? [];
         total = rows.filter((r: any) => DONE.includes(String(r.status))).length;
-        setRecentDeliveries(rows.slice(0, 15).map((r: any) => ({ ...r, value: deliveryGrossFee(r) })));
+        setRecentDeliveries(rows.slice(0, 15).map((r: any) => {
+          const earn = getDriverDeliveryEarnings(r, driverShareFactor);
+          return { ...r, value: earn.net, grossValue: earn.gross, netValue: earn.net };
+        }));
         for (const d of rows) {
           const ts = deliveryDoneAt(d);
-          const fee = deliveryGrossFee(d);
-          if (ts != null && ts >= start.getTime() && ts <= end.getTime()) {
-            if (DONE.includes(String(d.status))) { gross += fee; periodCount++; }
-            else if (d.status === "cancelled") cancelled++;
+          const earn = getDriverDeliveryEarnings(d, driverShareFactor);
+          if (ts != null && isPeriodMatch(ts)) {
+            if (DONE.includes(String(d.status))) {
+              gross += earn.gross;
+              netTotal += earn.net;
+              periodCount++;
+            } else if (d.status === "cancelled") {
+              cancelled++;
+            }
           }
         }
-        setChartData(buildChart(rows, 7, DONE));
+        setChartData(buildChart(rows, 7, DONE, driverShareFactor));
       } else {
         const { count } = await supabase.from("ride_requests").select("id", { count: "exact", head: true }).eq("driver_id", driver.id).eq("status", "completed");
         total = count || 0;
         const { data: all } = await supabase.from("ride_requests").select("id, price, status, updated_at, created_at").eq("driver_id", driver.id).order("created_at", { ascending: false }).limit(300);
-        setRecentDeliveries((all ?? []).slice(0, 15).map((r) => ({ ...r, value: Number(r.price || 0) })));
+        setRecentDeliveries((all ?? []).slice(0, 15).map((r) => {
+          const p = Number(r.price || 0);
+          return { ...r, value: p, grossValue: p, netValue: p };
+        }));
         for (const r of all ?? []) {
-          const ts = new Date(r.updated_at || r.created_at).getTime();
+          const dateStr = r.updated_at || r.created_at;
+          const ts = dateStr ? new Date(dateStr).getTime() : 0;
           const fee = Number(r.price || 0);
-          if (ts >= start.getTime() && ts <= end.getTime()) {
-            if (r.status === "completed") { gross += fee; periodCount++; }
-            else if (r.status === "cancelled") cancelled++;
+          if (ts > 0 && isPeriodMatch(ts)) {
+            if (r.status === "completed") {
+              gross += fee;
+              netTotal += fee;
+              periodCount++;
+            } else if (r.status === "cancelled") {
+              cancelled++;
+            }
           }
         }
-        setChartData(buildChart(all ?? [], 7, ["completed"]));
+        setChartData(buildChart(all ?? [], 7, ["completed"], 1.0));
       }
 
       const tot = periodCount + cancelled;
+      const platformFee = Math.max(0, gross - netTotal);
       setDriverStats({
         deliveries: total, periodDeliveries: periodCount, periodCancelled: cancelled,
         rating: driver.rating || 5.0,
-        grossEarnings: gross, platformFee: gross * 0.25, netEarnings: gross * 0.75,
+        grossEarnings: gross, platformFee, netEarnings: netTotal,
         online: driver.is_online || false,
-        commissionRate: driver.commission_rate != null ? Number(driver.commission_rate) : 0.75,
+        commissionRate: driverShareFactor,
         completionRate: tot > 0 ? Math.round((periodCount / tot) * 100) : 100,
       });
     } catch (e) { console.error("[fetchDriverData]", e); }
@@ -386,12 +424,12 @@ function ProfilePage() {
                     <span><span>Central: R$ </span><span>{fmtBRL(driverStats.platformFee)}</span></span>
                   </div>
                   <div className="h-2.5 w-full rounded-full bg-secondary/70 overflow-hidden flex">
-                    <div className="h-full rounded-l-full bg-primary" style={{ width: "75%" }} />
-                    <div className="h-full rounded-r-full bg-rose-500/60" style={{ width: "25%" }} />
+                    <div className="h-full rounded-l-full bg-primary" style={{ width: `${Math.round((driverStats.commissionRate || 0.75) * 100)}%` }} />
+                    <div className="h-full rounded-r-full bg-rose-500/60" style={{ width: `${Math.max(0, 100 - Math.round((driverStats.commissionRate || 0.75) * 100))}%` }} />
                   </div>
                   <div className="flex justify-between text-[10px] font-black">
-                    <span className="text-primary">75% seu</span>
-                    <span className="text-rose-500">25% central</span>
+                    <span className="text-primary">{Math.round((driverStats.commissionRate || 0.75) * 100)}% seu</span>
+                    <span className="text-rose-500">{Math.max(0, 100 - Math.round((driverStats.commissionRate || 0.75) * 100))}% central</span>
                   </div>
                 </div>
               </div>
@@ -446,7 +484,7 @@ function ProfilePage() {
                     <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v}`} />
                     <Tooltip
                       contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 11, fontWeight: 700 }}
-                      formatter={(v: number, name: string) => [`R$ ${fmtBRL(v)}`, name === "gross" ? "Bruto" : "Liquido (75%)"]}
+                      formatter={(v: number, name: string) => [`R$ ${fmtBRL(v)}`, name === "gross" ? "Bruto" : `Liquido (${Math.round((driverStats.commissionRate || 0.75) * 100)}%)`]}
                       cursor={{ fill: "hsl(var(--secondary))", radius: 4 }}
                     />
                     <Bar dataKey="gross" radius={[5, 5, 0, 0]} fill="hsl(var(--primary) / 0.2)" />
@@ -458,7 +496,7 @@ function ProfilePage() {
               </div>
               <div className="flex items-center gap-5 mt-2 justify-center">
                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-primary/20" /><span className="text-[10px] font-bold text-muted-foreground">Bruto</span></div>
-                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-primary" /><span className="text-[10px] font-bold text-muted-foreground">Liquido (75%)</span></div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-primary" /><span className="text-[10px] font-bold text-muted-foreground">Liquido ({Math.round((driverStats.commissionRate || 0.75) * 100)}%)</span></div>
               </div>
             </div>
 
@@ -473,7 +511,8 @@ function ProfilePage() {
                   ? <p className="text-center text-[11px] text-muted-foreground py-4">Nenhuma entrega encontrada.</p>
                   : recentDeliveries.map((d, i) => {
                     const st = STATUS_MAP[d.status] ?? { label: d.status, color: "text-muted-foreground" };
-                    const val = Number(d.value || d.price || 0);
+                    const netVal = Number(d.netValue ?? d.value ?? 0);
+                    const grossVal = Number(d.grossValue ?? (d.netValue ? d.netValue / (driverStats.commissionRate || 0.75) : d.value ?? 0));
                     return (
                       <div key={d.id ?? i} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/20 border border-border/30">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-primary" /></div>
@@ -482,8 +521,8 @@ function ProfilePage() {
                           <p className="text-[11px] text-muted-foreground truncate">{fmtDate(d.completed_at || d.updated_at || d.created_at)}</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-black text-foreground"><span>R$ </span><span>{fmtBRL(val * 0.75)}</span></p>
-                          <p className="text-[10px] text-muted-foreground"><span>bruto R$ </span><span>{fmtBRL(val)}</span></p>
+                          <p className="text-sm font-black text-foreground"><span>R$ </span><span>{fmtBRL(netVal)}</span></p>
+                          <p className="text-[10px] text-muted-foreground"><span>bruto R$ </span><span>{fmtBRL(grossVal)}</span></p>
                         </div>
                       </div>
                     );
@@ -498,7 +537,7 @@ function ProfilePage() {
                 <h4 className="text-xs font-black uppercase text-foreground">Entenda seus ganhos</h4>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
-                Voce recebe <strong className="text-foreground">75% dos valores das entregas</strong> e repassa <strong className="text-foreground">25%</strong> para a central sobre o total das entregas concluidas.
+                Voce recebe <strong className="text-foreground">{Math.round((driverStats.commissionRate || 0.75) * 100)}% dos valores das entregas</strong> e repassa <strong className="text-foreground">{Math.max(0, 100 - Math.round((driverStats.commissionRate || 0.75) * 100))}%</strong> para a central sobre o total das entregas concluidas.
               </p>
             </div>
           </div>

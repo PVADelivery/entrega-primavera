@@ -314,17 +314,18 @@ function DriverHome() {
     refetchOnWindowFocus: false,
   });
 
+  const effectiveId = driverId || user?.id;
   const earnings = useQuery({
-    queryKey: ["earnings", driverId],
-    queryFn: () => (driverId ? fetchEarnings(driverId) : Promise.resolve({ day: 0, week: 0, month: 0, total: 0, count: 0 })),
-    enabled: !!driverId,
-    staleTime: 60000,
+    queryKey: ["earnings", effectiveId],
+    queryFn: () => (effectiveId ? fetchEarnings(effectiveId) : Promise.resolve({ day: 0, grossDay: 0, week: 0, month: 0, total: 0, count: 0 })),
+    enabled: !!effectiveId,
+    staleTime: 5000,
     gcTime: 300000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
-    if (!driverId) return;
+    if (!effectiveId) return;
     let channel: any = null;
     try {
       const channelName = `deliveries-home-${Math.random().toString(36).slice(2, 7)}`;
@@ -337,6 +338,7 @@ function DriverHome() {
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => {
           qc.invalidateQueries({ queryKey: ["rides"] });
+          qc.invalidateQueries({ queryKey: ["earnings"] });
         })
         .subscribe();
     } catch (e) {

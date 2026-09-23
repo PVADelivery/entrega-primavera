@@ -1051,12 +1051,102 @@ export function deliveryDoneAt(row: any): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
+/** Converte a taxa de comissão cadastrada para a fatia (multiplicador) do entregador */
+export function getDriverShareFactor(rate: number | null | undefined): number {
+  if (rate === null || rate === undefined || isNaN(Number(rate))) return 0.75;
+  const num = Number(rate);
+  // Se rate for 0, o sistema não cobra comissão -> repasse integral de 100%
+  if (num === 0) return 1.0;
+  // Se rate for <= 1 (ex: 0.25 de comissão do sistema OU 0.75 de repasse)
+  if (num > 0 && num <= 1) {
+    if (num >= 0.5) return num;
+    return 1 - num;
+  }
+  // Se rate for > 1 (ex: 25%), é porcentagem da comissão da plataforma
+  if (num > 1 && num <= 100) {
+    if (num >= 50) return num / 100;
+    return (100 - num) / 100;
+  }
+  return 0.75;
+}
+
+/** Calcula o repasse líquido e bruto de uma entrega para o entregador */
+export function getDriverDeliveryEarnings(row: any, driverShareFactor: number): { net: number; gross: number } {
+  const gross = extractDeliveryFee(row);
+  if (row?.driver_fee != null && Number(row.driver_fee) > 0) {
+    return { net: Number(row.driver_fee), gross };
+  }
+  if (row?.commission != null && Number(row.commission) > 0) {
+    return { net: Number(row.commission), gross };
+  }
+  return { net: gross * driverShareFactor, gross };
+}
+
+// Fuso padrão oficial da plataforma (Mato Grosso / Primavera do Leste: UTC-4)
+export const APP_TIMEZONE = "America/Cuiaba";
+
+export function getLocalYMD(timestamp: number | string | Date, timeZone = APP_TIMEZONE): string {
+  try {
+    return new Date(timestamp).toLocaleDateString("en-CA", { timeZone });
+  } catch {
+    const d = new Date(timestamp);
+    const local = new Date(d.getTime() - 4 * 3600000);
+    return local.toISOString().slice(0, 10);
+  }
+}
+
+export function isSameLocalDay(t1: number | string | Date, t2: number | string | Date = new Date(), timeZone = APP_TIMEZONE): boolean {
+  return getLocalYMD(t1, timeZone) === getLocalYMD(t2, timeZone);
+}
+
+export function isSameLocalWeek(targetTime: number | string | Date, nowTime: number | string | Date = new Date(), timeZone = APP_TIMEZONE): boolean {
+  try {
+    const targetYMD = getLocalYMD(targetTime, timeZone);
+    const nowYMD = getLocalYMD(nowTime, timeZone);
+    const [tY, tM, tD] = targetYMD.split("-").map(Number);
+    const [nY, nM, nD] = nowYMD.split("-").map(Number);
+    const target = new Date(tY, tM - 1, tD);
+    const current = new Date(nY, nM - 1, nD);
+
+    const sunday = new Date(current);
+    sunday.setDate(current.getDate() - current.getDay());
+    sunday.setHours(0, 0, 0, 0);
+
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 6);
+    saturday.setHours(23, 59, 59, 999);
+
+    return target.getTime() >= sunday.getTime() && target.getTime() <= saturday.getTime();
+  } catch {
+    return false;
+  }
+}
+
+export function isSameLocalMonth(targetTime: number | string | Date, nowTime: number | string | Date = new Date(), timeZone = APP_TIMEZONE): boolean {
+  return getLocalYMD(targetTime, timeZone).slice(0, 7) === getLocalYMD(nowTime, timeZone).slice(0, 7);
+}
+
 export async function fetchEarnings(driverId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   const ids = Array.from(new Set([driverId, user?.id].filter(Boolean)));
 
+  // Busca taxa de comissão personalizada do entregador
+  let driverShareFactor = 0.75;
+  try {
+    const { data: drv } = await supabase
+      .from("delivery_drivers")
+      .select("commission_rate")
+      .or(`id.in.(${ids.join(",")}),user_id.in.(${ids.join(",")})`)
+      .limit(1)
+      .maybeSingle();
+    if (drv && drv.commission_rate !== null && drv.commission_rate !== undefined) {
+      driverShareFactor = getDriverShareFactor(drv.commission_rate);
+    }
+  } catch (e) {
+    console.warn("[fetchEarnings] Erro ao buscar commission_rate:", e);
+  }
+
   let deliveries: any[] = [];
-  // Alguns bancos usam "delivered", outros ainda gravam "completed"
   const { data: rows, error: deliveriesError } = await supabase
     .from("deliveries")
     .select("*")
@@ -1074,11 +1164,12 @@ export async function fetchEarnings(driverId: string) {
     .eq("status", "completed");
 
   const now = new Date();
-  const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startWeek = startDay - now.getDay() * 86400000;
-  const startMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  let day = 0, week = 0, month = 0, total = 0;
-  let count = 0; // Entregas/corridas do dia
+
+  let day = 0, grossDay = 0;
+  let week = 0, grossWeek = 0;
+  let month = 0, grossMonth = 0;
+  let total = 0, grossTotal = 0;
+  let count = 0; // Entregas/corridas do dia civil local
   let totalCount = 0;
   let weekCount = 0;
   let monthCount = 0;
@@ -1088,24 +1179,27 @@ export async function fetchEarnings(driverId: string) {
     const t = deliveryDoneAt(r);
     if (t == null) continue;
 
-    // Taxa bruta da entrega: usa a primeira coluna preenchida
-    const fee = extractDeliveryFee(r);
-    // O entregador recebe 75% (25% fica com a plataforma)
-    const c = fee * 0.75;
-    
+    // Retorna o valor já com a retenção da plataforma descontada (fatia líquida do entregador)
+    const { net: c, gross: g } = getDriverDeliveryEarnings(r, driverShareFactor);
+
     total += c;
+    grossTotal += g;
     totalCount += 1;
-    if (t >= startMonth) {
+
+    if (isSameLocalMonth(t, now)) {
       month += c;
+      grossMonth += g;
       monthCount += 1;
     }
-    if (t >= startWeek) {
+    if (isSameLocalWeek(t, now)) {
       week += c;
+      grossWeek += g;
       weekCount += 1;
     }
-    if (t >= startDay) {
+    if (isSameLocalDay(t, now)) {
       day += c;
-      count += 1; // Contabiliza apenas as entregas do dia
+      grossDay += g;
+      count += 1; // Contabiliza apenas as entregas do dia civil local
     }
   }
 
@@ -1116,36 +1210,48 @@ export async function fetchEarnings(driverId: string) {
       if (!dateStr) continue;
       const t = new Date(dateStr).getTime();
       
-      const fee = Number(r.price || 0);
-      const c = fee * 0.75; // 75% do valor da corrida
+      const g = Number(r.price || 0);
+      // Corridas de passageiros são repassadas integralmente (100%) ao motorista
+      const c = g;
       
       total += c;
+      grossTotal += g;
       totalCount += 1;
-      if (t >= startMonth) {
+
+      if (isSameLocalMonth(t, now)) {
         month += c;
+        grossMonth += g;
         monthCount += 1;
       }
-      if (t >= startWeek) {
+      if (isSameLocalWeek(t, now)) {
         week += c;
+        grossWeek += g;
         weekCount += 1;
       }
-      if (t >= startDay) {
+      if (isSameLocalDay(t, now)) {
         day += c;
-        count += 1; // Contabiliza apenas as corridas do dia
+        grossDay += g;
+        count += 1; // Contabiliza apenas as corridas do dia civil local
       }
     }
   }
 
   const result = {
     day,
+    grossDay,
+    netDay: day,
     week,
+    grossWeek,
     month,
+    grossMonth,
     total,
+    grossTotal,
     count, // Entregas do dia
     dayCount: count,
     weekCount,
     monthCount,
     totalCount,
+    driverShareFactor,
   };
   return result;
 }
