@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MT 24 Horas Express - Conexão</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: #09090b;
+      color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 24px;
+      padding: 32px 24px;
+      max-width: 360px;
+      width: 100%;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .icon-container {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: #27272a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      overflow: hidden;
+      border: 2px solid #3f3f46;
+    }
+    .icon-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #ef4444;
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    p {
+      font-size: 14px;
+      color: #a1a1aa;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .btn-retry {
+      background: #e11d48;
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 28px;
+      font-size: 15px;
+      font-weight: 700;
+      width: 100%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+    .btn-retry:active {
+      background: #be123c;
+      transform: scale(0.98);
+    }
+    .hint {
+      margin-top: 16px;
+      font-size: 12px;
+      color: #71717a;
+    }
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-container">
+      <img src="icon.png" alt="MT 24 Horas" onerror="this.style.display='none'; this.parentNode.innerHTML='<span style=\'font-size:32px\'>⚡</span>'">
+    </div>
+    <div class="status-badge">
+      <span class="status-dot"></span>
+      Instabilidade de Rede
+    </div>
+    <h1>Sem conexão com o servidor</h1>
+    <p>A conexão com a central foi interrompida temporariamente. Verifique sua rede 4G/Wi-Fi e tente novamente.</p>
+    <button class="btn-retry" id="btnRetry" onclick="retryConnection()">
+      <span class="spinner" id="spinner"></span>
+      <span id="btnText">TENTAR NOVAMENTE</span>
+    </button>
+    <div class="hint" id="hint">Reconectando automaticamente se a internet voltar...</div>
+  </div>
+
+  <script>
+    var TARGET_URL = 'https://entregador.mt24horasexpress.com/driver';
+    var hasAutoRetried = false;
+
+    function retryConnection() {
+      var btn = document.getElementById('btnRetry');
+      var spinner = document.getElementById('spinner');
+      var btnText = document.getElementById('btnText');
+
+      if (btn) btn.disabled = true;
+      if (spinner) spinner.style.display = 'inline-block';
+      if (btnText) btnText.textContent = 'Conectando...';
+
+      setTimeout(function() {
+        window.location.replace(TARGET_URL);
+      }, 300);
+    }
+
+    // Auto retry quando a rede voltar a ficar online
+    window.addEventListener('online', function() {
+      var hint = document.getElementById('hint');
+      if (hint) hint.textContent = 'Rede detectada! Conectando...';
+      retryConnection();
+    });
+
+    // Tentativa única após 3 segundos para recuperar de falha transitória (ex: oscilação 4G)
+    setTimeout(function() {
+      if (!hasAutoRetried && navigator.onLine) {
+        hasAutoRetried = true;
+        var hint = document.getElementById('hint');
+        if (hint) hint.textContent = 'Tentando restabelecer conexão...';
+        retryConnection();
+      }
+    }, 3000);
+  </script>
+</body>
+</html>
