@@ -37,13 +37,77 @@ serve(async (req) => {
     const client = new JWT({
       email: serviceAccount.client_email,
       key: serviceAccount.private_key,
-      scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
+      scopes: [
+        'https://www.googleapis.com/auth/firebase.messaging',
+        'https://www.googleapis.com/auth/cloud-platform',
+      ],
     })
     
     const accessTokenObj = await client.getAccessToken()
     const accessToken = accessTokenObj.token
     const projectId = serviceAccount.project_id
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
+
+    // Função para resolver APNs device token bruto para FCM Registration Token
+    const resolveTokenForFcm = async (rawToken: string): Promise<string> => {
+      if (!rawToken) return rawToken;
+      // APNs device tokens nativos do iOS têm 64 ou 128 caracteres estritamente hexadecimais
+      const isHexApns = /^[0-9a-fA-F]{64}$|^[0-9a-fA-F]{128}$/.test(rawToken);
+      if (!isHexApns) {
+        return rawToken;
+      }
+
+      console.log(`[FCM] Token APNs nativo detectado (${rawToken.slice(0, 16)}...). Convertendo via Firebase batchImport...`);
+      const bundleId = "com.mt24horasexpress.entregador";
+
+      // Tenta produção (App Store / TestFlight) e desenvolvimento (Sandbox/Xcode)
+      for (const isSandbox of [false, true]) {
+        try {
+          const res = await fetch("https://iid.googleapis.com/iid/v1:batchImport", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "access_token_auth": "true",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              application: bundleId,
+              sandbox: isSandbox,
+              apns_tokens: [rawToken]
+            })
+          });
+
+          const data = await res.json();
+          const item = data?.results?.[0];
+          if (item?.status === "OK" && item?.token) {
+            console.log(`[FCM] Token APNs convertido com SUCESSO para FCM (sandbox: ${isSandbox}): ${item.token.slice(0, 15)}...`);
+            
+            // Atualiza de forma assíncrona o banco com o novo token FCM
+            supabaseClient
+              .from('delivery_drivers')
+              .update({ fcm_token: item.token })
+              .eq('fcm_token', rawToken)
+              .then(() => {})
+              .catch((e: any) => console.warn("[FCM] Falha ao atualizar fcm_token em delivery_drivers:", e?.message));
+
+            supabaseClient
+              .from('device_tokens')
+              .update({ token: item.token, updated_at: new Date().toISOString() })
+              .eq('token', rawToken)
+              .then(() => {})
+              .catch((e: any) => console.warn("[FCM] Falha ao atualizar device_tokens:", e?.message));
+
+            return item.token;
+          } else {
+            console.warn(`[FCM] batchImport retornou status não-OK (sandbox=${isSandbox}):`, JSON.stringify(data));
+          }
+        } catch (e: any) {
+          console.warn(`[FCM] Erro na requisição batchImport (sandbox=${isSandbox}):`, e?.message);
+        }
+      }
+
+      return rawToken;
+    };
 
     // =========================================================================
     // CASE A: UPDATE EVENT — Delivery accepted or cancelled by store/admin/driver
@@ -74,7 +138,8 @@ serve(async (req) => {
       }
 
       const tokens = drivers.map(d => d.fcm_token).filter(Boolean)
-      const cancelRequests = tokens.map(token => {
+      const cancelRequests = tokens.map(async (rawToken) => {
+        const token = await resolveTokenForFcm(rawToken);
         const message = {
           message: {
             token: token,
@@ -88,6 +153,20 @@ serve(async (req) => {
               priority: "HIGH",
               ttl: "120s",
               direct_boot_ok: true
+            },
+            apns: {
+              headers: {
+                "apns-priority": "5",
+                "apns-push-type": "background"
+              },
+              payload: {
+                aps: {
+                  "content-available": 1
+                },
+                type: "cancel_delivery",
+                deliveryId: String(record.id),
+                rideId: String(record.id)
+              }
             }
           }
         }
@@ -98,7 +177,7 @@ serve(async (req) => {
             'Authorization': `Bearer ${accessToken}`
           },
           body: JSON.stringify(message)
-        }).then(res => res.json())
+        }).then(res => res.json()).catch((e) => ({ error: e.message }))
       })
 
       const cancelResults = await Promise.all(cancelRequests)
@@ -267,7 +346,8 @@ serve(async (req) => {
     console.log(`Enviando push para ${tokens.length} dispositivos elegíveis...`)
 
     // Firebase HTTP v1 API aceita apenas 1 mensagem por request
-    const requests = tokens.map(token => {
+    const requests = tokens.map(async (rawToken) => {
+      const token = await resolveTokenForFcm(rawToken);
       const message = {
         message: {
           token: token,
@@ -330,26 +410,64 @@ serve(async (req) => {
               aps: {
                 alert: {
                   title: pushTitle,
-                  body: `${dropoffAddr}\nGanhos: ${feeText}`
+                  body: isRideRequest
+                    ? `Passageiro aguardando! Destino: ${dropoffAddr} • ${feeText}`
+                    : `Retirada: ${pickupAddr} ➔ Entrega: ${dropoffAddr} • ${feeText}`
                 },
-                sound: "ring.wav",
+                sound: "default",
                 badge: 1,
                 "content-available": 1
-              }
+              },
+              type: isRideRequest ? "ride" : "delivery",
+              deliveryId: String(record.id),
+              rideId: String(record.id),
+              storeName: companyName,
+              pickup: pickupAddr,
+              dropoff: dropoffAddr,
+              fee: feeText,
+              status: String(record.status || "pending")
             }
           }
         }
+      };
+
+      console.log(`[FCM] Envio iniciado para token ${token.slice(0, 15)}...`);
+      try {
+        const response = await fetch(fcmUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify(message)
+        });
+        const resJson = await response.json();
+
+        if (response.ok) {
+          console.log(`[FCM] Mensagem enviada com sucesso: message_id = ${resJson.name || "OK"}`);
+          return { success: true, messageId: resJson.name, token: token.slice(0, 15) + "..." };
+        } else {
+          console.error(`[FCM] Envio falhou. Status: ${response.status}. Erro: ${JSON.stringify(resJson.error || resJson)}`);
+          
+          // Tratamento de token inválido / não registrado (UNREGISTERED ou NOT_FOUND)
+          const errorCode = resJson?.error?.details?.[0]?.errorCode || resJson?.error?.status;
+          if (errorCode === "UNREGISTERED" || resJson?.error?.code === 404) {
+            console.warn(`[FCM] Token ${token.slice(0, 15)}... é inválido ou expirou. Limpando do banco...`);
+            supabaseClient
+              .from('delivery_drivers')
+              .update({ fcm_token: null })
+              .or(`fcm_token.eq.${token},fcm_token.eq.${rawToken}`)
+              .then(() => {})
+              .catch((e: any) => console.warn("[FCM] Erro ao limpar token inválido:", e?.message));
+          }
+
+          return { success: false, status: response.status, error: resJson.error || resJson };
+        }
+      } catch (err: any) {
+        console.error(`[FCM] Erro de rede/fetch:`, err?.message);
+        return { success: false, error: err?.message };
       }
-      
-      return fetch(fcmUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify(message)
-      }).then(res => res.json())
-    })
+    });
 
     const results = await Promise.all(requests)
     console.log("FCM Results:", results)

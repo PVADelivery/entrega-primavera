@@ -147,9 +147,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
     </html>
   );
 }
-
 import { Capacitor } from "@capacitor/core";
-import { PushNotifications } from "@capacitor/push-notifications";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -160,13 +158,7 @@ function RootComponent() {
       window.location.replace(`https://entregador.mt24horasexpress.com${window.location.pathname}${window.location.search}`);
     }
 
-    if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("PushNotifications")) {
-      PushNotifications.requestPermissions().then((res) => {
-        if (res.receive === "granted") {
-          PushNotifications.register().catch(() => {});
-        }
-      }).catch(() => {});
-    } else if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    if (!Capacitor.isNativePlatform() && typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }, []);

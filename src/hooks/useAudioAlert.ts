@@ -75,14 +75,8 @@ export function triggerDeviceVibration(pattern: number[] = [500, 200, 500, 200, 
  */
 export function requestNotificationPermission() {
   if (Capacitor.isNativePlatform()) {
-    PushNotifications.requestPermissions().then((perm) => {
-      if (perm.receive === "granted" || (perm as any).display === "granted") {
-        PushNotifications.register().catch(() => {});
-      }
-    }).catch(() => {});
-
     LocalNotifications.requestPermissions().then((res) => {
-      if (res.display === "granted") {
+      if (res.display === "granted" && Capacitor.getPlatform() === "android") {
         LocalNotifications.deleteChannel({ id: "default" }).catch(() => {});
         LocalNotifications.createChannel({
           id: "mt24_delivery_alerts_v35",

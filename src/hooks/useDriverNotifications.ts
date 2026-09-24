@@ -113,6 +113,9 @@ export function useDriverNotifications() {
   const scheduledDeliveriesRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const driverRowRef = useRef<any>(null);
 
+  const lastSyncedTokenRef = useRef<string | null>(null);
+  const pushListenersRegisteredRef = useRef<boolean>(false);
+
   // ── Permissões e registro FCM
   useEffect(() => {
     // 0. Permissão para Web Browsers (Chrome, Edge, Firefox, Safari)
@@ -120,22 +123,24 @@ export function useDriverNotifications() {
       permissionRef.current = Notification.permission;
     }
 
-    // 1. Notificações locais do dispositivo
+    // 1. Notificações locais do dispositivo (Apenas Android suporta canais)
     if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
       try {
         LocalNotifications.requestPermissions().then((res) => {
           permissionRef.current = res.display === "granted" ? "granted" : "denied";
         }).catch(() => {});
 
-        LocalNotifications.createChannel({
-          id: NOTIFICATION_CHANNEL_ID,
-          name: "Novas Corridas MT 24 Horas",
-          description: "Alerta de novas corridas disponíveis para entregadores MT 24 Horas",
-          sound: "ring",
-          importance: 5,
-          visibility: 1,
-          vibration: true,
-        }).catch(() => {});
+        if (Capacitor.getPlatform() === "android") {
+          LocalNotifications.createChannel({
+            id: NOTIFICATION_CHANNEL_ID,
+            name: "Novas Corridas MT 24 Horas",
+            description: "Alerta de novas corridas disponíveis para entregadores MT 24 Horas",
+            sound: "ring",
+            importance: 5,
+            visibility: 1,
+            vibration: true,
+          }).catch(() => {});
+        }
       } catch (err) {
         console.warn("[LocalNotifications] Não suportado:", err);
       }
@@ -152,6 +157,10 @@ export function useDriverNotifications() {
       try {
         const syncFcmToken = async (tokenVal: string) => {
           if (!tokenVal) return;
+          if (lastSyncedTokenRef.current === tokenVal) {
+            return; // Já sincronizado recentemente nesta sessão
+          }
+          lastSyncedTokenRef.current = tokenVal;
           console.log("[FCM] Sincronizando token:", tokenVal.slice(0, 15) + "...");
           localStorage.setItem("driver_fcm_token", tokenVal);
 
@@ -174,24 +183,21 @@ export function useDriverNotifications() {
           }
         };
 
-        if (Capacitor.isPluginAvailable("PushNotifications")) {
+        if (Capacitor.isPluginAvailable("PushNotifications") && !pushListenersRegisteredRef.current) {
+          pushListenersRegisteredRef.current = true;
+
+          // Registrar listeners PRIMEIRO antes de solicitar permissão ou registrar
           PushNotifications.addListener("registration", (token) => {
             console.log("[FCM] Token recebido:", token.value);
             syncFcmToken(token.value);
           }).then((handle) => { regListener = handle; }).catch(() => {});
-
-          PushNotifications.requestPermissions().then((result) => {
-            if (result.receive === "granted") {
-              PushNotifications.register().catch((e) => console.warn("[FCM] register erro:", e));
-            }
-          }).catch((e) => console.warn("[FCM] requestPermissions erro:", e));
 
           PushNotifications.addListener("registrationError", (error: any) => {
             console.warn("[FCM] Erro no register:", error);
           }).then((handle) => { errListener = handle; }).catch(() => {});
 
           PushNotifications.addListener("pushNotificationReceived", (notification) => {
-            console.log("[FCM] Push recebido:", notification);
+            console.log("[FCM] Push recebido em foreground:", notification);
             const d = notification?.data;
             const rideId = d?.rideId || d?.ride_id;
             const deliveryId = d?.deliveryId || d?.delivery_id || d?.id;
@@ -251,19 +257,30 @@ export function useDriverNotifications() {
           PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
             console.log("[FCM] Push action performed:", action);
             const actionId = action.actionId;
-            const data = action.notification?.data;
-            const deliveryId = data?.deliveryId || data?.delivery_id;
+            const d = action.notification?.data;
+            const deliveryId = d?.deliveryId || d?.delivery_id;
+            const rideId = d?.rideId || d?.ride_id;
+            const targetId = deliveryId || rideId;
 
             if (actionId === "reject" || actionId === "ACTION_DECLINE") {
-              if (deliveryId) declineDeliveryLocally(deliveryId);
+              if (targetId) declineDeliveryLocally(targetId);
               return;
             }
 
-            const targetRoute = deliveryId ? `/driver?deliveryId=${deliveryId}` : "/driver";
+            const targetRoute = targetId 
+              ? (rideId ? `/driver?rideId=${rideId}` : `/driver?deliveryId=${deliveryId}`)
+              : "/driver";
             if (targetRoute && typeof window !== "undefined") {
               window.location.href = targetRoute;
             }
           }).then((handle) => { actListener = handle; }).catch(() => {});
+
+          // Solicita permissão e registra uma única vez
+          PushNotifications.requestPermissions().then((result) => {
+            if (result.receive === "granted") {
+              PushNotifications.register().catch((e) => console.warn("[FCM] register erro:", e));
+            }
+          }).catch((e) => console.warn("[FCM] requestPermissions erro:", e));
         }
 
         DeliveryOverlay.getPendingFcmToken().then(({ token }) => {
@@ -289,6 +306,7 @@ export function useDriverNotifications() {
       if (actListener) actListener.remove?.().catch(() => {});
       if (notifListener) notifListener.remove?.().catch(() => {});
       if (refreshListener) refreshListener.remove?.().catch(() => {});
+      pushListenersRegisteredRef.current = false;
     };
   }, [user?.id]);
 
