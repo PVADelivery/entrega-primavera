@@ -48,67 +48,6 @@ serve(async (req) => {
     const projectId = serviceAccount.project_id
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
 
-    // Função para resolver APNs device token bruto para FCM Registration Token
-    const resolveTokenForFcm = async (rawToken: string): Promise<string> => {
-      if (!rawToken) return rawToken;
-      // APNs device tokens nativos do iOS têm 64 ou 128 caracteres estritamente hexadecimais
-      const isHexApns = /^[0-9a-fA-F]{64}$|^[0-9a-fA-F]{128}$/.test(rawToken);
-      if (!isHexApns) {
-        return rawToken;
-      }
-
-      console.log(`[FCM] Token APNs nativo detectado (${rawToken.slice(0, 16)}...). Convertendo via Firebase batchImport...`);
-      const bundleId = "com.mt24horasexpress.entregador";
-
-      // Tenta produção (App Store / TestFlight) e desenvolvimento (Sandbox/Xcode)
-      for (const isSandbox of [false, true]) {
-        try {
-          const res = await fetch("https://iid.googleapis.com/iid/v1:batchImport", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${accessToken}`,
-              "access_token_auth": "true",
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              application: bundleId,
-              sandbox: isSandbox,
-              apns_tokens: [rawToken]
-            })
-          });
-
-          const data = await res.json();
-          const item = data?.results?.[0];
-          if (item?.status === "OK" && item?.token) {
-            console.log(`[FCM] Token APNs convertido com SUCESSO para FCM (sandbox: ${isSandbox}): ${item.token.slice(0, 15)}...`);
-            
-            // Atualiza de forma assíncrona o banco com o novo token FCM
-            supabaseClient
-              .from('delivery_drivers')
-              .update({ fcm_token: item.token })
-              .eq('fcm_token', rawToken)
-              .then(() => {})
-              .catch((e: any) => console.warn("[FCM] Falha ao atualizar fcm_token em delivery_drivers:", e?.message));
-
-            supabaseClient
-              .from('device_tokens')
-              .update({ token: item.token, updated_at: new Date().toISOString() })
-              .eq('token', rawToken)
-              .then(() => {})
-              .catch((e: any) => console.warn("[FCM] Falha ao atualizar device_tokens:", e?.message));
-
-            return item.token;
-          } else {
-            console.warn(`[FCM] batchImport retornou status não-OK (sandbox=${isSandbox}):`, JSON.stringify(data));
-          }
-        } catch (e: any) {
-          console.warn(`[FCM] Erro na requisição batchImport (sandbox=${isSandbox}):`, e?.message);
-        }
-      }
-
-      return rawToken;
-    };
-
     // =========================================================================
     // CASE A: UPDATE EVENT — Delivery accepted or cancelled by store/admin/driver
     // =========================================================================
@@ -138,8 +77,7 @@ serve(async (req) => {
       }
 
       const tokens = drivers.map(d => d.fcm_token).filter(Boolean)
-      const cancelRequests = tokens.map(async (rawToken) => {
-        const token = await resolveTokenForFcm(rawToken);
+      const cancelRequests = tokens.map(async (token) => {
         const message = {
           message: {
             token: token,
@@ -346,8 +284,7 @@ serve(async (req) => {
     console.log(`Enviando push para ${tokens.length} dispositivos elegíveis...`)
 
     // Firebase HTTP v1 API aceita apenas 1 mensagem por request
-    const requests = tokens.map(async (rawToken) => {
-      const token = await resolveTokenForFcm(rawToken);
+    const requests = tokens.map(async (token) => {
       const message = {
         message: {
           token: token,
@@ -456,7 +393,7 @@ serve(async (req) => {
             supabaseClient
               .from('delivery_drivers')
               .update({ fcm_token: null })
-              .or(`fcm_token.eq.${token},fcm_token.eq.${rawToken}`)
+              .eq('fcm_token', token)
               .then(() => {})
               .catch((e: any) => console.warn("[FCM] Erro ao limpar token inválido:", e?.message));
           }
