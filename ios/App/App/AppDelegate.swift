@@ -25,7 +25,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, MessagingDelegate {
     }
 
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        NotificationCenter.default.post(name: Notification.Name.capacitorDidReceiveRemoteNotification, object: userInfo)
+        Messaging.messaging().appDidReceiveMessage(userInfo)
         completionHandler(.newData)
     }
 
