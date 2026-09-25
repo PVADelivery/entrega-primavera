@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { applyStatusBarTheme } from "@/utils/statusBar";
 
 type Theme = "light" | "dark";
 
@@ -17,6 +18,7 @@ function applyTheme(theme: Theme) {
   if (theme === "dark") root.classList.add("dark");
   else root.classList.remove("dark");
   root.style.colorScheme = theme;
+  applyStatusBarTheme(theme === "dark");
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

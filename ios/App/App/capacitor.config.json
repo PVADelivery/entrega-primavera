@@ -24,6 +24,11 @@
 				"alert"
 			]
 		},
+		"StatusBar": {
+			"overlaysWebView": true,
+			"style": "LIGHT",
+			"backgroundColor": "#FFFFFF"
+		},
 		"LocalNotifications": {
 			"sound": "notification_sound.mp3"
 		}
@@ -31,6 +36,7 @@
 	"packageClassList": [
 		"AppPlugin",
 		"LocalNotificationsPlugin",
-		"PushNotificationsPlugin"
+		"PushNotificationsPlugin",
+		"StatusBarPlugin"
 	]
 }
