@@ -46,24 +46,6 @@ export function useRealtimeDeliveries() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "deliveries" },
         (payload) => {
-          const d = payload.new as any;
-          const old = payload.old as any;
-          if (d.status !== old.status) {
-            const labels: Record<string, string> = {
-              accepted: "✅ Entrega aceita",
-              collecting: "📦 Coletando pedido",
-              in_transit: "🏍️ Em trânsito",
-              delivered: "🎉 Entrega finalizada",
-              cancelled: "❌ Entrega cancelada",
-            };
-            const label = labels[d.status];
-            if (label) {
-              toast(label, {
-                description: d.customer_name || "Cliente",
-                duration: 4000,
-              });
-            }
-          }
           qc.invalidateQueries({ queryKey: ["deliveries"] });
           qc.invalidateQueries({ queryKey: ["delivery-stats"] });
         }

@@ -370,7 +370,6 @@ function DriverHome() {
       const targetDriverId = await getEffectiveDriverId();
       await acceptDelivery(id, targetDriverId);
       acceptDeliveryLocally(id);
-      toast.success("Entrega aceita com sucesso!");
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
@@ -393,7 +392,6 @@ function DriverHome() {
     try {
       const targetDriverId = await getEffectiveDriverId();
       await acceptBatchDelivery(batchId, targetDriverId);
-      toast.success("Lote de entregas aceito com sucesso!");
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
@@ -431,7 +429,6 @@ function DriverHome() {
         }
       }
       acceptDeliveryLocally(id);
-      toast.success("Corrida aceita com sucesso!");
       qc.invalidateQueries({ queryKey: ["rides"] });
       navigate({ to: "/driver/deliveries" });
     } catch (err: any) {
@@ -459,7 +456,6 @@ function DriverHome() {
           .eq("id", id);
         if (!error) {
           success = true;
-          toast.success(next === "completed" || next === "concluded" || next === "finished" ? "Corrida concluída!" : "Corrida iniciada!");
           break;
         }
       } catch {}

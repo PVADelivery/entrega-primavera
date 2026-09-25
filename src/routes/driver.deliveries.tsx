@@ -200,7 +200,6 @@ function DeliveriesPage() {
         
         if (!error) {
           success = true;
-          toast.success(nextStatus === "completed" || nextStatus === "concluded" || nextStatus === "finished" ? "Corrida concluída com sucesso!" : "Corrida iniciada em andamento!");
           break;
         } else {
           lastError = error;
@@ -239,7 +238,6 @@ function DeliveriesPage() {
 
     try {
       await cancelRide(rideId);
-      toast.success("Corrida devolvida para a fila de disponíveis!");
     } catch (err: any) {
       console.error("[handleCancelRide] Erro:", err);
       toast.error(`Erro ao devolver corrida: ${err?.message || JSON.stringify(err)}`);
@@ -273,7 +271,6 @@ function DeliveriesPage() {
     setPending(d.id);
     try {
       await advanceDelivery(d);
-      toast.success("Status atualizado com sucesso!");
     } catch (err: any) {
       console.error("[handleAdvance] Erro:", err);
       const rawMsg = String(err?.message || "").toLowerCase();
@@ -292,7 +289,6 @@ function DeliveriesPage() {
     setPending(id);
     try {
       await cancelDelivery(id);
-      toast.success("Entrega devolvida para a fila de disponíveis!");
       qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
       console.error("[handleCancel] Erro:", err);

@@ -8,7 +8,6 @@ import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { App } from "@capacitor/app";
-import { toast } from "sonner";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 import { isDeliveryEligibleForDriver, ADMIN_WINDOW_SECONDS } from "@/utils/delivery-eligibility";
 import { getElapsedSeconds } from "@/utils/time";
@@ -654,18 +653,7 @@ export function useDriverNotifications() {
       const title = `${rideTypeLabel} ${feeText}`;
       const body = `Passageiro: ${passenger} • ${pickup} → ${dropoff}`;
 
-      toast(title, {
-        description: body,
-        duration: 20000,
-        action: {
-          label: "Ver Corrida",
-          onClick: () => {
-            if (typeof window !== "undefined") {
-              window.location.href = `/driver?mode=ride&rideId=${rawRide.id}`;
-            }
-          },
-        },
-      });
+
 
       if (Capacitor.isNativePlatform()) {
         // Posta DIRETAMENTE na central de notificações nativa do aparelho (igualzinho às entregas)
@@ -845,7 +833,6 @@ export function useDriverNotifications() {
               if (!delErr && delData && delData.length > 0) {
                 DeliveryOverlay.reportCallResult({ success: true, message: "✅ Entrega aceita!" }).catch(() => {});
                 acceptDeliveryLocally(deliveryId);
-                toast("✅ Entrega aceita!", { description: "Aceita com sucesso." });
                 invalidateDeliveries();
                 return;
               }
@@ -862,7 +849,6 @@ export function useDriverNotifications() {
               if (!rideErr && rideData && rideData.length > 0) {
                 DeliveryOverlay.reportCallResult({ success: true, message: "✅ Corrida aceita!" }).catch(() => {});
                 acceptDeliveryLocally(deliveryId);
-                toast("✅ Corrida aceita!", { description: "Vá até o ponto de embarque." });
                 invalidateDeliveries();
                 return;
               }
@@ -870,7 +856,6 @@ export function useDriverNotifications() {
               // 3. Caso tenha falhado em ambas
               DeliveryOverlay.reportCallResult({ success: false, message: "Já foi aceita por outro motorista" }).catch(() => {});
               declineDeliveryLocally(deliveryId);
-              toast("❌ Ops! Já foi aceita.", { description: "Outro motorista aceitou antes de você." });
             } else if (response.status === "rejected" || response.status === "declined") {
               declineDeliveryLocally(deliveryId);
             }
@@ -1056,9 +1041,8 @@ export function useDriverNotifications() {
                 notifyNewDelivery(d);
               }
 
-              // Se atribuída a este motorista diretamente, confirma notificação de corrida aceita
+              // Se atribuída a este motorista diretamente, encerra alerta sonoro
               if ((d?.driver_id === driverId || d?.driver_id === user.id) && o?.status !== d?.status && d?.status === "accepted") {
-                toast("✅ Corrida confirmada!", { description: "Vá até o ponto de retirada." });
                 stopRingingFor(d.id);
               }
             }
@@ -1101,9 +1085,6 @@ export function useDriverNotifications() {
 
               if ((r?.driver_id === driverId || r?.driver_id === user.id) && r?.status === "accepted") {
                 stopRingingFor(r.id);
-                if (o?.status !== r?.status) {
-                  toast("✅ Corrida confirmada!", { description: "Vá até o passageiro." });
-                }
               }
             }
           )

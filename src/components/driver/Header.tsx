@@ -194,13 +194,11 @@ export function DriverHeader() {
       if (err) {
         throw err;
       }
-      toast.success(value ? "Você está online" : "Você está offline");
     } catch (err: any) {
       const msg = err?.message || String(err);
       console.warn("Status update network warning:", msg);
       if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("network")) {
         // Mantém o estado online no aparelho em caso de oscilação momentânea de 4G
-        toast.info(value ? "Você está online (aguardando conexão com servidor)" : "Você está offline");
         return;
       }
       if (value) {
