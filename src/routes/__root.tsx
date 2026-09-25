@@ -98,7 +98,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" },
+      { name: "theme-color", content: "#ffffff" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "google", content: "notranslate" },
       { title: "MT 24 Horas Express — Entregador & Motorista" },
       { name: "description", content: "Aplicativo oficial de entregadores e motoristas parceiros do MT 24 Horas Express." },

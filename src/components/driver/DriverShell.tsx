@@ -37,7 +37,14 @@ export function DriverShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-16 text-foreground" suppressHydrationWarning>
+    <div 
+      className="min-h-screen bg-background text-foreground"
+      style={{
+        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8.5rem)",
+        WebkitOverflowScrolling: "touch",
+      }}
+      suppressHydrationWarning
+    >
       <div className="mx-auto max-w-md">{children}</div>
       <BottomNav />
       <PermissionModal />

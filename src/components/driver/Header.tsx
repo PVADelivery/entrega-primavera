@@ -216,8 +216,11 @@ export function DriverHeader() {
 
   return (
     <header
-      className="relative overflow-hidden rounded-b-[2rem] px-5 pb-14 pt-8 text-white"
-      style={{ background: "var(--gradient-hero)" }}
+      className="relative overflow-hidden rounded-b-[2rem] px-5 pb-14 text-white transition-all"
+      style={{ 
+        background: "var(--gradient-hero)",
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 2rem)"
+      }}
     >
       {/* gold glow */}
       <div
