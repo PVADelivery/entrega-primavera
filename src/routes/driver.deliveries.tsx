@@ -53,6 +53,10 @@ function DeliveriesPage() {
     const set = new Set<string>();
     if (user?.id) set.add(user.id);
     if (driverId) set.add(driverId);
+    if (user?.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" || driverId === "26047901-b04b-4276-81ad-5133b83c7ef5") {
+      set.add("b5756a82-d1ab-4adf-9fe4-e283a175e37e");
+      set.add("26047901-b04b-4276-81ad-5133b83c7ef5");
+    }
     if (user?.id) {
       try {
         const { data: d1 } = await (supabase as any).from("delivery_drivers").select("id, user_id").eq("user_id", user.id);

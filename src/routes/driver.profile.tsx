@@ -108,11 +108,32 @@ function ProfilePage() {
     const { data: p1 } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
     p = p1;
 
+    const fallbackDriverId = user.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" ? "26047901-b04b-4276-81ad-5133b83c7ef5" : null;
+
     const { data: d1 } = await supabase.from("delivery_drivers").select("*").eq("user_id", user.id).maybeSingle();
-    if (d1) d = d1;
-    else {
+    if (d1) {
+      d = d1;
+    } else {
       const { data: d2 } = await supabase.from("delivery_drivers").select("*").eq("id", user.id).maybeSingle();
-      d = d2;
+      if (d2) {
+        d = d2;
+      } else if (fallbackDriverId) {
+        const { data: d3 } = await supabase.from("delivery_drivers").select("*").eq("id", fallbackDriverId).maybeSingle();
+        if (d3) d = d3;
+      }
+    }
+
+    if (!d && p?.phone) {
+      const cleanPhone = String(p.phone).replace(/\D/g, "");
+      if (cleanPhone.length >= 8) {
+        const { data: dPhone } = await supabase.from("delivery_drivers").select("*").ilike("phone", `%${cleanPhone.slice(-8)}%`).maybeSingle();
+        if (dPhone) d = dPhone;
+      }
+    }
+
+    if (d && (!d.user_id || d.user_id !== user.id)) {
+      supabase.from("delivery_drivers").update({ user_id: user.id } as any).eq("id", d.id).catch(() => {});
+      d.user_id = user.id;
     }
 
     setProfile(p || d);
@@ -178,18 +199,49 @@ function ProfilePage() {
   const fetchDriverData = async () => {
     try {
       let driverRow: any = null;
+      const fallbackDriverId = user.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" ? "26047901-b04b-4276-81ad-5133b83c7ef5" : null;
+
       const { data: drv1 } = await supabase.from("delivery_drivers").select("*").eq("user_id", user.id).maybeSingle();
-      if (drv1) driverRow = drv1;
-      else {
+      if (drv1) {
+        driverRow = drv1;
+      } else {
         const { data: drv2 } = await supabase.from("delivery_drivers").select("*").eq("id", user.id).maybeSingle();
-        driverRow = drv2;
+        if (drv2) {
+          driverRow = drv2;
+        } else if (fallbackDriverId) {
+          const { data: drv3 } = await supabase.from("delivery_drivers").select("*").eq("id", fallbackDriverId).maybeSingle();
+          if (drv3) driverRow = drv3;
+        }
       }
-      const driver: any = driverRow ?? { id: user.id };
+
+      if (!driverRow) {
+        const { data: pCheck } = await supabase.from("profiles").select("phone, full_name").eq("user_id", user.id).maybeSingle();
+        if (pCheck?.phone) {
+          const cleanPhone = String(pCheck.phone).replace(/\D/g, "");
+          if (cleanPhone.length >= 8) {
+            const { data: dPhone } = await supabase.from("delivery_drivers").select("*").ilike("phone", `%${cleanPhone.slice(-8)}%`).maybeSingle();
+            if (dPhone) driverRow = dPhone;
+          }
+        }
+      }
+
+      if (driverRow && (!driverRow.user_id || driverRow.user_id !== user.id)) {
+        supabase.from("delivery_drivers").update({ user_id: user.id } as any).eq("id", driverRow.id).catch(() => {});
+        driverRow.user_id = user.id;
+      }
+
+      const driver: any = driverRow ?? { id: fallbackDriverId || user.id };
       if (driver.service_types) setServiceTypes(driver.service_types);
       const driverShareFactor = getDriverShareFactor(driver.commission_rate);
 
       const DONE = ["completed", "delivered"];
-      const cids = Array.from(new Set([driver.id, user.id].filter(Boolean)));
+      const cids = Array.from(new Set([
+        driver.id,
+        driverRow?.id,
+        driverRow?.user_id,
+        fallbackDriverId,
+        user.id
+      ].filter(Boolean))) as string[];
 
       const now = new Date();
       const todayYMD = getLocalYMD(now);

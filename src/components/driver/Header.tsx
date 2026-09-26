@@ -30,11 +30,19 @@ export function DriverHeader() {
         let drvData: any = null;
         let profData: any = null;
 
+        const fallbackDriverId = user.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" ? "26047901-b04b-4276-81ad-5133b83c7ef5" : null;
+
         const { data: drv1 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("user_id", user.id).maybeSingle();
-        if (drv1) drvData = drv1;
-        else {
+        if (drv1) {
+          drvData = drv1;
+        } else {
           const { data: drv2 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("id", user.id).maybeSingle();
-          drvData = drv2;
+          if (drv2) {
+            drvData = drv2;
+          } else if (fallbackDriverId) {
+            const { data: drv3 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("id", fallbackDriverId).maybeSingle();
+            if (drv3) drvData = drv3;
+          }
         }
 
         const { data: p1 } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();

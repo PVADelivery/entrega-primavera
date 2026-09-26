@@ -703,11 +703,19 @@ export function useDriverNotifications() {
       const localOnline = typeof window !== "undefined" ? localStorage.getItem(`driver_is_online_${user.id}`) === "true" : false;
 
       let driverRow: any = null;
+      const fallbackDriverId = user.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" ? "26047901-b04b-4276-81ad-5133b83c7ef5" : null;
+
       const { data: d1 } = await supabase.from("delivery_drivers").select("*").eq("user_id", user.id).maybeSingle();
-      if (d1) driverRow = d1;
-      else {
+      if (d1) {
+        driverRow = d1;
+      } else {
         const { data: d2 } = await supabase.from("delivery_drivers").select("*").eq("id", user.id).maybeSingle();
-        driverRow = d2;
+        if (d2) {
+          driverRow = d2;
+        } else if (fallbackDriverId) {
+          const { data: d3 } = await supabase.from("delivery_drivers").select("*").eq("id", fallbackDriverId).maybeSingle();
+          if (d3) driverRow = d3;
+        }
       }
 
       if (cancelled) return;
