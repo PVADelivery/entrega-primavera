@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import { PushNotifications } from "@/lib/pushNotifications";
 
 // Singleton instances to be used globally outside React lifecycle
 const ALERT_SOUND_URL = "/ring.mp3";

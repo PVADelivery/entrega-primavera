@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverShell } from "@/components/driver/DriverShell";
 import { DriverHeader } from "@/components/driver/Header";
-import { DeliveryDetailsSheet } from "@/components/driver/DeliveryDetailsSheet";
 import { acceptDeliveryLocally, declineDeliveryLocally, getDeclinedDeliveries } from "@/hooks/useDriverNotifications";
 import { DeliveryCard } from "@/components/driver/DeliveryCard";
 import { BatchDeliveryCard } from "@/components/driver/BatchDeliveryCard";

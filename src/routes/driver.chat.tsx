@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Send, MessageCircle, Phone, CheckCheck, Headphones, AlertCircle, Sparkles } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/WhatsappIcon";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/driver/chat")({
   component: ChatPage,
