@@ -41,5 +41,31 @@ export interface PushNotificationsPlugin {
   removeAllListeners(): Promise<void>;
 }
 
-export const PushNotifications = registerPlugin<PushNotificationsPlugin>("PushNotifications", {});
+export class PushNotificationsWeb {
+  async register(): Promise<void> {}
+  async getDeliveredNotifications(): Promise<{ notifications: PushNotificationSchema[] }> {
+    return { notifications: [] };
+  }
+  async removeDeliveredNotifications(): Promise<void> {}
+  async removeAllDeliveredNotifications(): Promise<void> {}
+  async createChannel(): Promise<void> {}
+  async deleteChannel(): Promise<void> {}
+  async listChannels(): Promise<{ channels: any[] }> {
+    return { channels: [] };
+  }
+  async checkPermissions(): Promise<{ receive: "prompt" | "prompt-with-rationale" | "granted" | "denied"; display?: string }> {
+    return { receive: "granted", display: "granted" };
+  }
+  async requestPermissions(): Promise<{ receive: "prompt" | "prompt-with-rationale" | "granted" | "denied"; display?: string }> {
+    return { receive: "granted", display: "granted" };
+  }
+  async addListener(): Promise<any> {
+    return { remove: async () => {} };
+  }
+  async removeAllListeners(): Promise<void> {}
+}
+
+export const PushNotifications = registerPlugin<PushNotificationsPlugin>("PushNotifications", {
+  web: () => Promise.resolve(new PushNotificationsWeb()),
+});
 export default PushNotifications;
