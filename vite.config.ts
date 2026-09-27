@@ -4,6 +4,11 @@ import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ command }) => {
   const isBuild = command === "build";
@@ -27,6 +32,9 @@ export default defineConfig(({ command }) => {
       react(),
     ].filter(Boolean),
     resolve: {
+      alias: {
+        "@capacitor/push-notifications": path.resolve(__dirname, "./src/lib/pushNotifications.ts"),
+      },
       dedupe: [
         "react",
         "react-dom",
@@ -35,6 +43,16 @@ export default defineConfig(({ command }) => {
         "@tanstack/react-query",
         "@tanstack/query-core"
       ]
+    },
+    ssr: {
+      external: [
+        "@capacitor/core",
+        "@capacitor/app",
+        "@capacitor/status-bar",
+        "@capacitor/push-notifications",
+        "@capacitor/local-notifications"
+      ]
     }
   };
 });
+
