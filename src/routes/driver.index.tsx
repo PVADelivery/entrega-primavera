@@ -270,11 +270,10 @@ function DriverHome() {
         return [];
       }
     },
-    enabled: true,
-    staleTime: 2000,
-    refetchInterval: 3000,
+    enabled: mode === "ride",
+    staleTime: 15000,
     gcTime: 300000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,
   });
 
