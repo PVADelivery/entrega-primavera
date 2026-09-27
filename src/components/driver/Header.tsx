@@ -227,7 +227,7 @@ export function DriverHeader() {
       className="relative overflow-hidden rounded-b-[2rem] px-5 pb-14 text-white transition-all"
       style={{ 
         background: "var(--gradient-hero)",
-        paddingTop: "max(calc(env(safe-area-inset-top, 0px) + 1.25rem), 56px)"
+        paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)"
       }}
     >
       {/* gold glow */}
