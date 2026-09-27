@@ -95,7 +95,8 @@ serve(async (req) => {
             apns: {
               headers: {
                 "apns-priority": "5",
-                "apns-push-type": "background"
+                "apns-push-type": "background",
+                "apns-topic": "com.mt24horasexpress.entregador"
               },
               payload: {
                 aps: {
@@ -283,6 +284,8 @@ serve(async (req) => {
     const tokens = drivers.map(d => d.fcm_token).filter(Boolean)
     console.log(`Enviando push para ${tokens.length} dispositivos elegíveis...`)
 
+    const appBundleId = payload.bundle_id || payload.bundleId || (payload.table === 'orders' ? 'com.mt24horasexpress.lojista' : 'com.mt24horasexpress.entregador');
+
     // Firebase HTTP v1 API aceita apenas 1 mensagem por request
     const requests = tokens.map(async (token) => {
       const message = {
@@ -341,28 +344,18 @@ serve(async (req) => {
           apns: {
             headers: {
               "apns-priority": "10",
-              "apns-push-type": "alert"
+              "apns-push-type": "alert",
+              "apns-topic": appBundleId
             },
             payload: {
               aps: {
                 alert: {
                   title: pushTitle,
-                  body: isRideRequest
-                    ? `Passageiro aguardando! Destino: ${dropoffAddr} • ${feeText}`
-                    : `Retirada: ${pickupAddr} ➔ Entrega: ${dropoffAddr} • ${feeText}`
+                  body: pushBody
                 },
                 sound: "default",
-                badge: 1,
-                "content-available": 1
-              },
-              type: isRideRequest ? "ride" : "delivery",
-              deliveryId: String(record.id),
-              rideId: String(record.id),
-              storeName: companyName,
-              pickup: pickupAddr,
-              dropoff: dropoffAddr,
-              fee: feeText,
-              status: String(record.status || "pending")
+                badge: 1
+              }
             }
           }
         }
