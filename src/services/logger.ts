@@ -49,7 +49,11 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
     msg.includes("e-mail ou senha incorretos") ||
     msg.includes("email ou senha incorretos") ||
     msg.includes("credenciais inválidas") ||
-    msg.includes("email not confirmed");
+    msg.includes("email not confirmed") ||
+    msg.includes("minified react error #418") ||
+    msg.includes("minified react error #423") ||
+    msg.includes("minified react error #425") ||
+    msg.includes("hydration failed");
 
   if (isIgnored) return;
 
@@ -244,6 +248,17 @@ export function initializeGlobalErrorHandlers(appName: string) {
       (!error && !source && lineno === 0 && colno === 0)
     ) {
       console.warn("[Logger] Generic cross-origin / browser extension Script Error ignored.");
+      return true;
+    }
+
+    // Ignore benign React hydration recovery notices
+    if (
+      lower.includes("minified react error #418") ||
+      lower.includes("minified react error #423") ||
+      lower.includes("minified react error #425") ||
+      lower.includes("hydration failed")
+    ) {
+      console.warn("[Logger] React hydration notice handled gracefully by client renderer.");
       return true;
     }
 
