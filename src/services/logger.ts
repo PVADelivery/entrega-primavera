@@ -28,6 +28,11 @@ function escapeHtml(input: unknown, max = 1500): string {
 export async function reportErrorToTelegram(payload: ErrorPayload, appName = "App Entregador") {
   if (typeof window === "undefined") return;
 
+  const ua = (typeof navigator !== "undefined" ? navigator.userAgent : "").toLowerCase();
+  if (ua.includes("bot") || ua.includes("crawler") || ua.includes("spider") || ua.includes("headless") || ua.includes("googlebot")) {
+    return;
+  }
+
   const msg = (payload.error_message || "").toLowerCase();
   const isIgnored = 
     msg.includes("aceita por outro") ||
@@ -50,9 +55,12 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
     msg.includes("email ou senha incorretos") ||
     msg.includes("credenciais inválidas") ||
     msg.includes("email not confirmed") ||
+    msg.includes("minified react error #520") ||
     msg.includes("minified react error #418") ||
     msg.includes("minified react error #423") ||
     msg.includes("minified react error #425") ||
+    msg.includes("react error #520") ||
+    msg.includes("react error #418") ||
     msg.includes("hydration failed");
 
   if (isIgnored) return;
@@ -233,6 +241,11 @@ export function initializeGlobalErrorHandlers(appName: string) {
 
   // 1. Unhandled exceptions
   window.onerror = (message, source, lineno, colno, error) => {
+    const ua = (typeof navigator !== "undefined" ? navigator.userAgent : "").toLowerCase();
+    if (ua.includes("bot") || ua.includes("crawler") || ua.includes("spider") || ua.includes("headless") || ua.includes("googlebot")) {
+      return true;
+    }
+
     const msgStr = String(message || "");
     const lower = msgStr.toLowerCase();
 
@@ -251,14 +264,17 @@ export function initializeGlobalErrorHandlers(appName: string) {
       return true;
     }
 
-    // Ignore benign React hydration recovery notices
+    // Ignore benign React concurrent/hydration recovery notices
     if (
+      lower.includes("minified react error #520") ||
       lower.includes("minified react error #418") ||
       lower.includes("minified react error #423") ||
       lower.includes("minified react error #425") ||
+      lower.includes("react error #520") ||
+      lower.includes("react error #418") ||
       lower.includes("hydration failed")
     ) {
-      console.warn("[Logger] React hydration notice handled gracefully by client renderer.");
+      console.warn("[Logger] React concurrent/hydration recovery notice handled gracefully by client renderer.");
       return true;
     }
 
