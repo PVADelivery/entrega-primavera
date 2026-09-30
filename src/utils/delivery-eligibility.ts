@@ -48,8 +48,20 @@ export function isDeliveryEligibleForDriver(
     return true;
   }
 
-  // 4. Se o status for pendente/aberto e não estiver atribuída:
-  // REGRA DOS 2 MINUTOS DO ADMIN: Só fica elegível após completar 120 segundos!
+  // 4. Se a entrega foi devolvida / reaberta recentemente por um entregador que cancelou / recusou:
+  // DISPONÍVEL IMEDIATAMENTE PARA TODOS OS DEMAIS!
+  const isReopened = Boolean(
+    delivery.updated_at &&
+    delivery.created_at &&
+    delivery.updated_at !== delivery.created_at &&
+    getElapsedSeconds(delivery.updated_at) <= 300
+  );
+  if (isReopened) {
+    return true;
+  }
+
+  // 5. Se o status for pendente/aberto e não estiver atribuída:
+  // REGRA DOS 2 MINUTOS DO ADMIN: Só fica elegível após completar 120 segundos da criação original!
   const validPendingStatuses = ["pending", "pending_assignment", "created", "open", "em_aberto", "pendente"];
   if (validPendingStatuses.includes(status)) {
     if (delivery.created_at) {

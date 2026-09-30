@@ -11,6 +11,7 @@ import { App } from "@capacitor/app";
 import { DeliveryOverlay } from "@/plugins/DeliveryOverlay";
 import { isDeliveryEligibleForDriver, ADMIN_WINDOW_SECONDS } from "@/utils/delivery-eligibility";
 import { getElapsedSeconds } from "@/utils/time";
+import { cancelDelivery } from "@/services/deliveries";
 
 const APP_NAME = "MT 24 Horas Express";
 const NOTIFICATION_CHANNEL_ID = "mt24_driver_alerts_v40";
@@ -452,7 +453,7 @@ export function useDriverNotifications() {
 
       // REGRA: A notificação e áudio disparam IMEDIATAMENTE no momento da criação/push!
       // Se for entrega pendente geral dentro dos 2 minutos, agenda para aparecer no app para aceite ao completar 120s
-      if (elapsed < ADMIN_WINDOW_SECONDS && !isAssigned && status !== "broadcasted") {
+      if (!isReopened && elapsed < ADMIN_WINDOW_SECONDS && !isAssigned && status !== "broadcasted") {
         if (!scheduledDeliveriesRef.current.has(rawDelivery.id)) {
           const remainingMs = Math.max(500, (ADMIN_WINDOW_SECONDS - elapsed) * 1000 + 500);
           console.log(`[Notify] Notificando som/alerta agora! A entrega ${rawDelivery.id} aparecerá para aceite no app em ${(remainingMs / 1000).toFixed(1)}s (2 min)`);
@@ -783,6 +784,7 @@ export function useDriverNotifications() {
 
         nativeDeclineListener = await DeliveryOverlay.addListener("onDeliveryDeclined", ({ deliveryId }: any) => {
           if (deliveryId) {
+            cancelDelivery(deliveryId).catch(() => {});
             declineDeliveryLocally(deliveryId);
           }
         });
@@ -892,6 +894,7 @@ export function useDriverNotifications() {
               DeliveryOverlay.reportCallResult({ success: false, message: "Já foi aceita por outro motorista" }).catch(() => {});
               declineDeliveryLocally(deliveryId);
             } else if (response.status === "rejected" || response.status === "declined") {
+              cancelDelivery(deliveryId).catch(() => {});
               declineDeliveryLocally(deliveryId);
             }
           }

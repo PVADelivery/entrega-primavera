@@ -584,7 +584,8 @@ export async function fetchAvailableDeliveries(
   currentDriverId?: string | null,
   currentUserId?: string | null
 ) {
-  const pendingStatuses = ["pending", "broadcasted", "pending_assignment", "created", "open", "em_aberto", "pendente"];
+  // O enum delivery_status no PostgreSQL só aceita 'pending' e 'broadcasted' para entregas disponíveis
+  const pendingStatuses = ["pending", "broadcasted"];
 
   let data: any[] = [];
 
