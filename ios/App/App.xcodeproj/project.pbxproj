@@ -17,6 +17,7 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		95A110022FE990020072D4E8 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 95A110012FE990010072D4E8 /* GoogleService-Info.plist */; };
+		95A110042FE990040072D4E8 /* ring.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 95A110032FE990030072D4E8 /* ring.mp3 */; };
 		95B220022FE990020072D4E8 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 95B220012FE990010072D4E8 /* FirebaseCore */; };
 		95B220042FE990040072D4E8 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 95B220032FE990030072D4E8 /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
@@ -34,6 +35,7 @@
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		95A110012FE990010072D4E8 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		95A110032FE990030072D4E8 /* ring.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = ring.mp3; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,6 +82,7 @@
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				95A110012FE990010072D4E8 /* GoogleService-Info.plist */,
+				95A110032FE990030072D4E8 /* ring.mp3 */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -159,6 +162,7 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				95A110022FE990020072D4E8 /* GoogleService-Info.plist in Resources */,
+				95A110042FE990040072D4E8 /* ring.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

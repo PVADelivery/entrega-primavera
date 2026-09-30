@@ -276,12 +276,21 @@ export function useDriverNotifications() {
             }
           }).then((handle) => { actListener = handle; }).catch(() => {});
 
-          // Solicita permissão e registra uma única vez
-          PushNotifications.requestPermissions().then((result) => {
-            if (result.receive === "granted") {
-              PushNotifications.register().catch((e) => console.warn("[FCM] register erro:", e));
+          // Solicita permissão e registra tokens push
+          const ensurePushRegistered = async () => {
+            try {
+              let perm = await PushNotifications.checkPermissions();
+              if (perm.receive !== "granted") {
+                perm = await PushNotifications.requestPermissions();
+              }
+              if (perm.receive === "granted" || (perm as any).display === "granted") {
+                await PushNotifications.register();
+              }
+            } catch (e) {
+              console.warn("[FCM] ensurePushRegistered erro:", e);
             }
-          }).catch((e) => console.warn("[FCM] requestPermissions erro:", e));
+          };
+          ensurePushRegistered();
         }
 
         DeliveryOverlay.getPendingFcmToken().then(({ token }) => {
@@ -537,7 +546,7 @@ export function useDriverNotifications() {
               id: hashId(delivery.id),
               actionTypeId: "DELIVERY_ACTION",
               channelId: NOTIFICATION_CHANNEL_ID,
-              sound: "ring",
+              sound: Capacitor.getPlatform() === "ios" ? "ring.mp3" : "ring",
               extra: { type: "delivery", deliveryId: delivery.id },
             },
           ],
@@ -691,7 +700,7 @@ export function useDriverNotifications() {
               id: hashId(rawRide.id),
               actionTypeId: "DELIVERY_ACTION",
               channelId: NOTIFICATION_CHANNEL_ID,
-              sound: "ring",
+              sound: Capacitor.getPlatform() === "ios" ? "ring.mp3" : "ring",
               extra: { type: "ride", rideId: rawRide.id },
             },
           ],

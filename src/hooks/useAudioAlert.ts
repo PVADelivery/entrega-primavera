@@ -211,7 +211,7 @@ export function sendNativeDeviceNotification(
             body: options?.body || "Acesse o app para aceitar a corrida",
             id: Math.floor(Math.random() * 100000),
             channelId: NOTIFICATION_CHANNEL_ID,
-            sound: "ring",
+            sound: Capacitor.getPlatform() === "ios" ? "ring.mp3" : "ring",
             extra: {
               tag: options?.tag || "mt24-delivery-new"
             }

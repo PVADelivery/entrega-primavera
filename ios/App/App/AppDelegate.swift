@@ -1,6 +1,8 @@
 import UIKit
 import Capacitor
 import UserNotifications
+import FirebaseCore
+import FirebaseMessaging
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -9,6 +11,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         _ = CAPBridgeViewController.self
+        FirebaseApp.configure()
+        Messaging.messaging().delegate = self
         // Configura o delegate de notificações para garantir apresentação mesmo em primeiro plano e central do iOS
         UNUserNotificationCenter.current().delegate = self
         // Solicita o registro de notificações remotas no APNs da Apple na inicialização
@@ -63,6 +67,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // Vincula o token APNs no Firebase Messaging para gerar o token FCM válido
+        Messaging.messaging().apnsToken = deviceToken
         // Encaminha o token binário APNs nativo diretamente para o Capacitor
         NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
     }
@@ -91,3 +97,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
 }
+
+extension AppDelegate: MessagingDelegate {
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        if let token = fcmToken {
+            print("[FCM] Firebase registration token received: \(token)")
+            NotificationCenter.default.post(name: Notification.Name("FCMToken"), object: nil, userInfo: ["token": token])
+        }
+    }
+}
+

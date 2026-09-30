@@ -353,7 +353,7 @@ serve(async (req) => {
                   title: pushTitle,
                   body: pushBody
                 },
-                sound: "default",
+                sound: "ring.mp3",
                 badge: 1
               }
             }
