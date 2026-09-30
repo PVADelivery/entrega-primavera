@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   acceptDelivery,
   acceptBatchDelivery,
+  cancelDelivery,
   ensureDriverRow,
   fetchAvailableDeliveries,
   fetchEarnings,
@@ -103,10 +104,10 @@ function DriverHome() {
   const safeServices = Array.isArray(driverServiceTypes) ? driverServiceTypes : [];
 
   const available = useQuery({
-    queryKey: ["deliveries", "available", driverInfo?.vehicle_type || "all"],
+    queryKey: ["deliveries", "available", driverInfo?.vehicle_type || "all", driverId, user?.id],
     queryFn: async () => {
       try {
-        const raw = await fetchAvailableDeliveries(driverInfo);
+        const raw = await fetchAvailableDeliveries(driverInfo, driverId, user?.id);
         return raw ?? [];
       } catch (err) {
         console.error("[available] Erro na consulta:", err);
@@ -696,7 +697,15 @@ function DriverHome() {
                       key={item.delivery.id}
                       delivery={item.delivery}
                       onAccept={() => handleAccept(item.delivery.id)}
-                      onDecline={() => {
+                      onDecline={async () => {
+                        // Se estiver atribuída a este motorista pelo admin ou já aceita, desvincula no banco para voltar para os demais
+                        if (item.delivery.driver_id) {
+                          try {
+                            await cancelDelivery(item.delivery.id);
+                          } catch (err) {
+                            console.error("[onDecline] Erro ao desvincular:", err);
+                          }
+                        }
                         declineDeliveryLocally(item.delivery.id);
                         setDeclinedSet(getDeclinedDeliveries());
                         qc.invalidateQueries({ queryKey: ["deliveries"] });

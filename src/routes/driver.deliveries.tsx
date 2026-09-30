@@ -297,6 +297,7 @@ function DeliveriesPage() {
     setPending(id);
     try {
       await cancelDelivery(id);
+      toast.success("Entrega devolvida para a fila de disponíveis!");
       qc.invalidateQueries({ queryKey: ["deliveries"] });
     } catch (err: any) {
       console.error("[handleCancel] Erro:", err);

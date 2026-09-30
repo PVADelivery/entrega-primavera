@@ -416,10 +416,12 @@ export function useDriverNotifications() {
       if (declined.has(rawDelivery.id)) return;
       if (seenIdsRef.current.has(rawDelivery.id)) return;
 
-      // 3. Ignora entregas antigas (mais de 10 min) para não tocar som em entregas que já estavam lá
+      // 3. Ignora entregas antigas (mais de 10 min) para não tocar som em entregas que já estavam lá,
+      // EXCETO se a entrega acabou de ser devolvida/reaberta para a fila (updated_at nos últimos 5 min)
       const createdAt = rawDelivery.created_at || new Date().toISOString();
-      const elapsed = getElapsedSeconds(createdAt);
-      if (elapsed > 600) {
+      const isReopened = Boolean(rawDelivery.updated_at && getElapsedSeconds(rawDelivery.updated_at) <= 300 && rawDelivery.updated_at !== rawDelivery.created_at);
+      const elapsed = isReopened ? getElapsedSeconds(rawDelivery.updated_at) : getElapsedSeconds(createdAt);
+      if (!isReopened && elapsed > 600) {
         seenIdsRef.current.add(rawDelivery.id);
         return;
       }

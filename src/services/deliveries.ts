@@ -579,16 +579,22 @@ export function useDeliveryTracking(orderId?: string | null) {
   return { order, delivery: (order as any)?.deliveries };
 }
 
-export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: string; vehicle?: string; service_types?: string[] } | null) {
+export async function fetchAvailableDeliveries(
+  driverInfo?: { vehicle_type?: string; vehicle?: string; service_types?: string[] } | null,
+  currentDriverId?: string | null,
+  currentUserId?: string | null
+) {
   const pendingStatuses = ["pending", "broadcasted", "pending_assignment", "created", "open", "em_aberto", "pendente"];
 
   let data: any[] = [];
 
+  // Busca diretamente filtrando pelos status válidos de entrega disponível/pendente
   const q1 = await supabase
     .from("deliveries")
     .select("*, companies(id, name, phone, address)")
+    .in("status", pendingStatuses)
     .order("created_at", { ascending: false })
-    .limit(40);
+    .limit(50);
 
   if (!q1.error && q1.data) {
     data = q1.data;
@@ -596,31 +602,17 @@ export async function fetchAvailableDeliveries(driverInfo?: { vehicle_type?: str
     const q2 = await supabase
       .from("deliveries")
       .select("*")
+      .in("status", pendingStatuses)
       .order("created_at", { ascending: false })
-      .limit(40);
+      .limit(50);
     if (!q2.error && q2.data) {
       data = q2.data;
     }
   }
 
-  // Filtra status pendentes em JS
-  const pending = data.filter((d: any) =>
-    pendingStatuses.includes(String(d.status || "").toLowerCase())
-  );
-
-  // Filtragem flexível de entregador não atribuído (null, vazio ou 'none')
-  let list = pending.filter((d: any) => {
-    const isUnassigned = !d.driver_id || String(d.driver_id).trim() === "" || d.driver_id === "none" || d.driver_id === "00000000-0000-0000-0000-000000000000";
-    if (!isUnassigned) return false;
-
-    // REGRA DOS 2 MINUTOS DO ADMIN:
-    // Se a entrega for 'pending' (não 'broadcasted') e não estiver atribuída,
-    // ela NUNCA aparece na lista até completarem os 120 segundos (2 minutos)!
-    if (!isDeliveryEligibleForDriver(d)) {
-      return false;
-    }
-
-    return true;
+  // Filtragem flexível de elegibilidade (livre para todos ou atribuída a este motorista)
+  let list = data.filter((d: any) => {
+    return isDeliveryEligibleForDriver(d, currentDriverId, currentUserId);
   });
 
   const canDoCar = true;
