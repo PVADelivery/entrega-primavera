@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Bell, CheckCircle } from "lucide-react";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAudioAlert, requestNotificationPermission } from "@/hooks/useAudioAlert";
 
 export function PermissionModal() {
   const { user, loading } = useAuth();
@@ -59,8 +60,12 @@ export function PermissionModal() {
     setOpen(false);
   };
 
+  const { unlockAudio } = useAudioAlert();
+
   const handleGrantPermissions = async () => {
     try {
+      unlockAudio();
+      requestNotificationPermission();
       if ("Notification" in window && Notification.permission !== "granted") {
         await Notification.requestPermission();
       }

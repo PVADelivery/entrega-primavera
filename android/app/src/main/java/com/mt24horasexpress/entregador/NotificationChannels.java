@@ -11,8 +11,8 @@ import android.os.Build;
 /** Centraliza a criação do canal de notificação de corridas com som oficial ring.mp3 do MT 24 Horas Express. */
 public final class NotificationChannels {
 
-    public static final String INCOMING_CHANNEL_ID = "mt24_delivery_alerts_v35";
-    public static final String MARKETPLACE_CHANNEL_ID = "mt24_marketplace_orders_v35";
+    public static final String INCOMING_CHANNEL_ID = "mt24_driver_alerts_v40";
+    public static final String MARKETPLACE_CHANNEL_ID = "mt24_marketplace_orders_v40";
     public static final String SERVICE_CHANNEL_ID = "mt24_driver_service_channel";
 
     private NotificationChannels() {}
@@ -22,8 +22,10 @@ public final class NotificationChannels {
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         if (nm == null) return;
 
-        // Limpa canais obsoletos para forçar o registro correto do som ring.mp3 no sistema
+        // Limpa canais obsoletos para forçar o registro correto do som ring no sistema
         try {
+            nm.deleteNotificationChannel("mt24_delivery_alerts_v35");
+            nm.deleteNotificationChannel("mt24_marketplace_orders_v35");
             nm.deleteNotificationChannel("delivery_alerts_official_v34");
             nm.deleteNotificationChannel("marketplace_orders_v34");
             nm.deleteNotificationChannel("delivery_alerts_official_v31");

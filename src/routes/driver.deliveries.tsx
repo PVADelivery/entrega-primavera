@@ -49,7 +49,14 @@ function DeliveriesPage() {
     enabled: true,
   });
 
+  let myDriverIdsCache: string[] | null = null;
+  let lastDriverIdsFetch = 0;
+
   async function getAllMyDriverIds(): Promise<string[]> {
+    const now = Date.now();
+    if (myDriverIdsCache && now - lastDriverIdsFetch < 120000) {
+      return myDriverIdsCache;
+    }
     const set = new Set<string>();
     if (user?.id) set.add(user.id);
     if (driverId) set.add(driverId);
@@ -59,18 +66,15 @@ function DeliveriesPage() {
     }
     if (user?.id) {
       try {
-        const { data: d1 } = await (supabase as any).from("delivery_drivers").select("id, user_id").eq("user_id", user.id);
+        const { data: d1 } = await (supabase as any).from("delivery_drivers").select("id, user_id").eq("user_id", user.id).limit(2);
         if (d1) d1.forEach((d: any) => { if (d.id) set.add(d.id); if (d.user_id) set.add(d.user_id); });
-        const { data: d2 } = await (supabase as any).from("delivery_drivers").select("id, user_id").eq("id", user.id);
+        const { data: d2 } = await (supabase as any).from("delivery_drivers").select("id, user_id").eq("id", user.id).limit(2);
         if (d2) d2.forEach((d: any) => { if (d.id) set.add(d.id); if (d.user_id) set.add(d.user_id); });
-        const { data: prof } = await (supabase as any).from("profiles").select("user_id, full_name").eq("user_id", user.id).maybeSingle();
-        if (prof) {
-          if (prof.user_id) set.add(prof.user_id);
-          if (prof.full_name) set.add(prof.full_name);
-        }
       } catch (e) {}
     }
-    return Array.from(set);
+    myDriverIdsCache = Array.from(set);
+    lastDriverIdsFetch = now;
+    return myDriverIdsCache;
   }
 
   const activeRides = useQuery({
@@ -804,6 +808,10 @@ function DriverRideMap({ ride }: { ride: any }) {
         setupRouteAndMarkers();
 
         if (typeof window !== "undefined" && navigator.geolocation) {
+          let lastGpsSendTime = 0;
+          let lastGpsLat = 0;
+          let lastGpsLng = 0;
+
           const onLocation = (pos: GeolocationPosition) => {
             if (!isMounted || !mapRef.current || !MarkerClass) return;
             const lat = pos.coords.latitude;
@@ -822,7 +830,18 @@ function DriverRideMap({ ride }: { ride: any }) {
               }
             } catch (e) {}
 
-            // Transmite a posição GPS real imediatamente para o banco para o cliente ver no mapa em tempo real
+            // Throttling: Envia para o banco no máximo a cada 15 segundos ou se o deslocamento for relevante (>35m)
+            const now = Date.now();
+            const timeDiff = now - lastGpsSendTime;
+            const dist = Math.hypot(lat - lastGpsLat, lng - lastGpsLng);
+            if (timeDiff < 15000 && dist < 0.00035) {
+              return;
+            }
+            lastGpsSendTime = now;
+            lastGpsLat = lat;
+            lastGpsLng = lng;
+
+            // Transmite a posição GPS para o banco de forma espaçada
             try {
               if (ride?.driver_id) {
                 (supabase as any)
@@ -841,7 +860,7 @@ function DriverRideMap({ ride }: { ride: any }) {
           };
 
           navigator.geolocation.getCurrentPosition(onLocation, () => {}, { enableHighAccuracy: true, timeout: 6000 });
-          watchIdRef.current = navigator.geolocation.watchPosition(onLocation, () => {}, { enableHighAccuracy: true, maximumAge: 3000 });
+          watchIdRef.current = navigator.geolocation.watchPosition(onLocation, () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
         }
       } catch (err) {
         console.warn("[DriverRideMap] Erro ao inicializar MapLibre:", err);

@@ -319,7 +319,7 @@ serve(async (req) => {
             notification: {
               title: pushTitle,
               body: pushBody,
-              channel_id: "mt24_delivery_alerts_v35",
+              channel_id: "mt24_driver_alerts_v40",
               sound: "ring",
               notification_priority: "PRIORITY_MAX",
               visibility: "PUBLIC",

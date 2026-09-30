@@ -43,7 +43,7 @@
         <!-- Define o canal oficial como padrão para o Firebase SDK -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="mt24_delivery_alerts_v35" />
+            android:value="mt24_driver_alerts_v40" />
 
     </application>
 

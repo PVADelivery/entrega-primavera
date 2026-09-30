@@ -28,7 +28,7 @@ const config: CapacitorConfig = {
       backgroundColor: "#FFFFFF"
     },
     LocalNotifications: {
-      sound: "notification_sound.mp3"
+      sound: "ring.mp3"
     }
   }
 };

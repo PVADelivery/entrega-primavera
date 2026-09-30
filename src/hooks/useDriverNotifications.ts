@@ -13,7 +13,7 @@ import { isDeliveryEligibleForDriver, ADMIN_WINDOW_SECONDS } from "@/utils/deliv
 import { getElapsedSeconds } from "@/utils/time";
 
 const APP_NAME = "MT 24 Horas Express";
-const NOTIFICATION_CHANNEL_ID = "mt24_delivery_alerts_v35";
+const NOTIFICATION_CHANNEL_ID = "mt24_driver_alerts_v40";
 
 const hashId = (str: string | number) => {
   const s = String(str);
@@ -130,6 +130,8 @@ export function useDriverNotifications() {
         }).catch(() => {});
 
         if (Capacitor.getPlatform() === "android") {
+          LocalNotifications.deleteChannel({ id: "default" }).catch(() => {});
+          LocalNotifications.deleteChannel({ id: "mt24_delivery_alerts_v35" }).catch(() => {});
           LocalNotifications.createChannel({
             id: NOTIFICATION_CHANNEL_ID,
             name: "Novas Corridas MT 24 Horas",
@@ -456,8 +458,15 @@ export function useDriverNotifications() {
       invalidateDeliveries();
 
       // Dispara o alerta sonoro oficial MT 24 Horas Express (sem duplicidade)
-      if (Capacitor.isNativePlatform()) {
-        DeliveryOverlay.playNativeAudio().catch(() => {});
+      if (Capacitor.getPlatform() === "android") {
+        DeliveryOverlay.playNativeAudio().catch(() => {
+          try {
+            unlockAudio();
+            startLoop();
+          } catch (e) {
+            console.warn("[Notify] som fallback falhou:", e);
+          }
+        });
       } else {
         try {
           unlockAudio();
@@ -631,8 +640,15 @@ export function useDriverNotifications() {
       invalidateDeliveries();
 
       // Dispara o alerta sonoro oficial MT 24 Horas Express (sem duplicidade)
-      if (Capacitor.isNativePlatform()) {
-        DeliveryOverlay.playNativeAudio().catch(() => {});
+      if (Capacitor.getPlatform() === "android") {
+        DeliveryOverlay.playNativeAudio().catch(() => {
+          try {
+            unlockAudio();
+            startLoop();
+          } catch (e) {
+            console.warn("[Notify] som fallback para corrida falhou:", e);
+          }
+        });
       } else {
         try {
           unlockAudio();
@@ -924,11 +940,11 @@ export function useDriverNotifications() {
           const freshRideIds = new Set((ridesData || []).map((r: any) => r.id));
           const freshIds = new Set([...freshDeliveryIds, ...freshRideIds]);
 
-          // Notifica APENAS se a entrega for recente (< 2 min) e ainda não foi vista
+          // Notifica se a entrega for recente (< 10 min) e ainda não foi vista
           data?.forEach((d: any) => {
             if (!seenIdsRef.current.has(d.id)) {
               const elapsed = getElapsedSeconds(d.created_at || "");
-              if (elapsed <= 120) {
+              if (elapsed <= 600) {
                 notifyNewDelivery(d);
               } else {
                 seenIdsRef.current.add(d.id);
@@ -939,7 +955,7 @@ export function useDriverNotifications() {
           ridesData?.forEach((r: any) => {
             if (!seenIdsRef.current.has(r.id)) {
               const elapsed = getElapsedSeconds(r.created_at || "");
-              if (elapsed <= 120) {
+              if (elapsed <= 600) {
                 notifyNewRide(r);
               } else {
                 seenIdsRef.current.add(r.id);
@@ -1111,7 +1127,15 @@ export function useDriverNotifications() {
         channelsRef.current.push(broadcastChannel);
       }
 
+      // Intervalo resiliente de polling a cada 12s para garantir recebimento mesmo com instabilidade de rede ou Realtime
+      const syncInterval = setInterval(() => {
+        if (!cancelled && checkDriverOnline()) {
+          pollDeliveries();
+        }
+      }, 12000);
+
       return () => {
+        clearInterval(syncInterval);
         window.removeEventListener("pageshow", handleAppWakeup);
         window.removeEventListener("focus", handleAppWakeup);
         window.removeEventListener("online", handleAppWakeup);

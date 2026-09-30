@@ -4,54 +4,141 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 
 // Singleton instances to be used globally outside React lifecycle
 const ALERT_SOUND_URL = "/ring.mp3";
+export const NOTIFICATION_CHANNEL_ID = "mt24_driver_alerts_v40";
 
 let globalAudio: HTMLAudioElement | null = null;
+let audioCtx: AudioContext | null = null;
+let synthOscillator: OscillatorNode | null = null;
+let synthGain: GainNode | null = null;
 let isUnlocked = false;
 let vibrationInterval: any = null;
 let activeNotification: Notification | null = null;
 let lastPlayPromise: Promise<void> | null = null;
 let loopTimeoutTimer: any = null;
 
+function getAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioContextClass) {
+      audioCtx = new AudioContextClass();
+    }
+  }
+  return audioCtx;
+}
+
+function startSynthesizedSiren() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    if (synthOscillator) {
+      try { synthOscillator.stop(); } catch {}
+      synthOscillator = null;
+    }
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    const startTime = ctx.currentTime;
+    // Padrão de som chamativo e alternado (880Hz e 587Hz)
+    osc.frequency.setValueAtTime(880, startTime);
+    osc.frequency.setValueAtTime(587, startTime + 0.25);
+    osc.frequency.setValueAtTime(880, startTime + 0.5);
+    osc.frequency.setValueAtTime(587, startTime + 0.75);
+
+    gain.gain.setValueAtTime(0.8, startTime);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(startTime);
+    synthOscillator = osc;
+    synthGain = gain;
+  } catch (e) {
+    console.warn("[AudioAlert] Falha no sintetizador WebAudio:", e);
+  }
+}
+
+function stopSynthesizedSiren() {
+  if (synthOscillator) {
+    try {
+      synthOscillator.stop();
+      synthOscillator.disconnect();
+    } catch {}
+    synthOscillator = null;
+  }
+  if (synthGain) {
+    try { synthGain.disconnect(); } catch {}
+    synthGain = null;
+  }
+}
+
 if (typeof window !== "undefined") {
   globalAudio = new Audio();
   globalAudio.src = ALERT_SOUND_URL + "?v=" + Date.now();
+  globalAudio.preload = "auto";
   globalAudio.load();
 
   let isUnlocking = false;
   const unlockGlobalAudio = () => {
-    if (isUnlocked || isUnlocking || !globalAudio) return;
+    if (isUnlocked || isUnlocking) return;
     isUnlocking = true;
-    globalAudio.muted = true;
-    globalAudio.volume = 0;
-    const playPromise = globalAudio.play();
-    lastPlayPromise = playPromise;
-    playPromise
-      .then(() => {
-        try {
-          globalAudio!.pause();
-          globalAudio!.currentTime = 0;
-        } catch {}
-        globalAudio!.muted = false;
-        isUnlocked = true;
-        isUnlocking = false;
-        if (lastPlayPromise === playPromise) {
-          lastPlayPromise = null;
-        }
-        window.removeEventListener("click", unlockGlobalAudio);
-        window.removeEventListener("touchstart", unlockGlobalAudio);
-        window.removeEventListener("keydown", unlockGlobalAudio);
-      })
-      .catch(() => {
-        if (globalAudio) globalAudio.muted = false;
-        if (lastPlayPromise === playPromise) {
-          lastPlayPromise = null;
-        }
-        isUnlocking = false;
-      });
+
+    // Desbloqueia Web Audio API
+    try {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+    } catch {}
+
+    // Desbloqueia HTML5 Audio
+    if (globalAudio) {
+      globalAudio.muted = true;
+      globalAudio.volume = 0;
+      const playPromise = globalAudio.play();
+      lastPlayPromise = playPromise;
+      playPromise
+        .then(() => {
+          try {
+            globalAudio!.pause();
+            globalAudio!.currentTime = 0;
+          } catch {}
+          globalAudio!.muted = false;
+          globalAudio!.volume = 1.0;
+          isUnlocked = true;
+          isUnlocking = false;
+          if (lastPlayPromise === playPromise) {
+            lastPlayPromise = null;
+          }
+          window.removeEventListener("click", unlockGlobalAudio);
+          window.removeEventListener("touchstart", unlockGlobalAudio);
+          window.removeEventListener("touchend", unlockGlobalAudio);
+          window.removeEventListener("pointerdown", unlockGlobalAudio);
+          window.removeEventListener("keydown", unlockGlobalAudio);
+        })
+        .catch(() => {
+          if (globalAudio) {
+            globalAudio.muted = false;
+            globalAudio.volume = 1.0;
+          }
+          if (lastPlayPromise === playPromise) {
+            lastPlayPromise = null;
+          }
+          isUnlocking = false;
+        });
+    }
   };
 
   window.addEventListener("click", unlockGlobalAudio);
   window.addEventListener("touchstart", unlockGlobalAudio);
+  window.addEventListener("touchend", unlockGlobalAudio);
+  window.addEventListener("pointerdown", unlockGlobalAudio);
   window.addEventListener("keydown", unlockGlobalAudio);
 }
 
@@ -73,18 +160,20 @@ export function triggerDeviceVibration(pattern: number[] = [500, 200, 500, 200, 
  * Solicita a permissão do sistema para Notificações Nativas do Aparelho (Central de Notificações do Celular/PC)
  */
 export function requestNotificationPermission() {
-  if (Capacitor.isNativePlatform()) {
+  if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
     LocalNotifications.requestPermissions().then((res) => {
       if (res.display === "granted" && Capacitor.getPlatform() === "android") {
+        // Limpa canais obsoletos para evitar canais travados sem som no Android
         LocalNotifications.deleteChannel({ id: "default" }).catch(() => {});
+        LocalNotifications.deleteChannel({ id: "mt24_delivery_alerts_v35" }).catch(() => {});
         LocalNotifications.createChannel({
-          id: "mt24_delivery_alerts_v35",
+          id: NOTIFICATION_CHANNEL_ID,
           name: "Novas Corridas MT 24 Horas",
           description: "Alerta de novas corridas disponíveis para entregadores MT 24 Horas",
           importance: 5,
           visibility: 1,
           vibration: true,
-          sound: "ring.mp3",
+          sound: "ring",
         }).catch(() => {});
       }
     }).catch(() => {});
@@ -113,7 +202,7 @@ export function sendNativeDeviceNotification(
   triggerDeviceVibration();
 
   // 2. Aciona Notificação Nativa do Celular (Android / iOS)
-  if (Capacitor.isNativePlatform()) {
+  if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
     try {
       LocalNotifications.schedule({
         notifications: [
@@ -121,8 +210,8 @@ export function sendNativeDeviceNotification(
             title: title || "Nova Corrida Disponível!",
             body: options?.body || "Acesse o app para aceitar a corrida",
             id: Math.floor(Math.random() * 100000),
-            channelId: "mt24_delivery_alerts_v35",
-            sound: "ring.mp3",
+            channelId: NOTIFICATION_CHANNEL_ID,
+            sound: "ring",
             extra: {
               tag: options?.tag || "mt24-delivery-new"
             }
@@ -177,6 +266,8 @@ export function stopGlobalAudioAlert() {
     loopTimeoutTimer = null;
   }
 
+  stopSynthesizedSiren();
+
   if (globalAudio) {
     const performPause = () => {
       try {
@@ -210,40 +301,58 @@ export function stopGlobalAudioAlert() {
 export function useAudioAlert() {
   const unlockAudio = useCallback(() => {
     requestNotificationPermission();
-    if (isUnlocked || !globalAudio) return;
-    globalAudio.muted = true;
-    globalAudio.volume = 0; // Silent playback to unlock context
-    const playPromise = globalAudio.play();
-    lastPlayPromise = playPromise;
-    playPromise
-      .then(() => {
-        try {
-          globalAudio!.pause();
-          globalAudio!.currentTime = 0;
-        } catch {}
-        globalAudio!.muted = false;
-        isUnlocked = true;
-        if (lastPlayPromise === playPromise) {
-          lastPlayPromise = null;
-        }
-      })
-      .catch((e) => {
-        if (globalAudio) globalAudio.muted = false;
-        if (lastPlayPromise === playPromise) {
-          lastPlayPromise = null;
-        }
-        if (import.meta.env.DEV) console.warn("[AudioAlert] Falha ao destravar áudio:", e);
-      });
-  }, []);
+    if (isUnlocked && globalAudio && !globalAudio.muted) return;
+    
+    // Desbloqueia Web Audio API
+    try {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+    } catch {}
 
-  const playAlert = useCallback(() => {
     if (globalAudio) {
-      globalAudio.currentTime = 0;
-      globalAudio.volume = 1.0;
+      globalAudio.muted = true;
+      globalAudio.volume = 0;
       const playPromise = globalAudio.play();
       lastPlayPromise = playPromise;
       playPromise
         .then(() => {
+          try {
+            globalAudio!.pause();
+            globalAudio!.currentTime = 0;
+          } catch {}
+          globalAudio!.muted = false;
+          globalAudio!.volume = 1.0;
+          isUnlocked = true;
+          if (lastPlayPromise === playPromise) {
+            lastPlayPromise = null;
+          }
+        })
+        .catch((e) => {
+          if (globalAudio) {
+            globalAudio.muted = false;
+            globalAudio.volume = 1.0;
+          }
+          if (lastPlayPromise === playPromise) {
+            lastPlayPromise = null;
+          }
+          if (import.meta.env.DEV) console.warn("[AudioAlert] Falha ao destravar áudio:", e);
+        });
+    }
+  }, []);
+
+  const playAlert = useCallback(() => {
+    let playedHtmlAudio = false;
+    if (globalAudio) {
+      globalAudio.currentTime = 0;
+      globalAudio.volume = 1.0;
+      globalAudio.muted = false;
+      const playPromise = globalAudio.play();
+      lastPlayPromise = playPromise;
+      playPromise
+        .then(() => {
+          playedHtmlAudio = true;
           if (lastPlayPromise === playPromise) {
             lastPlayPromise = null;
           }
@@ -252,8 +361,11 @@ export function useAudioAlert() {
           if (lastPlayPromise === playPromise) {
             lastPlayPromise = null;
           }
-          console.warn("[AudioAlert] Falha ao tocar alerta sonoro:", e);
+          console.warn("[AudioAlert] Fallback para sintetizador WebAudio:", e);
+          startSynthesizedSiren();
         });
+    } else {
+      startSynthesizedSiren();
     }
     triggerDeviceVibration();
   }, []);
@@ -265,13 +377,16 @@ export function useAudioAlert() {
   const startLoop = useCallback(() => {
     stopLoop();
 
+    let playedHtmlAudio = false;
     if (globalAudio) {
       globalAudio.loop = true;
       globalAudio.volume = 1.0;
+      globalAudio.muted = false;
       const playPromise = globalAudio.play();
       lastPlayPromise = playPromise;
       playPromise
         .then(() => {
+          playedHtmlAudio = true;
           if (lastPlayPromise === playPromise) {
             lastPlayPromise = null;
           }
@@ -280,9 +395,19 @@ export function useAudioAlert() {
           if (lastPlayPromise === playPromise) {
             lastPlayPromise = null;
           }
-          console.warn("[AudioAlert] Falha ao tocar alerta sonoro em loop:", e);
+          console.warn("[AudioAlert] Falha ao tocar áudio em loop, ativando sirene WebAudio:", e);
+          startSynthesizedSiren();
         });
+    } else {
+      startSynthesizedSiren();
     }
+
+    // Se após 600ms o áudio HTML não estiver tocando, garante a sirene WebAudio
+    setTimeout(() => {
+      if (globalAudio && globalAudio.paused && !playedHtmlAudio) {
+        startSynthesizedSiren();
+      }
+    }, 600);
 
     if (!vibrationInterval) {
       triggerDeviceVibration();
