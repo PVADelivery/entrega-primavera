@@ -1736,27 +1736,23 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
 
 ---
 
-### 158. Entregas Recusadas / Canceladas pelo Entregador Cancelando o Pedido no Sistema ou Não Retornando para Fila de Outros Entregadores
+### 158. Entregas Recusadas / Canceladas pelo Entregador Não Retornando para Fila de Outros Entregadores
 * **Sintoma**: 
-  1. Quando um entregador recusava ou desistia de uma corrida, ou quando lojista/admin precisava trocar de motorista, a entrega era cancelada definitivamente (`status = 'cancelled'`) no sistema e o pedido ficava cancelado para o cliente, em vez de voltar para ser aceito por outros entregadores da fila.
-  2. Corridas devolvidas para a fila não apareciam para os entregadores e ficavam invisíveis no aplicativo do entregador (`entrega-primavera`).
+  1. Quando um entregador recusava uma corrida despachada ou cancelava a entrega aceita pelo app do entregador (`entrega-primavera`), a entrega não voltava a aparecer na lista de disponíveis dos outros motoboys.
+  2. Corridas devolvidas para a fila não apareciam para os entregadores e ficavam invisíveis no aplicativo do entregador.
   3. Alertas sonoros e popups não tocavam para outros entregadores quando uma corrida era reaberta na fila se o pedido tivesse sido criado há mais de 10 minutos.
   4. Entregadores despachados diretamente pela central que clicavam em "RECUSAR" não liberavam a corrida no banco de dados (`driver_id` permanecia preso ao entregador no Supabase, travando a corrida para todos os outros).
 * **Causa Raiz**:
-  1. **Ausência da Ação de "Desvincular / Devolver para Fila" nos Painéis**: Tanto no Painel do Lojista (`business.index.tsx`) quanto no Painel Admin (`admin/deliveries.tsx`), a única ação disponível para o lojista/admin quando um entregador recusava ou demorava era o botão "Cancelar". Ao clicar nele, a função atualizava o status da entrega para `cancelled` e cancelava o pedido do cliente no banco de dados, em vez de desassociar o entregador e retornar o status para `pending`.
+  1. **Despacho Direto Travado no Recusar Local**: Quando a central despachava uma entrega diretamente para um entregador específico (`driver_id = id_do_motorista`), se o motoboy clicasse em "RECUSAR" no app (`driver.index.tsx`), o código apenas salvava o ID no `localStorage` (`declineDeliveryLocally`), sem chamar a RPC `unassign_delivery_driver` no banco. Com isso, o registro no Supabase continuava com `driver_id` preenchido e nunca voltava a ter `driver_id = null`, impedindo qualquer outro entregador de ver a corrida.
   2. **Inanição de Consulta sem Filtro de Status no SQL (`fetchAvailableDeliveries`)**: Em `entrega-primavera/src/services/deliveries.ts`, a query realizava `.select("*").order("created_at", { ascending: false }).limit(40)` sem filtrar por status diretamente no Supabase. Em horários com dezenas de entregas concluídas/canceladas no mesmo dia, as entregas pendentes eram empurradas para fora do limite de 40 registros e nunca chegavam ao aplicativo dos entregadores.
-  3. **Despacho Direto Travado no Recusar Local**: Quando um admin despachava uma entrega diretamente para um entregador específico (`driver_id = id_do_motorista`), se o motoboy clicasse em "RECUSAR" no app (`driver.index.tsx`), o código apenas salvava o ID no `localStorage` (`declineDeliveryLocally`), sem chamar a RPC `unassign_delivery_driver` no banco. Com isso, o registro no Supabase continuava com `driver_id` preenchido e nunca voltava a ter `driver_id = null`, impedindo qualquer outro entregador de ver a corrida.
-  4. **Silenciamento por Idade do Pedido no Polling (`useDriverNotifications.ts`)**: O hook rejeitava tocar o som e exibir popup caso `getElapsedSeconds(delivery.created_at) > 600` (10 minutos). Se um pedido foi feito há 15 minutos, atribuído a um entregador e este desistiu, ao ser devolvido para a fila o app dos outros entregadores silenciava a notificação achando que se tratava de um pedido antigo fantasma.
+  3. **Silenciamento por Idade do Pedido no Polling (`useDriverNotifications.ts`)**: O hook rejeitava tocar o som e exibir popup caso `getElapsedSeconds(delivery.created_at) > 600` (10 minutos). Se um pedido foi feito há 15 minutos, atribuído a um entregador e este desistiu, ao ser devolvido para a fila o app dos outros entregadores silenciava a notificação achando que se tratava de um pedido antigo fantasma.
 * **Solução Padrão**:
-  1. **Ação de "Trocar Entregador / Devolver para Fila" no Lojista e Admin**:
-     - No `painel-primavera`, criar e utilizar o hook `useUnassignDeliveryDriver()`, acionando a RPC `unassign_delivery_driver` (com fallback REST para `driver_id: null, status: 'pending'` e pedido como `'ready'`). Adicionar a opção no menu de ações da tabela e no modal de detalhes.
-     - No `lojista-primavera-1`, adicionar o botão destacado "Trocar Entregador" no `DeliveryCard`, limpando o motorista e devolvendo a entrega para o status `pending` sem cancelar a venda do lojista.
-     - Em ambos os painéis, adicionar confirmação clara no botão "Cancelar Entrega" alertando que ele cancela o pedido do cliente e instruindo a usar "Trocar Entregador" se o objetivo for apenas chamar outro motorista.
+  1. **Liberação Imediata no Banco ao Recusar**:
+     - Em `driver.index.tsx`, na função `onDecline`, verificar se a entrega possui `driver_id` atribuído (`item.delivery.driver_id`) e invocar `cancelDelivery(item.delivery.id)` (que executa `unassign_delivery_driver` / `driver_id: null, status: 'pending'`) para zerar o `driver_id` no Supabase imediatamente, permitindo que os outros motoristas a aceitem.
   2. **Filtro de Status Direto no Banco em `fetchAvailableDeliveries`**:
      - Em `entrega-primavera/src/services/deliveries.ts`, aplicar `.in("status", ["pending", "searching_driver", "broadcasted", "driver_assigned"])` diretamente na query SQL do Supabase, garantindo que o limite de registros traga apenas entregas ativas e disponíveis.
-  3. **Liberação Imediata no Banco ao Recusar**:
-     - Em `driver.index.tsx`, na função `onDecline`, verificar se a entrega possui `driver_id` atribuído (`item.delivery.driver_id`) e invocar `cancelDelivery(item.delivery.id)` (que executa `unassign_delivery_driver`) para zerar o `driver_id` no Supabase imediatamente, permitindo que os outros motoristas a aceitem.
-  4. **Notificação Sonoro-Visual Resiliente para Reaberturas**:
+  3. **Notificação Sonoro-Visual Resiliente para Reaberturas**:
      - Em `useDriverNotifications.ts`, verificar se a entrega foi reaberta recentemente (`updated_at` nos últimos 5 minutos). Se `isReopened` for verdadeiro, permitir que a notificação e sirene toquem normalmente mesmo que `created_at` seja superior a 10 minutos.
+
 
 
