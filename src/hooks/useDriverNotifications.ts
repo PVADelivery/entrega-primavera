@@ -167,6 +167,10 @@ export function useDriverNotifications() {
           localStorage.setItem("driver_fcm_token", tokenVal);
 
           if (user?.id) {
+            const platform = Capacitor.getPlatform();
+            const app = "entregador";
+            const bundle_id = "com.mt24horasexpress.entregador";
+
             await supabase.from("delivery_drivers").update({ fcm_token: tokenVal } as any).eq("user_id", user.id);
             await supabase.from("delivery_drivers").update({ fcm_token: tokenVal } as any).eq("id", user.id);
 
@@ -176,11 +180,29 @@ export function useDriverNotifications() {
                 .upsert({
                   token: tokenVal,
                   user_id: user.id,
-                  platform: Capacitor.getPlatform(),
+                  platform,
+                  app,
+                  bundle_id,
                   updated_at: new Date().toISOString(),
                 } as any, { onConflict: "token" });
             } catch (e) {
               console.warn("[FCM] device_tokens update error:", e);
+            }
+
+            // Notifica backend Edge Function send-push para converter APNs (se iOS) e vincular
+            try {
+              await supabase.functions.invoke("send-push", {
+                body: {
+                  action: "register_token",
+                  token: tokenVal,
+                  userId: user.id,
+                  platform,
+                  app,
+                  bundleId: bundle_id,
+                },
+              });
+            } catch (e) {
+              console.warn("[FCM] Falha ao registrar token na Edge Function:", e);
             }
           }
         };
