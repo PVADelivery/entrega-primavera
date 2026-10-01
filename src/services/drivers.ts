@@ -80,7 +80,17 @@ export async function fetchDrivers(): Promise<DriverWithProfile[]> {
       processedDriverIds.add(dUserId);
     }
 
-    const raw = driver as any;
+    // Se o motorista estiver marcado como "deleted", só ignora se ele realmente não estiver online
+    // e não possuir role ativa de driver em profiles/user_roles.
+    const isOnline = raw.is_online ?? raw.online ?? false;
+    const hasActiveRole = roleDriverUserIds.includes(dUserId) || (dUserId && profileDriverUserIds.includes(dUserId));
+    
+    if (raw.status === "deleted" && !isOnline && !hasActiveRole) {
+      if (driver.user_id) processedUserIds.add(driver.user_id);
+      if (driver.id) processedDriverIds.add(driver.id);
+      continue;
+    }
+
     const dName = (raw.full_name || raw.name || "").trim().toLowerCase();
     const rawCleanPhone = (raw.phone || raw.whatsapp || raw.celular || "").replace(/\D/g, "");
 
@@ -102,21 +112,28 @@ export async function fetchDrivers(): Promise<DriverWithProfile[]> {
       driver.user_id = targetUserId;
     }
 
+    const driverName = raw.full_name || profile?.full_name || raw.name || "Entregador";
+    if (/^driver\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)/i.test(driverName.trim())) {
+      continue;
+    }
+
     resultDrivers.push({
       id: driver.id || driver.user_id,
       user_id: driver.user_id || driver.id,
-      full_name: raw.full_name || profile?.full_name || raw.name || "Entregador",
+      full_name: driverName,
       phone: raw.phone || profile?.phone || null,
       document: raw.document || profile?.document || raw.cpf || null,
       avatar_url: raw.avatar_url || profile?.avatar_url || null,
       vehicle_type: raw.vehicle_type || raw.vehicle || "moto",
       vehicle_plate: raw.vehicle_plate || raw.license_plate || raw.plate || null,
-      is_online: raw.is_online ?? raw.online ?? false,
+      is_online: isOnline,
+      online: isOnline,
       rating: Number(driver.rating) || 5.0,
       latitude: raw.latitude || raw.current_latitude || null,
       longitude: raw.longitude || raw.current_longitude || null,
-      status: raw.status || (raw.is_active === false ? "suspended" : "active"),
+      status: (raw.status === "deleted" && (isOnline || hasActiveRole)) ? "active" : (raw.status || "active"),
       commission_rate: raw.commission_rate !== null && raw.commission_rate !== undefined ? Number(raw.commission_rate) : 25.00,
+      service_types: raw.service_types || [],
       created_at: driver.created_at || profile?.created_at,
     });
   }
@@ -131,6 +148,8 @@ export async function fetchDrivers(): Promise<DriverWithProfile[]> {
       const isDummySeed = /^driver\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)/i.test(name.trim());
       if (isDummySeed) continue;
 
+      const isOnline = profile?.is_online ?? profile?.online ?? false;
+
       resultDrivers.push({
         id: userId,
         user_id: userId,
@@ -140,12 +159,14 @@ export async function fetchDrivers(): Promise<DriverWithProfile[]> {
         avatar_url: profile?.avatar_url || null,
         vehicle_type: "moto",
         vehicle_plate: null,
-        is_online: false,
+        is_online: isOnline,
+        online: isOnline,
         rating: 5.0,
         latitude: null,
         longitude: null,
         status: "active",
         commission_rate: 25.00,
+        service_types: [],
         created_at: profile?.created_at || new Date().toISOString(),
       });
       processedUserIds.add(userId);
