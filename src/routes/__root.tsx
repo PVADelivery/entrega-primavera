@@ -14,10 +14,18 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WorkModeProvider } from "@/hooks/useWorkMode";
 import { Toaster } from "@/components/ui/sonner";
 
-import { initializeGlobalErrorHandlers, reportErrorToTelegram } from "@/services/logger";
+import { initializeGlobalErrorHandlers, reportErrorToTelegram, reportInvalidRoute } from "@/services/logger";
 import { useEffect } from "react";
 
 function NotFoundComponent() {
+  useEffect(() => {
+    reportInvalidRoute(
+      typeof window !== "undefined" ? window.location.pathname : "/404",
+      { referrer: typeof document !== "undefined" ? document.referrer : "Direto" },
+      "App Entregador"
+    );
+  }, []);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">

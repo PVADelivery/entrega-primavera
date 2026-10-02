@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { ThemeToggle } from "@/components/driver/ThemeToggle";
 import { Eye, EyeOff } from "lucide-react";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
+import { reportFailedLogin } from "@/services/logger";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -53,6 +54,7 @@ function LoginPage() {
       navigate({ to: "/driver" });
     } catch (err: any) {
       const msg = err?.message || "";
+      reportFailedLogin(email.trim().toLowerCase(), { error_message: msg }, "MT 24 Horas Express - Entregador");
       if (msg.includes("Invalid login credentials") || msg.includes("invalid_grant")) {
         toast.error("E-mail ou senha incorretos. Verifique seus dados.");
       } else if (msg.includes("Email not confirmed")) {

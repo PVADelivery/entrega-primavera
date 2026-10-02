@@ -87,7 +87,7 @@ function DriverHome() {
       // Buscar perfil para complementar service_types e vehicle_type se necessário
       const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
 
-      const rawServices = (dataRes as any)?.service_types || prof?.service_types || [];
+      const rawServices = (dataRes as any)?.service_types || (prof as any)?.service_types || [];
       const parsedServices = Array.isArray(rawServices) ? rawServices : [];
       
       setDriverServiceTypes(parsedServices);
