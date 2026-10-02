@@ -152,6 +152,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 import { Capacitor } from "@capacitor/core";
+import { GlobalAntiSpam } from "@/components/GlobalAntiSpam";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -172,6 +173,7 @@ function RootComponent() {
       <ThemeProvider>
         <AuthProvider>
           <WorkModeProvider>
+            <GlobalAntiSpam appName="App Entregador" />
             <Outlet />
             <Toaster position="top-center" richColors />
           </WorkModeProvider>

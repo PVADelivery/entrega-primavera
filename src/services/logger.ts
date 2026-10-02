@@ -6,6 +6,8 @@ export interface ErrorPayload {
   stack_trace?: string;
   url?: string;
   additional_info?: Record<string, any>;
+  is_spam?: boolean;
+  is_attack?: boolean;
 }
 
 const TELEGRAM_BOT_TOKEN = "8408781765:AAEoxY7J9VrNeagGNFu1yHpW3HQlq103gmM";
@@ -23,6 +25,22 @@ function escapeHtml(input: unknown, max = 1500): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
   return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
+export async function reportSpamToTelegram(
+  reason: string,
+  details: Record<string, any> = {},
+  appName = "App Entregador"
+) {
+  return reportErrorToTelegram(
+    {
+      error_message: `[SPAM / ABUSO] ${reason}`,
+      url: typeof window !== "undefined" ? window.location.href : "N/A",
+      is_spam: true,
+      additional_info: details,
+    },
+    appName
+  );
 }
 
 export async function reportErrorToTelegram(payload: ErrorPayload, appName = "App Entregador") {
@@ -93,6 +111,8 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
       user_id: user?.id || "Não autenticado",
       user_email: user?.email || "Anônimo",
       url: payload.url || window.location.href,
+      is_spam: payload.is_spam || false,
+      is_attack: payload.is_attack || false,
       additional_info: {
         userAgent: navigator.userAgent,
         screenResolution: `${window.innerWidth}x${window.innerHeight}`,
@@ -117,12 +137,30 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
     // 2. Direct Fallback if Edge function failed or is unconfigured
     if (!edgeSuccess) {
       const timestamp = new Date().toLocaleString("pt-BR", { timeZone: "America/Cuiaba" });
-      let messageText = `🚨 <b>ERRO NO SISTEMA / TELA (Direct)</b> 🚨\n\n`;
-      messageText += `📱 <b>App:</b> ${escapeHtml(appName, 80)}\n`;
-      messageText += `🕒 <b>Hora:</b> ${escapeHtml(timestamp, 50)}\n`;
-      messageText += `🔗 <b>URL:</b> <code>${escapeHtml(requestBody.url, 250)}</code>\n`;
-      messageText += `👤 <b>Usuário:</b> ${escapeHtml(requestBody.user_email, 100)} (<code>${escapeHtml(requestBody.user_id, 60)}</code>)\n\n`;
-      messageText += `⚠️ <b>Mensagem:</b>\n<b>${escapeHtml(requestBody.error_message, 800)}</b>\n\n`;
+      const isSecurityAlert = Boolean(
+        payload.is_spam ||
+        payload.is_attack ||
+        msg.includes("[spam]") ||
+        msg.includes("[ataque detectado]") ||
+        msg.includes("[abuso]")
+      );
+
+      let messageText = "";
+      if (isSecurityAlert) {
+        messageText += `🛡️ <b>ALERTA DE SEGURANÇA: SPAM / ABUSO DETECTADO (Direct)</b> 🛡️\n\n`;
+        messageText += `📱 <b>Módulo / App:</b> ${escapeHtml(appName, 80)}\n`;
+        messageText += `🕒 <b>Hora:</b> ${escapeHtml(timestamp, 50)}\n`;
+        messageText += `🔗 <b>URL:</b> <code>${escapeHtml(requestBody.url, 250)}</code>\n`;
+        messageText += `👤 <b>Usuário:</b> ${escapeHtml(requestBody.user_email, 100)} (<code>${escapeHtml(requestBody.user_id, 60)}</code>)\n\n`;
+        messageText += `⚠️ <b>Tipo de Abuso / Alerta:</b>\n<b>${escapeHtml(requestBody.error_message, 800)}</b>\n\n`;
+      } else {
+        messageText += `🚨 <b>ERRO NO SISTEMA / TELA (Direct)</b> 🚨\n\n`;
+        messageText += `📱 <b>App:</b> ${escapeHtml(appName, 80)}\n`;
+        messageText += `🕒 <b>Hora:</b> ${escapeHtml(timestamp, 50)}\n`;
+        messageText += `🔗 <b>URL:</b> <code>${escapeHtml(requestBody.url, 250)}</code>\n`;
+        messageText += `👤 <b>Usuário:</b> ${escapeHtml(requestBody.user_email, 100)} (<code>${escapeHtml(requestBody.user_id, 60)}</code>)\n\n`;
+        messageText += `⚠️ <b>Mensagem:</b>\n<b>${escapeHtml(requestBody.error_message, 800)}</b>\n\n`;
+      }
 
       if (requestBody.stack_trace) {
         messageText += `📜 <b>Stack Trace:</b>\n<pre>${escapeHtml(requestBody.stack_trace, 1200)}</pre>\n\n`;
@@ -236,6 +274,25 @@ export function initializeGlobalErrorHandlers(appName: string) {
         return originalToastError.apply(rawToast, [message, options]);
       };
       rawToast.__telegram_patched = true;
+    }
+  } catch {}
+
+  // Intercept fetch calls for HTTP 429 (Rate Limit / Bloqueio de Spam do Servidor)
+  try {
+    const rawFetch = window.fetch;
+    if (rawFetch && !(rawFetch as any).__telegram_fetch_patched) {
+      window.fetch = async function (...args) {
+        const response = await rawFetch.apply(this, args);
+        if (response && response.status === 429) {
+          const targetUrl = typeof args[0] === "string" ? args[0] : (args[0] as Request)?.url || "Desconhecido";
+          reportSpamToTelegram("Servidor retornou HTTP 429 (Rate Limit / Bloqueio de Spam)", {
+            url: targetUrl,
+            status: 429,
+          }, appName);
+        }
+        return response;
+      };
+      (window.fetch as any).__telegram_fetch_patched = true;
     }
   } catch {}
 
