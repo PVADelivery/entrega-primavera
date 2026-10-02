@@ -47,13 +47,21 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const {
       app_name = "App Desconhecido",
-      error_message = "Sem mensagem de erro",
+      error_message = "",
       stack_trace = "",
       url = "N/A",
       user_id,
       user_email,
       additional_info = {},
     } = body ?? {};
+
+    // Ignora chamadas sem mensagem real de erro (ex: cliques de teste no dashboard do Supabase, crawlers ou pings vazios)
+    if (!error_message || error_message === "Sem mensagem de erro" || error_message.trim() === "") {
+      return new Response(JSON.stringify({ success: true, ignored: true, reason: "Empty error payload ignored" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const finalEmail = (user_email && user_email !== "Anônimo") ? user_email : authedUserEmail;
     const finalUserId = (user_id && user_id !== "Não autenticado") ? user_id : authedUserId;

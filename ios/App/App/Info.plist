@@ -54,8 +54,6 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
-		<string>fetch</string>
-		<string>audio</string>
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>O MT 24 Horas Entregador necessita de notificações ativas para alertar imediatamente sobre novas corridas e entregas disponíveis mesmo com o aplicativo fechado ou em segundo plano.</string>
