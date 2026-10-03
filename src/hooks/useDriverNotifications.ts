@@ -189,9 +189,9 @@ export function useDriverNotifications() {
               console.warn("[FCM] device_tokens update error:", e);
             }
 
-            // Notifica backend Edge Function send-push para converter APNs (se iOS) e vincular
+            // Notifica backend Edge Function notify-driver para converter APNs (se iOS) e vincular
             try {
-              await supabase.functions.invoke("send-push", {
+              const res = await supabase.functions.invoke("notify-driver", {
                 body: {
                   action: "register_token",
                   token: tokenVal,
@@ -201,8 +201,20 @@ export function useDriverNotifications() {
                   bundleId: bundle_id,
                 },
               });
+              if (res.error) throw res.error;
             } catch (e) {
-              console.warn("[FCM] Falha ao registrar token na Edge Function:", e);
+              try {
+                await supabase.functions.invoke("send-push", {
+                  body: {
+                    action: "register_token",
+                    token: tokenVal,
+                    userId: user.id,
+                    platform,
+                    app,
+                    bundleId: bundle_id,
+                  },
+                });
+              } catch (_) {}
             }
           }
         };

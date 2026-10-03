@@ -95,6 +95,9 @@ async function convertApnsToFcm(
     "com.mt24horasexpress.entregador",
     "com.mt24horasexpress.delivery",
     "com.mt24horasexpress.cliente",
+    "com.primavera.cliente",
+    "com.primavera.entregador",
+    "com.primavera.lojista",
   ].filter((val, idx, self) => Boolean(val) && self.indexOf(val) === idx);
 
   for (const bId of candidateBundles) {
@@ -183,7 +186,7 @@ serve(async (req) => {
       const explicitBundle = payload.bundleId ? String(payload.bundleId).trim() : "com.mt24horasexpress.entregador";
       const now = new Date().toISOString();
 
-      if (/^[0-9a-fA-F]{64}$/.test(rawToken)) {
+      if (/^[0-9a-fA-F]{64,}$/i.test(rawToken)) {
         try {
           const accessToken = await getAccessToken(saParsed);
           const fcmToken = await convertApnsToFcm(accessToken, rawToken, explicitBundle);
@@ -296,7 +299,7 @@ serve(async (req) => {
 
     const finalTokens: string[] = [];
     for (const t of rawTokens) {
-      if (/^[0-9a-fA-F]{64}$/.test(t) && accessToken) {
+      if (/^[0-9a-fA-F]{64,}$/i.test(t) && accessToken) {
         const converted = await convertApnsToFcm(accessToken, t, "com.mt24horasexpress.entregador");
         if (converted) {
           finalTokens.push(converted);
