@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -139,6 +139,16 @@ function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Acesso exclusivo para entregadores parceiros.
+        </p>
+
+        <p className="mt-4 text-center text-xs text-muted-foreground/80 leading-relaxed">
+          <Link to="/privacy" className="underline hover:text-foreground">
+            Política de Privacidade
+          </Link>{" "}
+          •{" "}
+          <Link to="/terms" className="underline hover:text-foreground">
+            Termos de Uso
+          </Link>
         </p>
       </div>
     </div>
