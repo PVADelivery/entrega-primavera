@@ -395,7 +395,7 @@ serve(async (req) => {
         title: notifTitle,
         body: notifBody,
         message: notifBody,
-        sound: 'notification_sound.mp3',
+        sound: 'ring.mp3',
         priority: 'high',
         route: isRide ? `/driver?rideId=${record.id}` : `/driver?deliveryId=${record.id}`
       },
@@ -424,7 +424,7 @@ serve(async (req) => {
               title: notifTitle,
               body: notifBody
             },
-            sound: 'notification_sound.mp3',
+            sound: 'ring.mp3',
             badge: deliveryBadge
           }
         }
