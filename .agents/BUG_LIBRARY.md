@@ -1754,5 +1754,336 @@ Este documento registra os bugs encontrados no sistema, suas causas raízes e as
   3. **Notificação Sonoro-Visual Resiliente para Reaberturas**:
      - Em `useDriverNotifications.ts`, verificar se a entrega foi reaberta recentemente (`updated_at` nos últimos 5 minutos). Se `isReopened` for verdadeiro, permitir que a notificação e sirene toquem normalmente mesmo que `created_at` seja superior a 10 minutos.
 
+---
+
+### 159. Ocultação de Entregadores no Painel Admin e Modal de Direcionamento Restrito a Online
+* **Sintoma**: O Administrador/cliente reclamou que vários entregadores cadastrados não apareciam no Painel Admin (`/admin/drivers`), nem na listagem de entregadores da tela de entregas (`/admin/deliveries`).
+* **Causa Raiz**:
+  1. **Ausência de Busca em `user_roles`**: A função `fetchDrivers()` em `painel-primavera/src/services/drivers.ts` consultava apenas `delivery_drivers` e `profiles`. Usuários que se cadastraram via convite/Auth têm papel gravado em `user_roles` (`role = 'driver'`), mas seus perfis em `profiles` podem ter `role = null` ou ainda não possuir linha espelhada em `delivery_drivers`. Com isso, esses entregadores eram completamente ignorados.
+  2. **Exclusão Indevida por `status = 'deleted'`**: Entregadores que sofreram exclusões parciais ou testes anteriores ficavam com flag `status = 'deleted'` em `delivery_drivers`, sendo descartados por `fetchDrivers` mesmo possuindo cadastro e login ativos.
+  3. **Modal de Direcionamento em `/admin/deliveries` Filtrando Estritamente `is_online: true`**: Ao clicar em "Direcionar" para atribuir uma entrega a um entregador, o modal executava `drivers.filter(d => d.is_online)`. Se os entregadores estivessem offline no exato momento, o modal exibia "Nenhum entregador online" e ocultava todos os demais entregadores da frota.
+  4. **Filtro de Abas Rígido em `/admin/drivers`**: Comparação estrita `d.vehicle_type === "moto"` sem conversão para minúsculas e sem suporte a variações de tipos de serviço (`motoboy`, `car`, etc.).
+* **Solução Padrão**:
+  1. Atualizar `fetchDrivers()` para mesclar `delivery_drivers`, `user_roles` e `profiles`, recuperando 100% dos usuários com papéis de motorista (`driver`, `motoboy`, `entregador`, `taxi`, `mototaxi`, `motorista`).
+  2. Ajustar a verificação de `status = 'deleted'` para mantê-los se estiverem online ou com role ativa no Auth.
+  3. Reformular o modal de direcionamento de `/admin/deliveries` para listar **todos os entregadores cadastrados**, com motoristas online destacados no topo (`● Online`), entregadores cadastrados abaixo (`● Cadastrado`), e campo de busca rápida por nome, fone ou placa.
+  4. Flexibilizar o filtro de abas em `/admin/drivers` normalizando `(d.vehicle_type || '').toLowerCase()` e aceitando termos comuns de serviço.
+
+---
+
+### 160. Erro 409 Conflict no Supabase PostgREST por Auto-Heal Mutativo em `fetchDrivers`
+* **Sintoma**: No console do navegador apareciam erros em cascata:
+  `Failed to load resource: the server responded with a status of 409 ()`
+  `[fetchDrivers] Auto-healed driver 7aa34541-7ce4-4f7f-95ed-8072d6bda1e9 with user_id 6b042e4d-390d-48fb-9b57-612b8d5d1353`
+* **Causa Raiz**:
+  A função `fetchDrivers()` continha um efeito colateral (`side-effect`) que executava `supabase.from("delivery_drivers").update({ user_id: targetUserId }).eq("id", driver.id)` durante uma requisição de leitura (GET). Como a coluna `user_id` na tabela `delivery_drivers` possui restrição de unicidade (`UNIQUE`), quando `targetUserId` já pertencia a outro registro, o banco rejeitava com HTTP 409 (Conflict / Unique violation). Além disso, por rodar a cada refetch de React Query, gerava um loop contínuo de erros 409 na rede.
+* **Solução Padrão**:
+  1. Remover completamente qualquer chamada mutativa (`.update(...)`) de dentro da função de leitura `fetchDrivers()`.
+  2. Resolver o `user_id` estritamente em memória: `const finalUserId = driver.user_id || targetUserId || driver.id;`, eliminando 100% dos erros 409 e preservando a idempotência da consulta.
+
+---
+
+### 161. Faturamento Zerado (R$ 0,00) e 0 Entregas Concluídas no Dashboard do Painel Admin
+* **Sintoma**: 
+  No Dashboard do Painel Admin (`/admin`), mesmo havendo dezenas de entregas finalizadas na seção "Atividade Recente" (com valores como R$ 10,00, R$ 11,50, R$ 15,00) e 47 entregas no status `delivered`:
+  - O card de Faturamento exibia `R$ 0,00` e `0 entregas concluídas`.
+  - O card de Pedidos exibia `50 Pedidos (0 entregues)`.
+  - O gráfico "Tendência de Receita" exibia "Sem receita no período".
+  - O gráfico de pizza "Distribuição de Status" exibia a fatia cinza com texto em inglês bruto `47 delivered`.
+* **Causa Raiz**:
+  1. **Discrepância de Enum de Status no Filtro**: No banco PostgreSQL/Supabase, as entregas concluídas são armazenadas com `status = 'delivered'`. No arquivo `painel-primavera/src/routes/admin/index.tsx`, as métricas de receita e entregas concluídas filtravam estritamente por `d.status === "completed"`, resultando em um array vazio `[]` e faturamento R$ 0,00.
+  2. **Timestamp do Gráfico de Tendência**: O gráfico de tendência filtrava por `d.status === "completed" && d.completed_at?.startsWith(...)`. As entregas têm status `delivered` e carimbo salvo em `delivered_at` (ou `completed_at` ou `created_at`), fazendo com que o somatório de todos os dias resultasse em 0.
+  3. **Falta de Mapeamento de Cores e Nomes para `delivered` no Gráfico de Status**: O dicionário de cores continha `completed`, mas não mapeava `delivered`, caindo no cinza padrão (`#888`), e os nomes dos status eram exibidos sem tradução para português.
+  4. **Parâmetro `sinceDays` Ignorado em `useDeliveries`**: A chamada `useDeliveries({ sinceDays: days })` não tinha correspondência no hook `useDeliveries`, que aceitava apenas `dateFrom` e paginava em 50 registros.
+* **Solução Padrão**:
+  1. Criar helpers universais em `admin/index.tsx`:
+     - `const isDelivered = (s?: string) => s === "delivered" || s === "completed" || s === "concluded" || s === "finalizada";`
+     - `const isInTransit = (s?: string) => ["in_route", "in_transit", "collecting", "collected", "accepted"].includes(s || "");`
+  2. Atualizar o cálculo de receita para `Number(d.value ?? d.price ?? 0)` considerando `isDelivered(d.status)`.
+  3. No gráfico de tendência, verificar `isDelivered(d.status)` e comparar a data local formatada de `(d.delivered_at || d.completed_at || d.created_at)`.
+  4. Adicionar suporte a `sinceDays` no hook `useDeliveries` (`effectiveDateFrom` dinâmico e `pageSize: 1000` quando `sinceDays` for passado).
+  5. Adicionar mapeamento de cores (`delivered: "hsl(145 63% 42%)"`) e rótulos amigáveis em português (`Entregue`, `Disponível`, `Cancelado`, `Em trânsito`, etc.) na Distribuição de Status.
 
 
+
+
+---
+
+### 162. Contas Duplicadas de Entregadores/Testes e Ausência de E-mail de Acesso no Painel Admin (`drivers.ts`, `drivers.tsx`, `EditDriverDialog.tsx`)
+* **Sintoma**: 
+  1. O administrador ou usuário identifica cadastros duplicados com o mesmo número de telefone ou nomes parecidos (exemplo: "Anthony Both" e "Anthony Both 2") com veículos ou comissões distintas (15% vs 25%).
+  2. Dificuldade do administrador em confirmar qual conta corresponde a qual login de e-mail de acesso, pois a listagem de entregadores e motoristas no Painel Admin não exibia os e-mails associados e não permitia pesquisar por e-mail.
+* **Causa Raiz**:
+  1. **Contas de Teste / Registros Separados em `delivery_drivers`**: Durante fases de desenvolvimento ou homologação de novas frotas (ex: separar veículo moto e carro, ou testar taxas de 15% e 25%), foram criados dois registros de motoristas distintos no banco de dados Supabase com o mesmo telefone. Ambos permaneciam como registros válidos e ativos no banco.
+  2. **Ausência da Coluna e Resolução de E-mail na Interface**: O tipo `DriverWithProfile` e o serviço `fetchDrivers()` não mapeavam nem cruzavam os e-mails das tabelas de autenticação/clientes (`customers`, `invitations`, `customer_credits`, `profiles`). A tabela em `admin/drivers.tsx` não possuía uma coluna dedicada de `E-mail / Acesso`, impossibilitando o administrador de verificar o login exato de cada entregador ou filtrar pelo endereço de e-mail.
+* **Solução Padrão**:
+  1. **Mapeamento de E-mail em `fetchDrivers`**: Buscar em paralelo dados de `customers`, `invitations` e `customer_credits` e associar o e-mail prioritário (`raw.email`, `profile.email`, `customer.email`, `invitations.email`).
+  2. **Exibição no Painel Admin (`drivers.tsx`)**:
+     - Adicionar coluna de cabeçalho e célula `E-mail / Acesso` com ícone `Mail`.
+     - Exibir sub-linha com e-mail também na visualização mobile.
+     - Incluir `driver.email` no filtro de busca textual da página.
+  3. **Visualização no Modal de Edição (`EditDriverDialog.tsx`)**: Exibir um badge destacado com o e-mail de login do entregador no topo do formulário.
+  4. **Exclusão de Contas Obsoletas**: Para contas duplicadas de teste, o administrador pode clicar no menu de ações `...` da linha do entregador obsoleto e selecionar "Excluir", removendo o registro duplicado da frota ativa.
+
+---
+
+### 163. Dúvida sobre Comissão de 15% em Entregador e Fixação Estrita de 25% de Comissão (`CreateDriverDialog.tsx`, `EditDriverDialog.tsx`, `drivers.ts`)
+* **Sintoma**: 
+  O administrador visualizou um entregador na listagem com taxa de comissão de 15% ("Anthony Both 2") e questionou de onde surgiu esse valor, reforçando que no MT 24 Horas Express **todas as comissões são estritamente de 25%**.
+* **Causa Raiz**:
+  1. No código-fonte dos aplicativos e painéis, a taxa padrão do sistema sempre foi de **25%** (repassando 75% ao entregador e retendo 25% para a central). Em nenhum lugar do código existia regra de 15% para entregadores.
+  2. Aquele valor de **15%** estava salvo **diretamente no registro daquele motorista no banco de dados Supabase** (`delivery_drivers.commission_rate = 15`), tendo sido digitado manualmente durante algum teste anterior.
+  3. No modal `CreateDriverDialog.tsx`, a função `reset()` possuía um valor resquício de `commissionRate: "0.40"`, e o fallback de `EditDriverDialog.tsx` utilizava `|| 0`.
+* **Solução Padrão**:
+  1. **Ajuste em Tempo Real pelo Painel**: O administrador pode alterar a comissão de qualquer entregador para **25%** imediatamente clicando em `...` -> **Editar Informações**, ou excluir a conta de teste duplicada em `...` -> **Excluir**.
+  2. **Padronização Estrita nos Modais**: Corrigir `commissionRate` para `"25"` em `CreateDriverDialog.tsx` e definir o fallback obrigatório de `commission_rate: parseFloat(form.commission) || 25` em `EditDriverDialog.tsx`.
+
+---
+
+### 164. Erros HTTP 400 em `customers` e HTTP 404 em `drivers` no Módulo de Chat do Painel Admin (`chat.tsx`)
+* **Sintoma**: 
+  No console do navegador do Painel Admin apareciam dois erros no carregamento das conversas de atendimento/chat:
+  `GET https://.../rest/v1/customers?select=user_id,full_name,phone... 400 (Bad Request)`
+  `GET https://.../rest/v1/drivers?select=user_id,full_name,phone... 404 (Not Found)`
+* **Causa Raiz**:
+  1. No arquivo `src/routes/admin/chat.tsx`, a busca de enriquecimento de motoristas consultava a tabela inexistente `drivers` em vez de `delivery_drivers`, disparando HTTP 404 Not Found no Supabase PostgREST.
+  2. A busca de clientes consultava a coluna inexistente `full_name` na tabela `customers` (onde a coluna correta é `name`), disparando HTTP 400 Bad Request no PostgREST (`column customers.full_name does not exist`).
+* **Solução Padrão**:
+  1. Alterar a consulta de motoristas para `supabase.from("delivery_drivers" as any).select("user_id, full_name, phone")`.
+  2. Alterar a consulta de clientes para `supabase.from("customers" as any).select("user_id, name, phone")` e mapear para `{ ...c, full_name: c.name || c.full_name }`.
+
+
+---
+
+### 165. Redesign "Layout de Milhões" da Central de Negócios (Imóveis, Locação e Veículos) no Marketplace (`marketplace.business.index.tsx`, `marketplace.business.vehicles.tsx`)
+* **Sintoma**: 
+  O layout anterior da Central de Negócios (`/marketplace/business` e `/marketplace/business/vehicles`) apresentava visual básico e simplório (tags cinzas genéricas, ausência de banners de destaque, selects nativos sem estilização e ausência de tratamento gráfico refinado para anúncios sem fotografias), gerando insatisfação visual do usuário ("layout uma porcaria").
+* **Causa Raiz**:
+  O módulo de classificados utilizava componentes genéricos básicos com cards brancos simples, sem gradientes de alto contraste, sem ambient glow obsidian/gold, sem carrosséis interativos modernos com contadores estilizados, e sem mockups arquitetônicos/automotivos de alto padrão para anúncios que ainda não possuíam fotos anexadas.
+* **Solução Padrão**:
+  1. **Hero Banners de Alto Padrão (Obsidian & Gold Ambient Glow)**:
+     - Fundo em gradientes escuros refinados (`from-slate-950 via-zinc-900 to-black`) com pontos de iluminação suave em ouro e esmeralda.
+     - Badges de prestígio ("OPORTUNIDADES EXCLUSIVAS" e "GARAGEM VIP") e contadores de anúncios ativos com backdrop blur.
+     - Abas de navegação direta estilizadas entre Imóveis e Veículos.
+  2. **Sistema de Filtros e Busca de Milhões**:
+     - Campo de busca com glassmorphism, anel de foco dourado e botão de limpeza instantânea.
+     - Seletores de transação (Locação / Venda / Favoritos com contador dinâmico e coração pulsante).
+     - Pílulas de categorias com ícones dedicados (Casa, Apartamento, Sala, Kitnet, Terreno / Carro, Moto, Caminhão, Utilitário).
+     - Dropdowns de Bairros, Cidades e Ordenação encapsulados em cards com ícones personalizados.
+  3. **Cards de Anúncios de Luxo**:
+     - Aspect ratio cinematográfico 16/10 com hover zoom suave.
+     - Badges flutuantes no topo com efeito vidro fosco (frosted glass) e gradientes de destaque.
+     - **Canvas Mockup Arquitetônico e Automotivo**: Quando o anúncio não possui fotos enviadas pelo proprietário, um canvas artístico de luxo com malha geométrica, ícones e insígnia oficial (`MT 24HORAS EXPRESS • EXCLUSIVIDADE` ou `GARAGEM VIP`) é renderizado no lugar de caixas cinzas vazias.
+     - Faixa de especificações técnicas em micro-cards destacados (m² de área, quartos, banheiros, vagas / ano, km, combustível, câmbio).
+     - Tipografia proeminente de valores e botão de conversão WhatsApp verde neon com mensagem personalizada pré-formatada.
+     - Botão flutuante dourado de ação para publicação rápida de anúncios.
+
+
+---
+
+### 166. Truncamento de Especificações de Veículos ("2...", "27...") e Desproporção do Botão WhatsApp no Footer dos Cards (`marketplace.business.vehicles.tsx`, `marketplace.business.index.tsx`)
+* **Sintoma**: 
+  1. Em telas mobile ou em grids de 2 colunas, os chips de especificações técnicas dos veículos (ano, quilometragem, etc.) eram cortados por reticências precoces (ex: ano `2021` virava `📅 2...` e quilometragem `27.000 km` virava `⏱️ 27...`).
+  2. Na parte inferior do card, o botão verde do WhatsApp ficava exprimido no canto direito ao lado de valores longos, gerando espaçamento vertical desigual e desarmonia visual.
+  3. Trechos de descrição redundantes de 1 palavra (ex: "Civic" sob o título "Honda Civic 1.9", ou fragmentos como "At") poluíam o topo do card.
+* **Causa Raiz**:
+  1. O container de especificações utilizava `grid grid-cols-2` com classe CSS `truncate` e padding interno fixo. Em cards estreitos, a largura disponível era inferior a 50px, fazendo o texto truncar após o primeiro ou segundo caractere.
+  2. O rodapé utilizava `flex-row justify-between` horizontal, disputando espaço entre a caixa de 2 linhas do preço e o botão de WhatsApp.
+  3. Não havia filtragem para impedir a repetição de strings curtas idênticas ao modelo/marca no campo de descrição.
+* **Solução Padrão**:
+  1. **Remoção de Truncate & Adoção de Flex Wrap Dinâmico**: Substituir o grid rígido por `flex flex-wrap items-center gap-2`, permitindo que cada pílula (`inline-flex px-3 py-1.5 rounded-xl bg-muted/60`) expanda conforme seu conteúdo, garantindo a exibição integral de `📅 2021`, `⏱️ 27.000 km`, `⛽ Flex` e `🕹️ Automático`.
+  2. **Estruturação Premium do Rodapé**:
+     - Linha superior com label `VALOR DE VENDA`, tipografia ampla do valor (`26px`) e badge elegante com o telefone do anunciante (`Phone` icon).
+     - Botão de conversão WhatsApp em **largura total (100%)** com gradiente esmeralda neon, sombra pronunciada e texto de alta conversão: `Negociar no WhatsApp`.
+  3. **Filtro de Descrição Redundante**: Ocultar trechos de descrição quando forem inferiores a 3 caracteres ou idênticos ao nome do modelo/marca cadastrado.
+
+
+---
+
+### 166. Truncamento de Especificações de Veículos ("2...", "27...") e Desproporção do Botão WhatsApp no Footer dos Cards (`marketplace.business.vehicles.tsx`, `marketplace.business.index.tsx`)
+* **Sintoma**: 
+  1. Em telas mobile ou em grids de 2 colunas, os chips de especificações técnicas dos veículos (ano, quilometragem, etc.) eram cortados por reticências precoces (ex: ano `2021` virava `📅 2...` e quilometragem `27.000 km` virava `⏱️ 27...`).
+  2. Na parte inferior do card, o botão verde do WhatsApp ficava exprimido no canto direito ao lado de valores longos, gerando espaçamento vertical desigual e desarmonia visual.
+  3. Trechos de descrição redundantes de 1 palavra (ex: "Civic" sob o título "Honda Civic 1.9", ou fragmentos como "At") poluíam o topo do card.
+* **Causa Raiz**:
+  1. O container de especificações utilizava `grid grid-cols-2` com classe CSS `truncate` e padding interno fixo. Em cards estreitos, a largura disponível era inferior a 50px, fazendo o texto truncar após o primeiro ou segundo caractere.
+  2. O rodapé utilizava `flex-row justify-between` horizontal, disputando espaço entre a caixa de 2 linhas do preço e o botão de WhatsApp.
+  3. Não havia filtragem para impedir a repetição de strings curtas idênticas ao modelo/marca no campo de descrição.
+* **Solução Padrão**:
+  1. **Remoção de Truncate & Adoção de Flex Wrap Dinâmico**: Substituir o grid rígido por `flex flex-wrap items-center gap-2`, permitindo que cada pílula (`inline-flex px-3 py-1.5 rounded-xl bg-muted/60`) expanda conforme seu conteúdo, garantindo a exibição integral de `📅 2021`, `⏱️ 27.000 km`, `⛽ Flex` e `🕹️ Automático`.
+  2. **Estruturação Premium do Rodapé**:
+     - Linha superior com label `VALOR DE VENDA`, tipografia ampla do valor (`26px`) e badge elegante com o telefone do anunciante (`Phone` icon).
+     - Botão de conversão WhatsApp em **largura total (100%)** com gradiente esmeralda neon, sombra pronunciada e texto de alta conversão: `Negociar no WhatsApp`.
+  3. **Filtro de Descrição Redundante**: Ocultar trechos de descrição quando forem inferiores a 3 caracteres ou idênticos ao nome do modelo/marca cadastrado.
+
+
+---
+
+### 167. Remoção da Frase e Badge "Garagem VIP" na Central de Veículos (`marketplace.business.vehicles.tsx`)
+* **Sintoma**: 
+  O topo da página de veículos exibia um badge amarelo com o texto "Garagem VIP", além de estar presente no selo padrão de anúncios sem foto, termo rejeitado pelo cliente por não condizer com a nomenclatura oficial da plataforma.
+* **Causa Raiz**:
+  Inserção da insígnia decorativa `<Sparkles /> Garagem VIP` no hero banner e no canvas gráfico durante o redesenho inicial.
+* **Solução Padrão**:
+  1. No header da página (`marketplace.business.vehicles.tsx`), remover o badge `Garagem VIP`, mantendo apenas o contador transparente de anúncios ativos: `{list.length} anúncios ativos`.
+  2. No canvas gráfico de fallback para anúncios sem fotos anexadas, substituir `MT 24HORAS EXPRESS • GARAGEM VIP` por `MT 24HORAS EXPRESS • VEÍCULOS`.
+
+
+---
+
+### 168. Alertas Fantasmas no Telegram com "App Desconhecido" e "Sem mensagem de erro" (`telegram-logger/index.ts`)
+* **Sintoma**: 
+  O grupo de monitoramento no Telegram recebeu um alerta com dados genéricos:
+  `App: App Desconhecido | URL: N/A | Usuário: Anônimo (Não autenticado) | Mensagem: Sem mensagem de erro`.
+* **Causa Raiz**:
+  Essa mensagem não teve origem em nenhum dos aplicativos (Marketplace, Painel Admin, Entregador ou Lojista), pois todos eles enviam seus respectivos nomes e rotas completas. Os dados exibidos correspondem exatamente aos valores de fallback (padrão) da Edge Function `telegram-logger` quando ela recebe uma requisição HTTP POST vazia (`{}`) ou sem corpo JSON válido. Isso ocorre tipicamente quando um desenvolvedor clica no botão "Test function" (ou "Invoke") no dashboard do Supabase com o corpo padrão, ou quando um bot/scanner externo faz uma requisição POST direta ao endpoint.
+* **Solução Padrão**:
+  Na Edge Function `telegram-logger`, adicionar validação estrita antes do envio para o Telegram:
+  Se o corpo da requisição não contiver uma mensagem de erro válida (`!error_message || error_message === "Sem mensagem de erro" || error_message.trim() === ""`), a função retorna status 200 com `{ success: true, ignored: true }` e encerra silenciosamente sem disparar mensagem para o canal.
+
+
+---
+
+### 169. Rejeição Apple App Store (Diretriz 2.5.4 - Requisitos de Software) por "audio" em UIBackgroundModes (`Info.plist`, `project.pbxproj`)
+* **Sintoma**: 
+  A versão do aplicativo **MT 24 Horas Express Lojista** (ou Entregador) foi rejeitada pela equipe de revisão da Apple no App Store Connect com a mensagem:
+  `Diretriz 2.5.4 - Desempenho - Requisitos de Software: O aplicativo declara suporte para áudio na chave UIBackgroundModes do arquivo Info.plist, mas não conseguimos reproduzir nenhum conteúdo audível quando o aplicativo está em execução em segundo plano... Se o aplicativo não tiver um recurso que exija áudio persistente, seria apropriado remover a configuração "audio" da chave UIBackgroundModes.`
+* **Causa Raiz**:
+  O arquivo `ios/App/App/Info.plist` continha a chave `<string>audio</string>` dentro da lista `UIBackgroundModes`. Como o aplicativo é de comércio/pedidos e não um reprodutor contínuo de música/streaming (como Spotify), a Apple rejeita categoricamente o uso de background audio. Os sons de novos pedidos e notificações operam via push notification (`remote-notification`) pelo APNs nativo do iOS, dispensando o modo de áudio contínuo.
+* **Solução Padrão**:
+  1. Em `ios/App/App/Info.plist`, remover as tags `<string>audio</string>` e `<string>fetch</string>` de `UIBackgroundModes`, mantendo estritamente apenas:
+     ```xml
+     <key>UIBackgroundModes</key>
+     <array>
+         <string>remote-notification</string>
+     </array>
+     ```
+  2. Incrementar o número da build (`CURRENT_PROJECT_VERSION`) no arquivo `ios/App/App.xcodeproj/project.pbxproj` (ex: de `5` para `6`).
+  3. Gerar novo archive/build no Xcode Cloud ou localmente e reenviar para a revisão da Apple no App Store Connect.
+
+
+---
+
+### 170. Rejeição Apple App Store (Diretriz 4.3(a) Design: Spam) por Ícones Idênticos no Ecossistema (`AppIcon-512@2x.png`, `project.pbxproj`)
+* **Sintoma**: 
+  O aplicativo **MT 24 Horas Express** (ou Lojista/Entregador) foi rejeitado pela Apple no App Store Connect com a mensagem:
+  `Guideline 4.3(a) - Design: We noticed that the app icon is identical to the icons of other apps already submitted to the App Store. Apps that use the same icon make it difficult for users to find apps and are considered a form of spam. Next Steps: To resolve this issue, please revise the app icon to ensure it is unique and does not duplicate the icon of another app.`
+* **Causa Raiz**:
+  Os 3 aplicativos da conta de desenvolvedor da empresa (`cliente-primavera`, `lojista-primavera` e `entrega-primavera`) utilizavam exatamente o mesmo arquivo de ícone de 1024x1024 (`AppIcon-512@2x.png`) com o logotipo do relógio preto e amarelo. Quando submetidos sob a mesma conta, a verificação da Apple detecta duplicidade perceptual/binária exata e rejeita como spam por causar confusão aos usuários ao buscarem os apps na App Store.
+* **Solução Padrão**:
+  1. Diferenciar claramente os ícones de 1024x1024 px em cada aplicativo mantendo a identidade visual da marca:
+     - **App Cliente / Marketplace (`cliente-primavera`)**: Logotipo oficial com faixa âmbar de alta conversão: **`DELIVERY`** (com ícone de sacola de compras).
+     - **App Lojista (`lojista-primavera`)**: Logotipo oficial com faixa laranja e ícone de loja: **`LOJISTA`**.
+     - **App Entregador (`entrega-primavera`)**: Logotipo oficial com faixa esmeralda e ícone de moto: **`ENTREGADOR`**.
+  2. Atualizar os arquivos `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png` e as imagens PWA correspondentes.
+  3. Incrementar o número de build (`CURRENT_PROJECT_VERSION`) no arquivo `project.pbxproj` de cada aplicativo (ex: Cliente para build 5, Lojista para build 6, Entregador para build 5).
+  4. Gerar nova compilação e reenviar para a revisão da Apple no App Store Connect.
+
+---
+
+### 171. Proteção do Servidor contra Spam, Flood de Requisições e Integração com Monitoramento no Telegram
+* **Sintoma**: 
+  1. O servidor da aplicação (Edge Functions e APIs) não possuía bloqueio ativo com alerta integrado em caso de tentativas de flood, autoclickers ou sobrecarga de requisições maliciosas.
+  2. A Edge Function de pedidos (`create-order`) possuía um rate limit silencioso (5 pedidos por minuto) que retornava HTTP 429 mas não alertava o canal de suporte/monitoramento no Telegram.
+  3. A Edge Function de monitoramento (`telegram-logger`) não possuía limitação de taxa por IP, podendo sofrer exaustão ou flood em caso de ataque externo.
+  4. Os aplicativos móveis e web não possuíam detectores de injeção em formulários (XSS/SQLi), varredura automatizada ou autoclickers integrados ao monitoramento preventivo.
+* **Causa Raiz**:
+  Ausência de uma camada unificada de proteção de borda (Edge Rate Limiting) em memória combinada com alertas forenses em tempo real e interceptação de HTTP 429 no frontend.
+* **Solução Padrão**:
+  1. **Blindagem e Rate Limiting no `telegram-logger`**:
+     - Implementação de um sliding window rate limiter em memória por IP (máximo 20 requisições por minuto por IP) e teto de payload (32KB).
+     - Em caso de flood, o IP é bloqueado temporariamente com HTTP 429 por 2 minutos e um alerta consolidado é enviado ao Telegram:
+       `🛡️ ALERTA DE SEGURANÇA: FLOOD / SPAM BLOQUEADO NO SERVIDOR 🛡️`.
+     - Suporte nativo a alertas de abuso (`is_spam: true`, `is_attack: true` ou marcadores de injeção), formatando a mensagem com cabeçalho de segurança, IP de origem, rota, usuário e evidências técnicas.
+  2. **Alerta Instantâneo em `create-order`**:
+     - Quando um usuário ou bot tentar criar >= 5 pedidos em menos de 1 minuto, o servidor bloqueia com HTTP 429 e dispara imediatamente um alerta ao Telegram com os dados do usuário, IP e motivo da contenção.
+  3. **Monitoramento e Proteção Global Client-Side (`useAntiSpamMonitor` / `GlobalAntiSpam`)**:
+     - Monitoramento de autoclickers e rage clicks (> 10 cliques por segundo).
+     - Interceptação automática de respostas HTTP 429 (`Too Many Requests`) no cliente com notificação ao canal.
+     - Detecção de tentativas de injeção de scripts/SQL nos campos de input.
+     - Montagem global de `<GlobalAntiSpam />` nos 4 aplicativos (`cliente-primavera`, `lojista-primavera-1`, `painel-primavera` e `entrega-primavera`).
+
+---
+
+### 172. Relatório Diário Automatizado de Erros, Bugs, Falhas de Senha e Acessos a Links Indevidos no Robô do Telegram (Ciclo 24h)
+* **Sintoma**:
+  Necessidade de acompanhamento consolidado a cada 24 horas no robô de monitoramento do Telegram (@mt24horasexpress_bot, Chat ID -5333281601) contendo resumo de logs, total de acessos ao sistema, erros de senha/tentativas de login inválidas, tentativas de acessos por links indevidos (rotas 404/scans), erros/bugs de aplicação e saúde geral da infraestrutura.
+* **Causa Raiz**:
+  O sistema emitia apenas alertas pontuais de erro no momento em que ocorriam, sem agregação periódica nem rastreamento dedicado de falhas de autenticação (senhas incorretas) e tentativas de acesso a URLs inexistentes ou maliciosas.
+* **Solução Padrão**:
+  1. **Instrumentação de Telemetria Client-Side**:
+     - Em logger.ts de todos os 4 aplicativos (cliente-primavera, lojista-primavera-1, entrega-primavera e painel-primavera), implementação das funções reportFailedLogin(email, details) e reportInvalidRoute(path, details).
+     - Nos fluxos de login (AuthContext.tsx e login.tsx), interceptar erros de signInWithPassword e disparar evento failed_login.
+     - Nos componentes de rota 404 (NotFoundComponent em __root.tsx), disparar evento invalid_route registrando o caminho e o referrer.
+  2. **Edge Function telegram-logger com Ledger de 24 Horas**:
+     - Processamento específico de eventos failed_login (com detecção imediata de força bruta se >= 5 tentativas em 10 min por IP/email).
+     - Processamento de eventos invalid_route (com detecção imediata de ataques/scans caso a URL contenha .env, wp-, eval(, <script>, etc.).
+     - Ação send_daily_report: consulta métricas consolidadas em tempo real do banco de dados (entregas no período, lojistas ativos, anúncios da Central de Negócios) e formata relatório com emojis e status operacional.
+  3. **Serviço Autônomo e Daemon de 24 Horas (scripts_para_rodar/daily_telegram_report_service.js)**:
+     - Serviço contínuo em background executando como daemon (IsDaemon: true) com verificação a cada 15 minutos.
+     - Persistência de estado em daily_report_state.json com last_sent_timestamp e histórico dos últimos 30 dias para evitar perdas em reinicializações.
+     - Suporte à flag --now para testes e disparos imediatos sob demanda.
+
+---
+
+### 173. Falha no Estorno de Créditos e Ausência de Registros de Cancelamento no Extrato do Lojista e Painel Admin
+* **Sintoma**:
+  Lojistas relatam que entregas canceladas não estão tendo os valores das taxas estornados de volta ao seu saldo de créditos, e que os cancelamentos não aparecem mais no Extrato de Movimentações para conferência e controle financeiro.
+* **Causa Raiz**:
+  1. No banco de dados Supabase (`owlbzwsdcognrgolvnzg`), o trigger `trg_delivery_cancelled_refund` não estava ativo ou falhava silenciosamente quando a loja não possuía registro prévio em `company_credits` (`UPDATE` afetava 0 linhas sem fazer UPSERT e abortava sem gerar inserção no extrato).
+  2. A função RPC `cancel_delivery_safe` não existia no cache de schema do banco.
+  3. No frontend do lojista (`business.index.tsx`), o botão de cancelamento executava apenas um `UPDATE deliveries SET status = 'cancelled'` direto, sem invocar uma RPC de estorno seguro nem implementar fallback resiliente em caso de falha de trigger no banco.
+  4. Havia discrepância entre tabelas de movimentações: o painel administrativo (`StoreCreditsPanel.tsx`) consultava unicamente `company_credit_transactions`, enquanto o app do lojista (`CreditsPanel.tsx`) consultava unicamente `credit_transactions`, resultando em extratos incompletos se as gravações ocorressem em tabelas distintas.
+  5. No `CreditsPanel.tsx`, não havia filtros rápidos por categoria (Todas, Estornos, Recargas, Débitos) nem destaque visual específico para transações de estorno devolvido ao saldo.
+  6. No histórico de entregas do lojista (`business.history.tsx`), o status "Cancelada" não indicava visualmente se a taxa havia sido estornada ao saldo.
+* **Solução Padrão**:
+  1. **Script SQL Definitivo (`scripts_para_rodar/FIX_ESTORNO_E_EXTRATO_DEFINITIVO.sql`)**:
+     - Recriação da função `handle_delivery_cancelled_refund()` com `SECURITY DEFINER`, UPSERT automático em `company_credits` e gravação em ambas as tabelas (`credit_transactions` e `company_credit_transactions`).
+     - Recriação do trigger `trg_delivery_cancelled_refund` na tabela `deliveries` disparado em `AFTER UPDATE OF status`.
+     - Criação da RPC `cancel_delivery_and_refund(p_delivery_id, p_cancelled_by, p_cancelled_by_name)` com `SECURITY DEFINER` e retorno detalhado do estorno.
+     - Atualização da RPC `update_delivery_status_safe` para executar o estorno de forma integrada quando o status for `'cancelled'`.
+     - Bloco anônimo PL/pgSQL de correção retroativa para buscar todas as entregas canceladas nos últimos 30 dias sem estorno registrado, atualizar o saldo e criar os registros de extrato retroativos.
+  2. **Camada de Serviço Resiliente (`refundCancelledDelivery`)**:
+     - Implementada em `lojista-primavera-1/src/services/credits.ts` e `painel-primavera/src/services/companyCredits.ts`.
+     - Tenta prioritariamente a RPC `cancel_delivery_and_refund`. Em caso de falha ou ausência, realiza o fluxo completo de fallback: consulta os valores da entrega, atualiza o saldo em `company_credits` e insere o registro em `credit_transactions` e `company_credit_transactions`.
+     - Em `fetchCreditTransactions` (lojista) e `useCreditTransactions` (admin), unificação e mesclagem com deduplicação de ambas as tabelas (`credit_transactions` e `company_credit_transactions`).
+  3. **Integração no Cancelamento de Entregas**:
+     - Em `business.index.tsx` (lojista) e `useUpdateDeliveryStatus` (ambos os apps), invocação prioritária do cancelamento com estorno integrado e garantia de fallback via `refundCancelledDelivery`.
+     - Invalidação automática dos caches React Query (`deliveries`, `credits`, `credit-transactions`, `company-credits`, `company-credit-transactions`).
+  4. **Interface e Extrato Aprimorados**:
+     - No `CreditsPanel.tsx`, adição de filtros rápidos (`Todas`, `Estornos`, `Recargas`, `Entregas`), badge visual "Estorno Devolvido" com ícone `RotateCcw` e valores destacados em verde (`+ R$ XX,XX`).
+     - No `business.history.tsx`, exibição do selo informativo `Cancelada · Valor Estornado` na coluna de status.
+     - No `StoreCreditsPanel.tsx` (painel admin), identificação visual de estornos com ícone `RotateCcw` e indicador de estorno devolvido à loja.
+
+---
+
+### 174. Race Condition no Preload do TanStack Router (TypeError: Cannot read properties of undefined (reading '_nonReactive'))
+* **Sintoma**:
+  Erro em tempo de execução no console do navegador / logs de monitoramento:
+  ```
+  index-BwYU3V9i.js:10 TypeError: Cannot read properties of undefined (reading '_nonReactive')
+      at kM (index-BwYU3V9i.js:10:64069)
+      at async Promise.all (index 2)
+      at async DS (index-BwYU3V9i.js:10:64910)
+      at async UM.preloadRoute (index-BwYU3V9i.js:10:88636)
+  ```
+* **Causa Raiz**:
+  1. O TanStack Router estava configurado com `defaultPreload: "intent"` em `router.tsx`. Isso faz com que todo e qualquer `<Link>` registre listeners de hover/focus disparando `router.preloadRoute()` após 120ms.
+  2. Quando o usuário passa o mouse rapidamente sobre links dinâmicos (ex: produtos, lojas, corridas, tabs), ocorre uma condição de corrida interna no `@tanstack/router-core` (`load-matches.ts` -> `loadRouteMatch`): `inner.router.getMatch(matchId)` retorna `undefined` (porque a rota já foi descartada, evictada do cache ou redirecionada).
+  3. O código interno tenta acessar `match._nonReactive.loaderPromise?.resolve()` sem verificar se `match` é nulo/indefinido, disparando o `TypeError: Cannot read properties of undefined (reading '_nonReactive')`.
+  4. Nossos aplicativos são SPAs onde todo o carregamento de dados é realizado no cliente via React Query e Supabase (nenhuma rota define `loader: () => ...`). Portanto, o pré-carregamento por hover (`preload: "intent"`) era redundante e danoso.
+* **Solução Padrão**:
+  1. Em `router.tsx` de todos os aplicativos (`cliente-primavera`, `lojista-primavera-1`, `lojista-primavera`, `entrega-primavera`), configurar explicitamente `defaultPreload: false` e `defaultPreloadStaleTime: 0`.
+  2. Envolver `router.preloadRoute` com wrapper defensivo em `router.tsx` para capturar e silenciar quaisquer erros não fatais caso invocado programaticamente:
+     ```ts
+     const originalPreload = router.preloadRoute.bind(router);
+     router.preloadRoute = async (opts: any) => {
+       try {
+         return await originalPreload(opts);
+       } catch {
+         return undefined;
+       }
+     };
+     ```
+  3. Em `__root.tsx`, apontar links diretos (ex: botão 404) para `/marketplace` em vez de rotas raiz com redirecionamento como `/`.
+  4. Em `logger.ts` (`window.onerror` e `window.onunhandledrejection`), adicionar filtro para ignorar mensagens contendo `_nonreactive` de modo a evitar alertas falso-positivos no robô do Telegram.

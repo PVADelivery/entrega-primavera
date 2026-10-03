@@ -376,7 +376,8 @@ export function initializeGlobalErrorHandlers(appName: string) {
       lower.includes("minified react error #425") ||
       lower.includes("react error #520") ||
       lower.includes("react error #418") ||
-      lower.includes("hydration failed")
+      lower.includes("hydration failed") ||
+      lower.includes("_nonreactive")
     ) {
       console.warn("[Logger] React concurrent/hydration recovery notice handled gracefully by client renderer.");
       return true;
@@ -400,6 +401,11 @@ export function initializeGlobalErrorHandlers(appName: string) {
     const reason = event.reason;
     const msg = reason?.message || (typeof reason === "object" ? JSON.stringify(reason) : String(reason));
     const lower = (msg || "").toLowerCase();
+
+    // Silencia erros de race condition do router
+    if (lower.includes("_nonreactive")) {
+      return;
+    }
 
     // Silencia rejeições de JWT Expirado e tenta renovar a sessão silenciosamente sem forçar logout
     if (lower.includes("jwt expired") || lower.includes("token expired") || lower.includes("session expired")) {

@@ -17,10 +17,18 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    defaultPreload: "intent",
-    defaultPreloadStaleTime: 1000 * 60 * 2,
-    defaultPreloadDelay: 120,
+    defaultPreload: false,
+    defaultPreloadStaleTime: 0,
   });
+
+  const originalPreload = router.preloadRoute.bind(router);
+  router.preloadRoute = async (opts: any) => {
+    try {
+      return await originalPreload(opts);
+    } catch {
+      return undefined;
+    }
+  };
 
   return router;
 };
