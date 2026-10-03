@@ -57,6 +57,14 @@
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>O MT 24 Horas Entregador necessita de notificações ativas para alertar imediatamente sobre novas corridas e entregas disponíveis mesmo com o aplicativo fechado ou em segundo plano.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>O MT 24 Horas Entregador utiliza sua localização para indicar entregas e corridas próximas e permitir a navegação até o endereço de coleta e destino.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>O MT 24 Horas Entregador precisa de acesso à câmera para você fotografar comprovantes de entrega e atualizar sua foto de perfil.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>O MT 24 Horas Entregador precisa de acesso à sua galeria de fotos para você anexar comprovantes de entrega e fotos de perfil.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>O MT 24 Horas Entregador precisa de permissão para salvar comprovantes de corrida na sua galeria de fotos.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
