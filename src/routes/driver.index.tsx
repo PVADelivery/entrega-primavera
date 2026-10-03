@@ -568,7 +568,18 @@ function DriverHome() {
                       </span>
                       <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/25 px-3 py-1 rounded-xl shadow-xs">
                         <span className="text-xs font-bold text-emerald-400">R$</span>
-                        <span className="text-base font-black font-mono text-emerald-400">{Number(r.price || 0).toFixed(2)}</span>
+                        <span className="text-base font-black font-mono text-emerald-400">
+                          {(() => {
+                            const p = Number(r.price || r.estimated_price || r.value || 0);
+                            if (p > 0) return p.toFixed(2);
+                            const dist = Number(r.distance_km || 0);
+                            const isTaxi = r.vehicle_type === "taxi" || r.vehicle_type === "carro";
+                            const base = isTaxi ? 9.99 : 6.99;
+                            const rate = isTaxi ? 3.0 : 2.0;
+                            if (dist > 0) return (base + dist * rate).toFixed(2);
+                            return (isTaxi ? 15.0 : 10.0).toFixed(2);
+                          })()}
+                        </span>
                       </div>
                     </div>
 

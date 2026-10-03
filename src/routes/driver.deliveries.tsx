@@ -95,6 +95,11 @@ function DeliveriesPage() {
           const isNotFinished = !["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
           if (!isNotFinished) return false;
           if (!r.driver_id) return false;
+
+          // Ignorar corridas antigas/abandonadas com mais de 24 horas para não travar a tela de corridas ativas
+          const isRecent = !r.created_at || (Date.now() - new Date(r.created_at).getTime() < 86400000);
+          if (!isRecent) return false;
+
           return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
         });
       } catch (e) {
@@ -374,8 +379,17 @@ function DeliveriesPage() {
               <>
                 {/* Active Passenger Rides (Táxi / Moto Táxi) */}
                 {isRide && activeRides.data?.map((r) => {
-                  const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
-                const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
+                  const getRidePrice = (item: any): string => {
+                    const p = Number(item.price || item.estimated_price || item.total_price || item.value || item.amount || 0);
+                    if (p > 0) return p.toFixed(2);
+                    const dist = Number(item.distance_km || 0);
+                    const isTaxi = item.vehicle_type === "taxi" || item.vehicle_type === "carro";
+                    const base = isTaxi ? 9.99 : 6.99;
+                    const rate = isTaxi ? 3.0 : 2.0;
+                    if (dist > 0) return (base + dist * rate).toFixed(2);
+                    return (isTaxi ? 15.0 : 10.0).toFixed(2);
+                  };
+                  const safePrice = getRidePrice(r);
 
                 const pickup = r.pickup_address || r.pickup || r.origin || "";
                 const dropoff = r.dropoff_address || r.dropoff || r.destination || "";
@@ -470,8 +484,17 @@ function DeliveriesPage() {
           ) : (
             <>
               {isRide && historyRides.data?.slice(0, 10).map((r) => {
-                const rawPrice = (r.price && Number(r.price) > 0) ? r.price : (r.estimated_price || r.total_price || r.value || r.amount || 21.15);
-                const safePrice = (Number(String(rawPrice).replace(',', '.')) || 21.15).toFixed(2);
+                const getRidePrice = (item: any): string => {
+                  const p = Number(item.price || item.estimated_price || item.total_price || item.value || item.amount || 0);
+                  if (p > 0) return p.toFixed(2);
+                  const dist = Number(item.distance_km || 0);
+                  const isTaxi = item.vehicle_type === "taxi" || item.vehicle_type === "carro";
+                  const base = isTaxi ? 9.99 : 6.99;
+                  const rate = isTaxi ? 3.0 : 2.0;
+                  if (dist > 0) return (base + dist * rate).toFixed(2);
+                  return (isTaxi ? 15.0 : 10.0).toFixed(2);
+                };
+                const safePrice = getRidePrice(r);
                 const dropoff = r.dropoff_address || r.dropoff || r.destination || "Destino final";
                 const rawCustomer = r.customer_name || r.customer || "Cliente";
                 const cleanCustomer = String(rawCustomer).replace(/\s*\(.*?\)/g, "").trim();
