@@ -85,8 +85,8 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 				95A110012FE990010072D4E8 /* GoogleService-Info.plist */,
 				95A110032FE990030072D4E8 /* ring.mp3 */,
-			);
 				95A110052FE990050072D4E8 /* notification_sound.mp3 */,
+			);
 			path = App;
 			sourceTree = "<group>";
 		};
