@@ -9,14 +9,7 @@ echo "=========================================================="
 eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv 2>/dev/null || true)"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-# 2. Garantir Node.js e npm disponíveis
-if ! command -v npm >/dev/null 2>&1; then
-  echo "📥 Node/npm não encontrado no PATH. Tentando localizar ou instalar via Homebrew..."
-  brew install node || true
-  eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv 2>/dev/null || true)"
-fi
-
-# 3. Garantir a chave privada da Apple nos locais esperados
+# 2. Garantir a chave privada da Apple nos locais esperados
 KEY_DIR="$HOME/.private_keys"
 mkdir -p "$KEY_DIR"
 KEY_FILE="$KEY_DIR/AuthKey_GNCVF862P9.p8"
@@ -37,11 +30,11 @@ cp "$KEY_FILE" private_keys/AuthKey_GNCVF862P9.p8
 
 echo "✅ Chave da Apple configurada com sucesso em $KEY_FILE"
 
-# 4. Limpeza de builds e caches anteriores
+# 3. Limpeza de builds e caches anteriores
 rm -rf ~/Library/Caches/org.swift.swiftpm
 rm -rf build/App.xcarchive build/App.ipa
 
-# 5. Criar arquivo de opcoes de exportacao para a App Store Connect
+# 4. Criar arquivo de opcoes de exportacao para a App Store Connect
 mkdir -p build
 cat << 'EOF' > build/ExportOptions.plist
 <?xml version="1.0" encoding="UTF-8"?>
@@ -57,10 +50,6 @@ cat << 'EOF' > build/ExportOptions.plist
 </dict>
 </plist>
 EOF
-
-# 6. Instalar dependências locais do Capacitor para o Swift Package Manager
-echo "📦 Instalando dependências npm (necessárias para os plugins do Capacitor)..."
-npm install --legacy-peer-deps
 
 echo "🔧 Sanitizando caminhos no Package.swift..."
 if [ -f "ios/App/CapApp-SPM/Package.swift" ]; then
