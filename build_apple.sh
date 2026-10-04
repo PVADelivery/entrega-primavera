@@ -50,6 +50,11 @@ cat << 'EOF' > build/ExportOptions.plist
 </plist>
 EOF
 
+echo "🔧 Sanitizando caminhos no Package.swift..."
+if [ -f "ios/App/CapApp-SPM/Package.swift" ]; then
+  perl -pi -e 's/\\/\//g' ios/App/CapApp-SPM/Package.swift 2>/dev/null || sed -i '' 's/\\/\//g' ios/App/CapApp-SPM/Package.swift 2>/dev/null || true
+fi
+
 echo "📦 Resolvendo pacotes do Xcode (SPM)..."
 xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj
 
