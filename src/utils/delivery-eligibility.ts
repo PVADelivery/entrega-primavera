@@ -29,21 +29,12 @@ export function isDeliveryEligibleForDriver(
   const assignedId = delivery.driver_id ? String(delivery.driver_id).toLowerCase().trim() : "";
   const isAssigned = Boolean(assignedId && assignedId !== "none" && assignedId !== "00000000-0000-0000-0000-000000000000");
 
-  const myIds = [currentDriverId, currentUserId]
-    .filter(Boolean)
-    .map((id) => String(id).toLowerCase().trim());
-
-  // 1. Se atribuída para outro entregador específico, não oferece
-  if (isAssigned && myIds.length > 0 && !myIds.includes(assignedId)) {
+  // 1. Se já está atribuída a algum entregador, NUNCA oferecer para aceite no app (ela já pertence exclusivamente àquele entregador)
+  if (isAssigned) {
     return false;
   }
 
-  // 2. Se atribuída diretamente para o motorista logado pelo Admin: DISPONÍVEL E NOTIFICA IMEDIATAMENTE!
-  if (isAssigned && myIds.includes(assignedId)) {
-    return true;
-  }
-
-  // 3. Se o administrador transmitiu para todos: DISPONÍVEL E NOTIFICA IMEDIATAMENTE!
+  // 2. Se o administrador transmitiu para todos (sem motorista atribuído): DISPONÍVEL E NOTIFICA IMEDIATAMENTE!
   if (status === "broadcasted") {
     return true;
   }

@@ -589,11 +589,12 @@ export async function fetchAvailableDeliveries(
 
   let data: any[] = [];
 
-  // Busca diretamente filtrando pelos status válidos de entrega disponível/pendente
+  // Busca diretamente filtrando pelos status válidos de entrega disponível/pendente e sem entregador atribuído
   const q1 = await supabase
     .from("deliveries")
     .select("*, companies(id, name, phone, address)")
     .in("status", pendingStatuses)
+    .is("driver_id", null)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -604,6 +605,7 @@ export async function fetchAvailableDeliveries(
       .from("deliveries")
       .select("*")
       .in("status", pendingStatuses)
+      .is("driver_id", null)
       .order("created_at", { ascending: false })
       .limit(50);
     if (!q2.error && q2.data) {
@@ -611,8 +613,11 @@ export async function fetchAvailableDeliveries(
     }
   }
 
-  // Filtragem flexível de elegibilidade (livre para todos ou atribuída a este motorista)
+  // Filtragem flexível de elegibilidade (apenas entregas livres sem motorista atribuído)
   let list = data.filter((d: any) => {
+    if (d.driver_id && String(d.driver_id).trim() !== "" && d.driver_id !== "none" && d.driver_id !== "00000000-0000-0000-0000-000000000000") {
+      return false;
+    }
     return isDeliveryEligibleForDriver(d, currentDriverId, currentUserId);
   });
 
