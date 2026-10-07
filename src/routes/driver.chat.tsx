@@ -194,23 +194,44 @@ function ChatPage() {
   };
 
   return (
-    <DriverShell>
-      <div className="flex h-[calc(100vh-6rem)] flex-col px-3 pt-3 max-w-md mx-auto">
-        {/* Cabeçalho da Central com WhatsApp */}
-        <div className="mb-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-slate-900 to-amber-500/10 border border-amber-500/30 p-3 shadow-md flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="relative">
-              <div className="h-10 w-10 rounded-2xl bg-amber-500 flex items-center justify-center text-slate-950 font-black shadow-lg">
-                <Headphones className="h-5 w-5" />
+    <DriverShell noBottomPadding>
+      <div 
+        className="flex flex-col px-3 max-w-md mx-auto w-full"
+        style={{
+          height: "100dvh",
+          paddingTop: "max(calc(env(safe-area-inset-top, 0px) + 0.75rem), 1.25rem)",
+          paddingBottom: "max(calc(env(safe-area-inset-bottom, 0px) + 5.25rem), 5.25rem)",
+        }}
+      >
+        {/* Cabeçalho Premium da Central com WhatsApp */}
+        <div className="mb-2.5 rounded-2xl bg-gradient-to-r from-slate-900 via-[#0f172a] to-slate-900 border border-amber-500/30 p-3.5 shadow-xl shadow-black/25 flex items-center justify-between gap-2.5 relative overflow-hidden shrink-0">
+          {/* Brilho sutil dourado de fundo */}
+          <div 
+            className="pointer-events-none absolute -top-12 -right-12 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl"
+            aria-hidden
+          />
+
+          <div className="flex items-center gap-3 min-w-0 relative z-10">
+            <div className="relative shrink-0">
+              <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-300 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/25 ring-2 ring-amber-400/30">
+                <Headphones className="h-5 w-5 stroke-[2.5]" />
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-background animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-slate-900 flex items-center justify-center shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+              </span>
             </div>
+
             <div className="min-w-0">
-              <h1 className="text-sm font-black text-foreground truncate flex items-center gap-1.5">
-                Central MT 24horas
-                <span className="text-[10px] px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 font-bold rounded-full">Online</span>
-              </h1>
-              <p className="text-[11px] text-muted-foreground truncate">
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-sm font-black text-white tracking-tight truncate drop-shadow-sm">
+                  Central MT 24horas
+                </h1>
+                <span className="shrink-0 text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold rounded-full flex items-center gap-1 shadow-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Online
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 font-medium truncate mt-0.5">
                 Suporte e Atendimento aos Parceiros
               </p>
             </div>
@@ -220,7 +241,7 @@ function ChatPage() {
             type="button"
             size="sm"
             onClick={openWhatsAppCentral}
-            className="h-9 px-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold rounded-xl shadow-md flex items-center gap-1.5 text-xs shrink-0 cursor-pointer"
+            className="h-10 px-3.5 bg-gradient-to-r from-[#25D366] to-[#1ebd5b] hover:from-[#20bd5a] hover:to-[#1aa851] text-white font-bold rounded-xl shadow-lg shadow-emerald-950/40 border border-emerald-400/30 flex items-center gap-1.5 text-xs shrink-0 cursor-pointer transition-transform active:scale-95 relative z-10"
             title="Chamar suporte rápido no WhatsApp da Central"
           >
             <WhatsappIcon className="h-4 w-4" />
@@ -229,9 +250,9 @@ function ChatPage() {
         </div>
 
         {/* Card do Chat */}
-        <Card className="flex flex-1 flex-col overflow-hidden rounded-2xl border-white/10 bg-slate-950/80 backdrop-blur-xl shadow-2xl">
+        <Card className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border-white/10 bg-slate-950/80 backdrop-blur-xl shadow-2xl">
           {/* Mensagens */}
-          <div className="flex-1 space-y-2.5 overflow-y-auto p-3.5">
+          <div className="flex-1 min-h-0 space-y-2.5 overflow-y-auto p-3.5">
             {/* Mensagem de Boas-Vindas da Central */}
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-tl-xs bg-slate-900 border border-white/10 p-3 text-xs text-slate-200 shadow-sm leading-relaxed">
@@ -273,7 +294,7 @@ function ChatPage() {
           </div>
 
           {/* Atalhos Rápidos */}
-          <div className="px-2.5 py-1.5 border-t border-white/5 bg-slate-900/40 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <div className="px-2.5 py-1.5 border-t border-white/5 bg-slate-900/40 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action}
@@ -287,12 +308,12 @@ function ChatPage() {
           </div>
 
           {/* Barra de Digitação */}
-          <form onSubmit={handleFormSubmit} className="flex gap-2 border-t border-white/10 p-2.5 bg-slate-950/90">
+          <form onSubmit={handleFormSubmit} className="flex gap-2 border-t border-white/10 p-2.5 bg-slate-950/90 shrink-0">
             <Input
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Digite sua mensagem para a central..."
-              className="h-10 text-xs bg-slate-900 border-white/10 rounded-xl focus-visible:ring-amber-500 text-foreground"
+              className="h-10 text-xs bg-slate-900 border-white/10 rounded-xl focus-visible:ring-amber-500 text-white placeholder:text-slate-400"
             />
             <Button
               type="submit"

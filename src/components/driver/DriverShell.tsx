@@ -5,7 +5,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PermissionModal } from "./PermissionModal";
 import { useDriverNotifications } from "@/hooks/useDriverNotifications";
 
-export function DriverShell({ children }: { children: ReactNode }) {
+export function DriverShell({ 
+  children, 
+  noBottomPadding = false 
+}: { 
+  children: ReactNode; 
+  noBottomPadding?: boolean;
+}) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
@@ -40,7 +46,7 @@ export function DriverShell({ children }: { children: ReactNode }) {
     <div 
       className="min-h-screen bg-background text-foreground"
       style={{
-        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8.5rem)",
+        paddingBottom: noBottomPadding ? "0px" : "calc(env(safe-area-inset-bottom, 0px) + 8.5rem)",
         WebkitOverflowScrolling: "touch",
       }}
       suppressHydrationWarning
