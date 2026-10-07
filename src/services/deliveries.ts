@@ -93,6 +93,17 @@ async function getCachedPricingData() {
     return cachedPricingData;
   }
   try {
+    const local = localStorage.getItem("pva_pricing_cache");
+    if (local) {
+      const parsed = JSON.parse(local);
+      if (parsed && typeof parsed.timestamp === "number" && (now - parsed.timestamp < PRICING_CACHE_TTL_MS)) {
+        cachedPricingData = parsed;
+        return cachedPricingData;
+      }
+    }
+  } catch {}
+
+  try {
     const [rulesRes, regsRes, hoodsRes] = await Promise.all([
       supabase.from("pricing_rules").select("*"),
       supabase.from("regions").select("id, name, price, delivery_fee"),
@@ -104,6 +115,9 @@ async function getCachedPricingData() {
       hoods: hoodsRes.data || [],
       timestamp: now,
     };
+    try {
+      localStorage.setItem("pva_pricing_cache", JSON.stringify(cachedPricingData));
+    } catch {}
   } catch (e) {
     console.warn("[deliveries] Falha ao carregar regras de preços:", e);
     if (!cachedPricingData) {
@@ -956,19 +970,51 @@ export async function cancelRide(rideId: string) {
   }
 }
 
+const driverRowCache = new Map<string, string>();
+
 export async function getDriverIdFromUser(userId: string): Promise<string | null> {
+  if (!userId) return null;
+  if (driverRowCache.has(userId)) return driverRowCache.get(userId)!;
+  try {
+    const cached = localStorage.getItem(`pva_drv_row_${userId}`);
+    if (cached) {
+      driverRowCache.set(userId, cached);
+      return cached;
+    }
+  } catch {}
+
   const { data } = await supabase
     .from("delivery_drivers")
     .select("id")
     .eq("user_id", userId)
     .maybeSingle();
+
+  if (data?.id) {
+    driverRowCache.set(userId, data.id);
+    try { localStorage.setItem(`pva_drv_row_${userId}`, data.id); } catch {}
+  }
   return data?.id ?? null;
 }
 
 export async function ensureDriverRow(userId: string, regionId?: string | null): Promise<string> {
+  if (!userId) return "";
+  if (driverRowCache.has(userId)) {
+    return driverRowCache.get(userId)!;
+  }
+  try {
+    const cached = localStorage.getItem(`pva_drv_row_${userId}`);
+    if (cached) {
+      driverRowCache.set(userId, cached);
+      return cached;
+    }
+  } catch {}
+
   try {
     if (userId === "b5756a82-d1ab-4adf-9fe4-e283a175e37e") {
-      return "26047901-b04b-4276-81ad-5133b83c7ef5";
+      const fixed = "26047901-b04b-4276-81ad-5133b83c7ef5";
+      driverRowCache.set(userId, fixed);
+      try { localStorage.setItem(`pva_drv_row_${userId}`, fixed); } catch {}
+      return fixed;
     }
 
     const { data } = await supabase
@@ -978,6 +1024,8 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
       .maybeSingle();
 
     if (data?.id) {
+      driverRowCache.set(userId, data.id);
+      try { localStorage.setItem(`pva_drv_row_${userId}`, data.id); } catch {}
       return data.id;
     }
 
@@ -988,6 +1036,8 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
       .maybeSingle();
 
     if (dataById?.id) {
+      driverRowCache.set(userId, dataById.id);
+      try { localStorage.setItem(`pva_drv_row_${userId}`, dataById.id); } catch {}
       return dataById.id;
     }
 
@@ -999,6 +1049,8 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
           const { data: byPhone } = await supabase.from("delivery_drivers").select("id").ilike("phone", `%${clean.slice(-8)}%`).maybeSingle();
           if (byPhone?.id) {
             supabase.from("delivery_drivers").update({ user_id: userId } as any).eq("id", byPhone.id).catch(() => {});
+            driverRowCache.set(userId, byPhone.id);
+            try { localStorage.setItem(`pva_drv_row_${userId}`, byPhone.id); } catch {}
             return byPhone.id;
           }
         }
@@ -1015,6 +1067,8 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
       .maybeSingle();
 
     if (created?.id) {
+      driverRowCache.set(userId, created.id);
+      try { localStorage.setItem(`pva_drv_row_${userId}`, created.id); } catch {}
       return created.id;
     }
   } catch (err) {
@@ -1142,15 +1196,28 @@ export function isSameLocalMonth(targetTime: number | string | Date, nowTime: nu
   return getLocalYMD(targetTime, timeZone).slice(0, 7) === getLocalYMD(nowTime, timeZone).slice(0, 7);
 }
 
+const earningsMemoryCache = new Map<string, { data: any; timestamp: number }>();
+const EARNINGS_CACHE_TTL = 30000; // 30s cache
+
 export async function fetchEarnings(driverId: string) {
-  const { data: { user } } = await supabase.auth.getUser();
-  const fallbackDriverId = (user?.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" || driverId === "b5756a82-d1ab-4adf-9fe4-e283a175e37e")
+  const cacheKey = String(driverId);
+  const cached = earningsMemoryCache.get(cacheKey);
+  const nowMs = Date.now();
+  if (cached && (nowMs - cached.timestamp < EARNINGS_CACHE_TTL)) {
+    return cached.data;
+  }
+
+  // Obter sessão atual rapidamente da memória sem requisição HTTP extra ao Auth
+  const { data: sessionData } = await supabase.auth.getSession();
+  const sessionUser = sessionData?.session?.user;
+
+  const fallbackDriverId = (sessionUser?.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" || driverId === "b5756a82-d1ab-4adf-9fe4-e283a175e37e")
     ? "26047901-b04b-4276-81ad-5133b83c7ef5"
     : null;
 
   const ids = Array.from(new Set([
     driverId,
-    user?.id,
+    sessionUser?.id,
     fallbackDriverId,
     driverId === "26047901-b04b-4276-81ad-5133b83c7ef5" ? "b5756a82-d1ab-4adf-9fe4-e283a175e37e" : null
   ].filter(Boolean))) as string[];
@@ -1174,19 +1241,24 @@ export async function fetchEarnings(driverId: string) {
   let deliveries: any[] = [];
   const { data: rows, error: deliveriesError } = await supabase
     .from("deliveries")
-    .select("*")
-    .in("driver_id", ids);
+    .select("id, status, price, delivery_fee, value, commission, completed_at, delivered_at, created_at")
+    .in("driver_id", ids)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
   if (deliveriesError) throw deliveriesError;
   deliveries = (rows ?? []).filter((d: any) =>
     DELIVERY_DONE_STATUSES.includes(String(d.status))
   );
 
-  // Tenta buscar também as corridas de passageiros
-  const { data: rides, error: ridesError } = await supabase
+  // Tenta buscar também as corridas de passageiros recentes
+  const { data: rides } = await (supabase as any)
     .from("ride_requests")
     .select("price, created_at, updated_at")
     .in("driver_id", ids)
-    .eq("status", "completed");
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   const now = new Date();
 
@@ -1229,8 +1301,8 @@ export async function fetchEarnings(driverId: string) {
   }
 
   // Processa Corridas de Táxi/Moto Táxi (se existirem)
-  if (!ridesError) {
-    for (const r of rides ?? []) {
+  if (rides && Array.isArray(rides)) {
+    for (const r of rides) {
       const dateStr = r.updated_at || r.created_at;
       if (!dateStr) continue;
       const t = new Date(dateStr).getTime();
@@ -1278,5 +1350,7 @@ export async function fetchEarnings(driverId: string) {
     totalCount,
     driverShareFactor,
   };
+
+  earningsMemoryCache.set(cacheKey, { data: result, timestamp: nowMs });
   return result;
 }

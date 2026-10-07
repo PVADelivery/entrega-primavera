@@ -20,10 +20,19 @@ export function BottomNav() {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const { mode } = useWorkMode();
-  const [driverId, setDriverId] = useState<string | null>(null);
+  const [driverId, setDriverId] = useState<string | null>(() => {
+    if (typeof window !== "undefined" && user?.id) {
+      return localStorage.getItem(`pva_drv_row_${user.id}`) || user.id;
+    }
+    return null;
+  });
 
   useEffect(() => {
-    if (user) ensureDriverRow(user.id).then(setDriverId).catch(() => {});
+    if (user) {
+      const cached = localStorage.getItem(`pva_drv_row_${user.id}`);
+      if (cached && !driverId) setDriverId(cached);
+      ensureDriverRow(user.id).then(setDriverId).catch(() => {});
+    }
   }, [user]);
 
   const activeDeliveries = useQuery({

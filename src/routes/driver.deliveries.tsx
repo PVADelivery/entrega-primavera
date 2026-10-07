@@ -35,11 +35,18 @@ function DeliveriesPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { mode, setMode, canDelivery, canRide } = useWorkMode();
-  const [driverId, setDriverId] = useState<string | null>(null);
+  const [driverId, setDriverId] = useState<string | null>(() => {
+    if (typeof window !== "undefined" && user?.id) {
+      return localStorage.getItem(`pva_drv_row_${user.id}`) || user.id;
+    }
+    return null;
+  });
   const [pending, setPending] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+    const cached = localStorage.getItem(`pva_drv_row_${user.id}`);
+    if (cached && !driverId) setDriverId(cached);
     ensureDriverRow(user.id).then(setDriverId).catch(() => { });
   }, [user]);
 

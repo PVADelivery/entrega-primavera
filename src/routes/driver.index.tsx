@@ -52,9 +52,29 @@ function DriverHome() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { mode, setMode } = useWorkMode();
-  const [driverId, setDriverId] = useState<string | null>(null);
-  const [driverServiceTypes, setDriverServiceTypes] = useState<string[]>([]);
-  const [driverInfo, setDriverInfo] = useState<{ vehicle_type?: string; vehicle?: string; service_types?: string[] } | null>(null);
+  const [driverId, setDriverId] = useState<string | null>(() => {
+    try {
+      return (typeof window !== "undefined" && user?.id && localStorage.getItem(`pva_drv_row_${user.id}`)) || null;
+    } catch {
+      return null;
+    }
+  });
+  const [driverServiceTypes, setDriverServiceTypes] = useState<string[]>(() => {
+    try {
+      const saved = typeof window !== "undefined" && user?.id && localStorage.getItem(`pva_drv_services_${user.id}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [driverInfo, setDriverInfo] = useState<{ vehicle_type?: string; vehicle?: string; service_types?: string[] } | null>(() => {
+    try {
+      const saved = typeof window !== "undefined" && user?.id && localStorage.getItem(`pva_drv_info_${user.id}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [pending, setPending] = useState<string | null>(null);
   const [pendingRide, setPendingRide] = useState<string | null>(null);
   const acceptingDeliveryRef = useRef(false);
@@ -91,11 +111,16 @@ function DriverHome() {
       const parsedServices = Array.isArray(rawServices) ? rawServices : [];
       
       setDriverServiceTypes(parsedServices);
-      setDriverInfo({
+      const combined = {
         ...prof,
         ...dataRes,
         service_types: parsedServices,
-      });
+      };
+      setDriverInfo(combined);
+      try {
+        localStorage.setItem(`pva_drv_services_${user.id}`, JSON.stringify(parsedServices));
+        localStorage.setItem(`pva_drv_info_${user.id}`, JSON.stringify(combined));
+      } catch {}
     }).catch(() => {
       setDriverId(user.id);
     });
@@ -189,16 +214,17 @@ function DriverHome() {
 
 
   const active = useQuery({
-    queryKey: ["deliveries", "active", driverId],
+    queryKey: ["deliveries", "active", driverId, user?.id],
     queryFn: async () => {
       try {
-        return driverId ? await fetchMyActiveDeliveries(driverId) : [];
+        const idToUse = driverId || user?.id;
+        return idToUse ? await fetchMyActiveDeliveries(idToUse, user?.id) : [];
       } catch (err) {
         console.error("[active] Erro na consulta:", err);
         return [];
       }
     },
-    enabled: !!driverId && mode === "delivery",
+    enabled: !!(driverId || user?.id) && mode === "delivery",
     staleTime: 15000,
     gcTime: 300000,
     refetchOnWindowFocus: false,

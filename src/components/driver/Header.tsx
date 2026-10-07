@@ -12,56 +12,76 @@ import { stopGlobalAudioAlert } from "@/hooks/useAudioAlert";
 
 export function DriverHeader() {
   const { user } = useAuth();
-  const [online, setOnline] = useState(false);
-  const [name, setName] = useState("Entregador");
+  const [online, setOnline] = useState<boolean>(() => {
+    if (typeof window !== "undefined" && user?.id) {
+      return localStorage.getItem(`driver_is_online_${user.id}`) === "true";
+    }
+    return false;
+  });
+  const [name, setName] = useState<string>(() => {
+    if (typeof window !== "undefined" && user?.id) {
+      return localStorage.getItem(`driver_name_${user.id}`) || "Entregador";
+    }
+    return "Entregador";
+  });
   const locationWatchRef = useRef<number | null>(null);
   const lastLocationUpdateRef = useRef<{ lat: number; lng: number; time: number }>({ lat: 0, lng: 0, time: 0 });
 
   useEffect(() => {
     if (!user || typeof window === "undefined") return;
 
-    // Carrega status salvo do localStorage como prioridade
+    // Carrega status e nome salvos do localStorage imediatamente
     const localStatus = localStorage.getItem(`driver_is_online_${user.id}`);
     if (localStatus === "true") {
       setOnline(true);
     }
+    const localName = localStorage.getItem(`driver_name_${user.id}`);
+    if (localName) {
+      setName(localName);
+    }
 
-      const loadDriverInfo = async () => {
-        let drvData: any = null;
-        let profData: any = null;
+    const loadDriverInfo = async () => {
+      let drvData: any = null;
+      let profData: any = null;
 
-        const fallbackDriverId = user.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" ? "26047901-b04b-4276-81ad-5133b83c7ef5" : null;
+      const fallbackDriverId = user.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" ? "26047901-b04b-4276-81ad-5133b83c7ef5" : null;
 
-        const { data: drv1 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("user_id", user.id).maybeSingle();
-        if (drv1) {
-          drvData = drv1;
-        } else {
-          const { data: drv2 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("id", user.id).maybeSingle();
-          if (drv2) {
-            drvData = drv2;
-          } else if (fallbackDriverId) {
-            const { data: drv3 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("id", fallbackDriverId).maybeSingle();
-            if (drv3) drvData = drv3;
-          }
+      const [drvRes, profRes] = await Promise.all([
+        supabase.from("delivery_drivers").select("is_online, full_name").eq("user_id", user.id).maybeSingle(),
+        supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle()
+      ]);
+
+      if (drvRes.data) {
+        drvData = drvRes.data;
+      } else {
+        const { data: drv2 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("id", user.id).maybeSingle();
+        if (drv2) {
+          drvData = drv2;
+        } else if (fallbackDriverId) {
+          const { data: drv3 } = await supabase.from("delivery_drivers").select("is_online, full_name").eq("id", fallbackDriverId).maybeSingle();
+          if (drv3) drvData = drv3;
         }
+      }
 
-        const { data: p1 } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
-        profData = p1;
+      profData = profRes.data;
 
-        const drv = drvData;
-        const prof = profData;
+      const drv = drvData;
+      const prof = profData;
 
-        if (drv && typeof drv.is_online === "boolean") {
-          setOnline(drv.is_online);
-          localStorage.setItem(`driver_is_online_${user.id}`, String(drv.is_online));
-        } else {
-          setOnline(false);
-          localStorage.setItem(`driver_is_online_${user.id}`, "false");
-        }
+      if (drv && typeof drv.is_online === "boolean") {
+        setOnline(drv.is_online);
+        localStorage.setItem(`driver_is_online_${user.id}`, String(drv.is_online));
+      } else {
+        setOnline(false);
+        localStorage.setItem(`driver_is_online_${user.id}`, "false");
+      }
 
-        const finalName = prof?.full_name || drv?.full_name;
-        if (finalName) setName(finalName);
-      };
+      const finalName = prof?.full_name || drv?.full_name;
+      if (finalName) {
+        setName(finalName);
+        localStorage.setItem(`driver_name_${user.id}`, finalName);
+      }
+    };
 
       loadDriverInfo();
 
