@@ -384,6 +384,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    const lowerMsg = (error_message || "").toLowerCase();
+    const lowerUrl = (url || "").toLowerCase();
+    const additionalStr = JSON.stringify(additional_info || {}).toLowerCase();
+    if (
+      lowerMsg.includes("refresh_token") ||
+      lowerUrl.includes("refresh_token") ||
+      additionalStr.includes("grant_type=refresh_token") ||
+      additionalStr.includes("auth/v1/token") ||
+      (lowerMsg.includes("429") && (additionalStr.includes("auth") || lowerMsg.includes("token")))
+    ) {
+      return new Response(JSON.stringify({ success: true, ignored: true, reason: "Supabase auth token rate-limit ignored" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     totalSystemBugs++;
 
     // Deduplicação de mensagens idênticas para não inundar o Telegram

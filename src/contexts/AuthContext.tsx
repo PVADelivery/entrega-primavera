@@ -74,14 +74,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           syncNativeDriverSession(s);
           await loadRoles(s.user.id);
         } else {
-          // Se getSession inicial vier nulo, tenta refreshSession antes de considerar deslogado
+          // Só tenta refreshSession se houver token persistido de sessão anterior no storage local
           try {
-            const { data: refData } = await supabase.auth.refreshSession();
-            if (refData?.session && isMounted) {
-              setSession(refData.session);
-              setUser(refData.session.user);
-              syncNativeDriverSession(refData.session);
-              await loadRoles(refData.session.user.id);
+            const hasStoredSession = typeof window !== "undefined" && Object.keys(localStorage).some(
+              (k) => (k.includes("supabase") || k.includes("sb-") || k.includes("auth")) && Boolean(localStorage.getItem(k)?.includes("refresh_token"))
+            );
+            if (hasStoredSession) {
+              const { data: refData } = await supabase.auth.refreshSession();
+              if (refData?.session && isMounted) {
+                setSession(refData.session);
+                setUser(refData.session.user);
+                syncNativeDriverSession(refData.session);
+                await loadRoles(refData.session.user.id);
+              }
             }
           } catch {}
         }

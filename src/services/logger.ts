@@ -126,6 +126,10 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
     msg.includes("minified react error #425") ||
     msg.includes("react error #520") ||
     msg.includes("react error #418") ||
+    msg.includes("refresh_token") ||
+    msg.includes("grant_type=refresh_token") ||
+    msg.includes("rate limit") && (msg.includes("token") || msg.includes("auth") || msg.includes("supabase")) ||
+    msg.includes("429") && (msg.includes("token") || msg.includes("auth") || msg.includes("refresh")) ||
     msg.includes("hydration failed");
 
   if (isIgnored) return;
@@ -332,10 +336,23 @@ export function initializeGlobalErrorHandlers(appName: string) {
         const response = await rawFetch.apply(this, args);
         if (response && response.status === 429) {
           const targetUrl = typeof args[0] === "string" ? args[0] : (args[0] as Request)?.url || "Desconhecido";
-          reportSpamToTelegram("Servidor retornou HTTP 429 (Rate Limit / Bloqueio de Spam)", {
-            url: targetUrl,
-            status: 429,
-          }, appName);
+          const lowerUrl = targetUrl.toLowerCase();
+
+          // NUNCA disparar alerta para renovação interna de token do Supabase, bots, ou chamadas de telemetria
+          const isIgnoredUrl =
+            lowerUrl.includes("auth/v1/token") ||
+            lowerUrl.includes("refresh_token") ||
+            lowerUrl.includes("telegram-logger") ||
+            lowerUrl.includes("api.telegram.org") ||
+            lowerUrl.includes("supabase.co/auth") ||
+            lowerUrl.includes("tile.openstreetmap.org");
+
+          if (!isIgnoredUrl) {
+            reportSpamToTelegram("Servidor retornou HTTP 429 (Rate Limit / Bloqueio de Spam)", {
+              url: targetUrl,
+              status: 429,
+            }, appName);
+          }
         }
         return response;
       };
@@ -410,6 +427,15 @@ export function initializeGlobalErrorHandlers(appName: string) {
     // Silencia rejeições de JWT Expirado e tenta renovar a sessão silenciosamente sem forçar logout
     if (lower.includes("jwt expired") || lower.includes("token expired") || lower.includes("session expired")) {
       supabase.auth.refreshSession().catch(() => {});
+      return;
+    }
+
+    // Silencia rejeições de renovação de token e 429 de autenticação
+    if (
+      lower.includes("refresh_token") ||
+      lower.includes("grant_type=refresh_token") ||
+      (lower.includes("429") && (lower.includes("token") || lower.includes("auth")))
+    ) {
       return;
     }
 
