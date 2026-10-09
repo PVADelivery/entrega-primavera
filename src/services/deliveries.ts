@@ -364,7 +364,7 @@ export function useDeliveryStats() {
       today.setHours(0, 0, 0, 0);
 
       const [todayRes, totalRes] = await Promise.all([
-        supabase.from("deliveries").select("status, price").gte("created_at", today.toISOString()),
+        supabase.from("deliveries").select("status, value").gte("created_at", today.toISOString()),
         supabase.from("deliveries").select("id", { count: "exact", head: true }),
       ]);
 
@@ -1229,7 +1229,7 @@ export async function fetchEarnings(driverId: string) {
   let deliveries: any[] = [];
   const { data: rows, error: deliveriesError } = await supabase
     .from("deliveries")
-    .select("id, status, price, delivery_fee, value, commission, completed_at, delivered_at, created_at")
+    .select("id, status, delivery_fee, value, commission, completed_at, delivered_at, created_at")
     .in("driver_id", ids)
     .order("created_at", { ascending: false })
     .limit(200);
