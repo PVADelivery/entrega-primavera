@@ -600,38 +600,52 @@ export async function fetchAvailableDeliveries(
 ) {
   // O enum delivery_status no PostgreSQL só aceita 'pending' e 'broadcasted' para entregas disponíveis
   const pendingStatuses = ["pending", "broadcasted"];
+  const myIds = [currentDriverId, currentUserId].filter(Boolean) as string[];
 
   let data: any[] = [];
 
-  // Busca diretamente filtrando pelos status válidos de entrega disponível/pendente e sem entregador atribuído
-  const q1 = await supabase
+  // Busca como no speed-squad: entregas livres (driver_id IS NULL) OU atribuídas diretamente ao motorista logado
+  let query = supabase
     .from("deliveries")
     .select("*, companies(id, name, phone, address)")
     .in("status", pendingStatuses)
-    .is("driver_id", null)
     .order("created_at", { ascending: false })
     .limit(50);
+
+  if (myIds.length > 0) {
+    const orCondition = `driver_id.is.null,${myIds.map((id) => `driver_id.eq.${id}`).join(",")}`;
+    query = query.or(orCondition);
+  } else {
+    query = query.is("driver_id", null);
+  }
+
+  const q1 = await query;
 
   if (!q1.error && q1.data) {
     data = q1.data;
   } else {
-    const q2 = await supabase
+    let fallbackQuery = supabase
       .from("deliveries")
       .select("*")
       .in("status", pendingStatuses)
-      .is("driver_id", null)
       .order("created_at", { ascending: false })
       .limit(50);
+
+    if (myIds.length > 0) {
+      const orCondition = `driver_id.is.null,${myIds.map((id) => `driver_id.eq.${id}`).join(",")}`;
+      fallbackQuery = fallbackQuery.or(orCondition);
+    } else {
+      fallbackQuery = fallbackQuery.is("driver_id", null);
+    }
+
+    const q2 = await fallbackQuery;
     if (!q2.error && q2.data) {
       data = q2.data;
     }
   }
 
-  // Filtragem flexível de elegibilidade (apenas entregas livres sem motorista atribuído)
+  // Filtragem flexível de elegibilidade (disponíveis para todos ou atribuídas a este motorista)
   let list = data.filter((d: any) => {
-    if (d.driver_id && String(d.driver_id).trim() !== "" && d.driver_id !== "none" && d.driver_id !== "00000000-0000-0000-0000-000000000000") {
-      return false;
-    }
     return isDeliveryEligibleForDriver(d, currentDriverId, currentUserId);
   });
 

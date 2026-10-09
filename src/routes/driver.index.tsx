@@ -140,9 +140,10 @@ function DriverHome() {
       }
     },
     enabled: mode === "delivery",
-    staleTime: 15000,
+    staleTime: 4000,
     gcTime: 300000,
-    refetchOnWindowFocus: false,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 
@@ -225,9 +226,10 @@ function DriverHome() {
       }
     },
     enabled: !!(driverId || user?.id) && mode === "delivery",
-    staleTime: 15000,
+    staleTime: 4000,
     gcTime: 300000,
-    refetchOnWindowFocus: false,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
 
   // Função para verificar compatibilidade de tipo de veículo entre corrida e motorista
@@ -298,9 +300,10 @@ function DriverHome() {
       }
     },
     enabled: mode === "ride",
-    staleTime: 15000,
+    staleTime: 4000,
     gcTime: 300000,
-    refetchOnWindowFocus: false,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
 
@@ -334,9 +337,10 @@ function DriverHome() {
       }
     },
     enabled: mode === "ride" && (!!driverId || !!user?.id),
-    staleTime: 15000,
+    staleTime: 4000,
     gcTime: 300000,
-    refetchOnWindowFocus: false,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
 
   const effectiveId = driverId || user?.id;
