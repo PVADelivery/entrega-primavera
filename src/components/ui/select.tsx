@@ -6,6 +6,29 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+// Proteção global contra falhas de foco em elementos de Select desmontados (Radix UI Typeahead)
+if (typeof window !== "undefined" && !(window as any).__select_focus_safeguard) {
+  (window as any).__select_focus_safeguard = true;
+  const originalSetTimeout = window.setTimeout;
+  window.setTimeout = function (handler: TimerHandler, timeout?: number, ...args: any[]) {
+    if (typeof handler === "function") {
+      const safeHandler = (...cbArgs: any[]) => {
+        try {
+          return (handler as Function)(...cbArgs);
+        } catch (err: any) {
+          const msg = err?.message || String(err);
+          if (msg.includes("Cannot read properties of null") && msg.includes("focus")) {
+            return;
+          }
+          throw err;
+        }
+      };
+      return originalSetTimeout(safeHandler, timeout, ...args);
+    }
+    return originalSetTimeout(handler, timeout, ...args);
+  } as any;
+}
+
 const Select = SelectPrimitive.Root;
 
 const SelectGroup = SelectPrimitive.Group;

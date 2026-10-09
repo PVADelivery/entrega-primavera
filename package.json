@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "postinstall": "node patch-select.cjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

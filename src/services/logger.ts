@@ -130,7 +130,9 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
     msg.includes("grant_type=refresh_token") ||
     msg.includes("rate limit") && (msg.includes("token") || msg.includes("auth") || msg.includes("supabase")) ||
     msg.includes("429") && (msg.includes("token") || msg.includes("auth") || msg.includes("refresh")) ||
-    msg.includes("hydration failed");
+    msg.includes("hydration failed") ||
+    msg.includes("script error") ||
+    ((msg.includes("cannot read properties of null") || msg.includes("cannot read property")) && msg.includes("focus"));
 
   if (isIgnored) return;
 
@@ -385,8 +387,11 @@ export function initializeGlobalErrorHandlers(appName: string) {
       return true;
     }
 
-    // Ignore benign React concurrent/hydration recovery notices
+    // Ignore benign React concurrent/hydration recovery notices, cross-origin script error, router preload race conditions
     if (
+      lower.includes("script error") ||
+      (lineno === 0 && colno === 0 && (!source || source === "") && !error) ||
+      ((lower.includes("cannot read properties of null") || lower.includes("cannot read property")) && lower.includes("focus")) ||
       lower.includes("minified react error #520") ||
       lower.includes("minified react error #418") ||
       lower.includes("minified react error #423") ||
@@ -396,7 +401,7 @@ export function initializeGlobalErrorHandlers(appName: string) {
       lower.includes("hydration failed") ||
       lower.includes("_nonreactive")
     ) {
-      console.warn("[Logger] React concurrent/hydration recovery notice handled gracefully by client renderer.");
+      console.warn("[Logger] Benign runtime/hydration notice handled gracefully by client renderer.");
       return true;
     }
 
