@@ -32,6 +32,7 @@ export async function applyStatusBarTheme(isDark: boolean) {
   if (Capacitor.isNativePlatform()) {
     try {
       await StatusBar.show();
+      await StatusBar.setOverlaysWebView({ overlay: false });
       if (isDark) {
         // TEMA ESCURO: Fundo preto e ícones brancos (hora, bateria, wifi)
         await StatusBar.setStyle({ style: Style.Dark });

@@ -2,6 +2,7 @@ package com.mt24horasexpress.entregador;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.Uri;
@@ -10,8 +11,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -23,6 +28,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(DeliveryOverlayPlugin.class);
         NotificationChannels.ensureIncomingChannel(this);
         super.onCreate(savedInstanceState);
+        setupStatusBar();
 
         // Otimiza o WebView para alta estabilidade, cache e tolerância a quedas de rede
         try {
@@ -41,6 +47,29 @@ public class MainActivity extends BridgeActivity {
         registerNetworkAutoRecovery();
 
         handleIntent(getIntent());
+    }
+
+    private void setupStatusBar() {
+        try {
+            Window window = getWindow();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+                window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+                window.setStatusBarColor(Color.WHITE);
+                window.setNavigationBarColor(Color.WHITE);
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.setStatusBarContrastEnforced(false);
+                window.setNavigationBarContrastEnforced(false);
+            }
+            WindowInsetsControllerCompat insetsController = 
+                WindowCompat.getInsetsController(window, window.getDecorView());
+            if (insetsController != null) {
+                insetsController.setAppearanceLightStatusBars(true);
+                insetsController.setAppearanceLightNavigationBars(true);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void registerNetworkAutoRecovery() {
@@ -73,6 +102,15 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         isForeground = true;
+        setupStatusBar();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            setupStatusBar();
+        }
     }
 
     @Override
