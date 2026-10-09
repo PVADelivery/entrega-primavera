@@ -63,7 +63,11 @@ function LoginPage() {
 
       const isDeleted = profRes.data?.status === "deleted" || drvRes.data?.status === "deleted";
       const userRoles = (rolesRes.data || []).map((r: any) => r.role);
-      const isAllowed = userRoles.includes("driver") || userRoles.includes("admin") || (drvRes.data && drvRes.data.status !== "deleted");
+      const isAllowed = 
+        userRoles.includes("driver") || 
+        userRoles.includes("admin") || 
+        profRes.data?.role === "driver" || 
+        (drvRes.data && drvRes.data.status !== "deleted");
 
       if (isDeleted || !isAllowed) {
         await supabase.auth.signOut({ scope: "local" });

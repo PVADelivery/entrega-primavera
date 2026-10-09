@@ -22,15 +22,10 @@ export function DriverShell({
   }, []);
 
   useEffect(() => {
-    if (mounted && !loading) {
-      if (!user || !isDriver) {
-        if (user && !isDriver) {
-          signOut().catch(() => {});
-        }
-        navigate({ to: "/login", replace: true });
-      }
+    if (mounted && !loading && !user) {
+      navigate({ to: "/login", replace: true });
     }
-  }, [mounted, loading, user, isDriver, navigate, signOut]);
+  }, [mounted, loading, user, navigate]);
 
   if (!mounted || loading) {
     return (

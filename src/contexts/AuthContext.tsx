@@ -31,12 +31,20 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [roles, setRoles] = useState<Role[]>([]);
+  const [roles, setRoles] = useState<Role[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("pva_cached_driver_roles");
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return [];
+  });
   const [loading, setLoading] = useState(true);
 
   async function loadRoles(userId: string) {
     try {
-      // 1. Checa se o perfil foi marcado como excluído
+      // 1. Checa se o perfil foi marcado expressamente como excluído
       const { data: prof } = await supabase
         .from("profiles")
         .select("status, role")
@@ -51,7 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 2. Busca roles do usuário
       const { data: userRoles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
       const rolesList = ((userRoles ?? []) as { role: Role }[]).map((r) => r.role);
-      setRoles(rolesList);
 
       // 3. Checa tabela delivery_drivers
       const { data: drv } = await supabase
@@ -65,11 +72,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const hasDriverRole = rolesList.includes("driver") || rolesList.includes("admin");
-      // Se não tem role de motorista e não tem registro em delivery_drivers, encerra a sessão
-      if (!hasDriverRole && (!drv || drv.status === "deleted")) {
-        await signOut();
-        return;
+      // Adiciona role se constar em profiles ou delivery_drivers
+      if (prof?.role === "driver" && !rolesList.includes("driver")) {
+        rolesList.push("driver");
+      }
+      if (drv && !rolesList.includes("driver")) {
+        rolesList.push("driver");
+      }
+
+      if (rolesList.length > 0) {
+        setRoles(rolesList);
+        try {
+          localStorage.setItem("pva_cached_driver_roles", JSON.stringify(rolesList));
+        } catch {}
       }
     } catch (e) {
       console.warn("[Auth] Erro ao carregar/validar roles:", e);
