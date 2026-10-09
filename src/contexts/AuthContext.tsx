@@ -94,10 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    // Timeout de segurança generoso para conexões móveis e inicialização nativa no Android
+    // Timeout de segurança para conexões móveis
     const safetyTimeout = setTimeout(() => {
       if (isMounted) setLoading(false);
-    }, 15000);
+    }, 3000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
@@ -111,9 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newSession) {
         setSession(newSession);
         setUser(newSession.user);
-        await loadRoles(newSession.user.id);
-        syncNativeDriverSession(newSession);
         setLoading(false);
+        syncNativeDriverSession(newSession);
+        loadRoles(newSession.user.id);
       }
     });
 
@@ -123,8 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (s) {
           setSession(s);
           setUser(s.user);
+          setLoading(false);
           syncNativeDriverSession(s);
-          await loadRoles(s.user.id);
+          loadRoles(s.user.id);
         } else {
           // Só tenta refreshSession se houver token persistido de sessão anterior no storage local
           try {
@@ -136,8 +137,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (refData?.session && isMounted) {
                 setSession(refData.session);
                 setUser(refData.session.user);
+                setLoading(false);
                 syncNativeDriverSession(refData.session);
-                await loadRoles(refData.session.user.id);
+                loadRoles(refData.session.user.id);
               }
             }
           } catch {}
