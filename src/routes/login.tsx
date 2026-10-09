@@ -39,10 +39,17 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (user) {
+      navigate({ to: "/driver", replace: true });
+      return;
+    }
+    const hasStoredAuth = typeof window !== "undefined" && Object.keys(localStorage).some(
+      (k) => (k.startsWith("sb-") && k.endsWith("-auth-token")) || (k.includes("auth") && localStorage.getItem(k)?.includes("access_token"))
+    );
+    if (hasStoredAuth) {
       navigate({ to: "/driver", replace: true });
     }
-  }, [user, authLoading, navigate]);
+  }, [user, navigate]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

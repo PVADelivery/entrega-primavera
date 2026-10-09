@@ -23,11 +23,17 @@ export function DriverShell({
 
   useEffect(() => {
     if (mounted && !loading && !user) {
-      navigate({ to: "/login", replace: true });
+      // Verifica se há tokens de autenticação no localStorage antes de redirecionar para login
+      const hasStoredAuth = typeof window !== "undefined" && Object.keys(localStorage).some(
+        (k) => (k.startsWith("sb-") && k.endsWith("-auth-token")) || (k.includes("auth") && localStorage.getItem(k)?.includes("refresh_token"))
+      );
+      if (!hasStoredAuth) {
+        navigate({ to: "/login", replace: true });
+      }
     }
   }, [mounted, loading, user, navigate]);
 
-  if (!mounted || loading) {
+  if (!mounted || (loading && !user)) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4" suppressHydrationWarning>
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -36,10 +42,6 @@ export function DriverShell({
         </p>
       </div>
     );
-  }
-
-  if (!user) {
-    return null;
   }
 
   return (

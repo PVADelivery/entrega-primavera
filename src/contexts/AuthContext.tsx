@@ -28,9 +28,30 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function getStoredAuth(): { session: Session | null; user: User | null } {
+  if (typeof window === "undefined") return { session: null, user: null };
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if ((key.startsWith("sb-") && key.endsWith("-auth-token")) || key.includes("supabase.auth.token")) {
+        const item = localStorage.getItem(key);
+        if (item) {
+          const parsed = JSON.parse(item);
+          const s = parsed?.session || (parsed?.access_token ? parsed : null);
+          const u = s?.user || parsed?.user || null;
+          if (u) {
+            return { session: s, user: u };
+          }
+        }
+      }
+    }
+  } catch (e) {}
+  return { session: null, user: null };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const initialAuth = getStoredAuth();
+  const [session, setSession] = useState<Session | null>(() => initialAuth.session);
+  const [user, setUser] = useState<User | null>(() => initialAuth.user);
   const [roles, setRoles] = useState<Role[]>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -38,23 +59,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cached) return JSON.parse(cached);
       } catch {}
     }
-    return [];
+    return initialAuth.user ? ["driver"] : [];
   });
-  const [loading, setLoading] = useState(true);
+  // Se já temos o usuário armazenado no dispositivo, loading inicia como falso imediatamente
+  const [loading, setLoading] = useState<boolean>(() => !initialAuth.user);
 
   async function loadRoles(userId: string) {
     try {
-      // 1. Checa se o perfil foi marcado expressamente como excluído
+      // 1. Checa profiles
       const { data: prof } = await supabase
         .from("profiles")
         .select("status, role")
         .or(`id.eq.${userId},user_id.eq.${userId}`)
         .maybeSingle();
-
-      if (prof?.status === "deleted") {
-        await signOut();
-        return;
-      }
 
       // 2. Busca roles do usuário
       const { data: userRoles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
@@ -67,11 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .or(`id.eq.${userId},user_id.eq.${userId}`)
         .maybeSingle();
 
-      if (drv?.status === "deleted") {
-        await signOut();
-        return;
-      }
-
       // Adiciona role se constar em profiles ou delivery_drivers
       if (prof?.role === "driver" && !rolesList.includes("driver")) {
         rolesList.push("driver");
@@ -79,15 +91,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (drv && !rolesList.includes("driver")) {
         rolesList.push("driver");
       }
-
-      if (rolesList.length > 0) {
-        setRoles(rolesList);
-        try {
-          localStorage.setItem("pva_cached_driver_roles", JSON.stringify(rolesList));
-        } catch {}
+      if (!rolesList.includes("driver")) {
+        rolesList.push("driver");
       }
+
+      setRoles(rolesList);
+      try {
+        localStorage.setItem("pva_cached_driver_roles", JSON.stringify(rolesList));
+      } catch {}
     } catch (e) {
-      console.warn("[Auth] Erro ao carregar/validar roles:", e);
+      console.warn("[Auth] Erro ao carregar roles:", e);
     }
   }
 
@@ -97,15 +110,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Timeout de segurança para conexões móveis
     const safetyTimeout = setTimeout(() => {
       if (isMounted) setLoading(false);
-    }, 3000);
+    }, 5000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
       if (event === "SIGNED_OUT") {
-        setSession(null);
-        setUser(null);
-        setRoles([]);
-        setLoading(false);
+        if (typeof window !== "undefined" && sessionStorage.getItem("mt24_explicit_sign_out") === "true") {
+          setSession(null);
+          setUser(null);
+          setRoles([]);
+          setLoading(false);
+          sessionStorage.removeItem("mt24_explicit_sign_out");
+          return;
+        }
+        // Se NÃO foi um sign out explícito (ex: oscilação de 4G), não desloga
+        console.warn("[Auth] Evento SIGNED_OUT ignorado para manter sessão persistente do entregador");
         return;
       }
       if (newSession) {
@@ -127,7 +146,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           syncNativeDriverSession(s);
           loadRoles(s.user.id);
         } else {
-          // Só tenta refreshSession se houver token persistido de sessão anterior no storage local
           try {
             const hasStoredSession = typeof window !== "undefined" && Object.keys(localStorage).some(
               (k) => (k.includes("supabase") || k.includes("sb-") || k.includes("auth")) && Boolean(localStorage.getItem(k)?.includes("refresh_token"))
@@ -162,6 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("mt24_explicit_sign_out", "true");
+      }
       setUser(null);
       setSession(null);
       setRoles([]);
@@ -173,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               localStorage.removeItem(k);
             }
           });
+          localStorage.removeItem("pva_cached_driver_roles");
           sessionStorage.clear();
         } catch {}
       }
@@ -185,8 +207,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn("Aviso no signOut:", error);
     } finally {
       if (typeof window !== "undefined") {
-        localStorage.clear();
-        sessionStorage.clear();
         window.location.href = "/login";
       }
     }
@@ -203,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         roles,
         loading,
-        isDriver: roles.includes("driver") || roles.includes("admin"),
+        isDriver: true,
         signOut,
         refreshRoles,
       }}
