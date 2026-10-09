@@ -1057,20 +1057,8 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
       }
     } catch {}
 
-    const payload: Record<string, any> = { user_id: userId };
-    if (regionId) payload.region_id = regionId;
-
-    const { data: created } = await supabase
-      .from("delivery_drivers")
-      .insert(payload as any)
-      .select("id")
-      .maybeSingle();
-
-    if (created?.id) {
-      driverRowCache.set(userId, created.id);
-      try { localStorage.setItem(`pva_drv_row_${userId}`, created.id); } catch {}
-      return created.id;
-    }
+    // Não recria automaticamente entregadores excluídos pelo admin
+    return userId;
   } catch (err) {
     console.error("[ensureDriverRow] erro:", err);
   }

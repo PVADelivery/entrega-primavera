@@ -35,8 +35,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   async function loadRoles(userId: string) {
-    const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-    setRoles(((data ?? []) as { role: Role }[]).map((r) => r.role));
+    try {
+      // 1. Checa se o perfil foi marcado como excluído
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("status, role")
+        .or(`id.eq.${userId},user_id.eq.${userId}`)
+        .maybeSingle();
+
+      if (prof?.status === "deleted") {
+        await signOut();
+        return;
+      }
+
+      // 2. Busca roles do usuário
+      const { data: userRoles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+      const rolesList = ((userRoles ?? []) as { role: Role }[]).map((r) => r.role);
+      setRoles(rolesList);
+
+      // 3. Checa tabela delivery_drivers
+      const { data: drv } = await supabase
+        .from("delivery_drivers")
+        .select("id, status")
+        .or(`id.eq.${userId},user_id.eq.${userId}`)
+        .maybeSingle();
+
+      if (drv?.status === "deleted") {
+        await signOut();
+        return;
+      }
+
+      const hasDriverRole = rolesList.includes("driver") || rolesList.includes("admin");
+      // Se não tem role de motorista e não tem registro em delivery_drivers, encerra a sessão
+      if (!hasDriverRole && (!drv || drv.status === "deleted")) {
+        await signOut();
+        return;
+      }
+    } catch (e) {
+      console.warn("[Auth] Erro ao carregar/validar roles:", e);
+    }
   }
 
   useEffect(() => {
@@ -47,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isMounted) setLoading(false);
     }, 15000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
       if (event === "SIGNED_OUT") {
         setSession(null);
@@ -59,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newSession) {
         setSession(newSession);
         setUser(newSession.user);
-        loadRoles(newSession.user.id);
+        await loadRoles(newSession.user.id);
         syncNativeDriverSession(newSession);
         setLoading(false);
       }

@@ -12,7 +12,7 @@ export function DriverShell({
   children: ReactNode; 
   noBottomPadding?: boolean;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isDriver, signOut } = useAuth();
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
   useDriverNotifications();
@@ -22,10 +22,15 @@ export function DriverShell({
   }, []);
 
   useEffect(() => {
-    if (mounted && !loading && !user) {
-      navigate({ to: "/login", replace: true });
+    if (mounted && !loading) {
+      if (!user || !isDriver) {
+        if (user && !isDriver) {
+          signOut().catch(() => {});
+        }
+        navigate({ to: "/login", replace: true });
+      }
     }
-  }, [mounted, loading, user, navigate]);
+  }, [mounted, loading, user, isDriver, navigate, signOut]);
 
   if (!mounted || loading) {
     return (

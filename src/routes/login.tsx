@@ -32,24 +32,49 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isDriver } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && isDriver) {
       navigate({ to: "/driver", replace: true });
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, isDriver, navigate]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      const { data: authData, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
       if (error) throw error;
+
+      const userId = authData.user?.id;
+      if (!userId) throw new Error("Erro ao obter identificador do usuário");
+
+      // Validação estrita: se a conta foi excluída ou o perfil foi revogado pelo Admin
+      const [profRes, drvRes, rolesRes] = await Promise.all([
+        supabase.from("profiles").select("status, role").or(`id.eq.${userId},user_id.eq.${userId}`).maybeSingle(),
+        supabase.from("delivery_drivers").select("id, status").or(`id.eq.${userId},user_id.eq.${userId}`).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+      ]);
+
+      const isDeleted = profRes.data?.status === "deleted" || drvRes.data?.status === "deleted";
+      const userRoles = (rolesRes.data || []).map((r: any) => r.role);
+      const isAllowed = userRoles.includes("driver") || userRoles.includes("admin") || (drvRes.data && drvRes.data.status !== "deleted");
+
+      if (isDeleted || !isAllowed) {
+        await supabase.auth.signOut({ scope: "local" });
+        if (typeof window !== "undefined") {
+          localStorage.clear();
+          sessionStorage.clear();
+        }
+        toast.error("Acesso negado: Conta excluída ou desativada pelo administrador.");
+        return;
+      }
+
       toast.success("Bem-vindo!");
       navigate({ to: "/driver" });
     } catch (err: any) {
