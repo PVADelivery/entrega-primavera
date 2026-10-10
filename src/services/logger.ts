@@ -110,6 +110,9 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
     msg.includes("removechild") ||
     msg.includes("failed to fetch dynamically imported module") ||
     msg.includes("importing a module script failed") ||
+    msg.includes("sem conexão com o servidor") ||
+    msg.includes("sem conexao com o servidor") ||
+    msg.includes("verifique sua internet") ||
     msg.includes("categoria não habilitada") ||
     msg.includes("não habilitada pelo administrador") ||
     msg.includes("categoria nao habilitada") ||
@@ -315,6 +318,10 @@ export function initializeGlobalErrorHandlers(appName: string) {
             lower.includes("failed to fetch") ||
             lower.includes("networkerror") ||
             lower.includes("network request failed") ||
+            // Avisos de falta de conexão mostrados ao entregador não são falhas do sistema
+            lower.includes("sem conexão com o servidor") ||
+            lower.includes("sem conexao com o servidor") ||
+            lower.includes("verifique sua internet") ||
             // Erros de preenchimento de formulário não são falhas do sistema
             lower.includes("preencha") ||
             lower.includes("informe seu") ||
