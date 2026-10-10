@@ -148,7 +148,6 @@ function DeliveriesPage() {
         return [];
       }
     },
-    enabled: true,
   });
 
   useEffect(() => {
