@@ -808,18 +808,16 @@ async function createOwnDriverRow(): Promise<boolean> {
       .maybeSingle();
     if (existing?.id) return true;
 
-    const { data: region } = await supabase
-      .from("regions")
-      .select("id")
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle();
-
+    const meta: any = sessionData?.session?.user?.user_metadata ?? {};
     const { error } = await supabase.from("delivery_drivers").insert({
       user_id: userId,
-      region_id: region?.id ?? null,
-      vehicle: "Moto",
-      vehicle_type: "motorcycle",
+      full_name: meta.full_name || sessionData?.session?.user?.email || null,
+      phone: meta.phone || null,
+      vehicle: "moto",
+      vehicle_type: "moto",
+      status: "active",
+      is_active: true,
+      service_types: ["delivery"],
     } as any);
 
     if (error) {
