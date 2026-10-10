@@ -19,6 +19,7 @@ import {
   fetchMyHistory,
 } from "@/services/deliveries";
 import { toast } from "sonner";
+import { notifyConnectionError } from "@/lib/connectionError";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useWorkMode } from "@/hooks/useWorkMode";
 import { Navigation, Phone } from "lucide-react";
@@ -94,7 +95,10 @@ function DeliveriesPage() {
           .select("*")
           .order("created_at", { ascending: false })
           .limit(50);
-        if (error) return [];
+        if (error) {
+          notifyConnectionError(error, "suas corridas em andamento", "deliveries.activeRides");
+          return [];
+        }
         const rides = (data ?? []) as any[];
 
         return rides.filter((r: any) => {
@@ -110,6 +114,7 @@ function DeliveriesPage() {
           return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
         });
       } catch (e) {
+        notifyConnectionError(e, "suas corridas em andamento", "deliveries.activeRides");
         return [];
       }
     },
@@ -119,7 +124,14 @@ function DeliveriesPage() {
 
   const history = useQuery({
     queryKey: ["deliveries", "history", driverId, user?.id],
-    queryFn: () => fetchMyHistory(driverId, user?.id),
+    queryFn: async () => {
+      try {
+        return await fetchMyHistory(driverId, user?.id);
+      } catch (e) {
+        notifyConnectionError(e, "o histórico de entregas", "deliveries.history");
+        return [];
+      }
+    },
     enabled: !!(driverId || user?.id),
   });
 
@@ -137,7 +149,10 @@ function DeliveriesPage() {
           .in("status", ["completed", "cancelled", "concluida", "cancelada", "finished"])
           .order("created_at", { ascending: false })
           .limit(50);
-        if (error) return [];
+        if (error) {
+          notifyConnectionError(error, "o histórico de corridas", "deliveries.historyRides");
+          return [];
+        }
         const rides = (data ?? []) as any[];
 
         return rides.filter((r: any) => {
