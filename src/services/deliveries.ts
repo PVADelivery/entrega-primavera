@@ -708,47 +708,29 @@ export async function fetchMyActiveDeliveries(driverId?: string | null, userId?:
 
 export async function fetchMyHistory(driverId?: string | null, userId?: string | null) {
   const ids = Array.from(new Set([driverId, userId].filter(Boolean))) as string[];
-  
-  let query = supabase
+  // Nunca buscar sem filtro: o histórico deve conter apenas entregas do próprio entregador.
+  if (ids.length === 0) return [];
+
+  const finished = ["completed", "delivered", "cancelled", "returned"];
+  const { data, error } = await supabase
     .from("deliveries")
     .select("*")
+    .in("driver_id", ids)
+    .in("status", finished as any)
     .order("created_at", { ascending: false })
-    .limit(10);
-
-  if (ids.length > 0) {
-    query = query.in("driver_id", ids);
-  }
-
-  const { data, error } = await query;
+    .limit(50);
   if (error) throw error;
 
-  const historyDeliveries = (data ?? [])
-    .filter((d: any) => ["completed", "delivered", "cancelled", "returned"].includes(d.status))
-    .slice(0, 10);
+  const rows = (data ?? []).filter((d: any) => d.driver_id && ids.includes(String(d.driver_id)));
+  const doneTime = (d: any) => {
+    const v = deliveryDoneAt(d as any);
+    const t = v ? new Date(v as any).getTime() : NaN;
+    return Number.isFinite(t) ? t : new Date(d.created_at).getTime() || 0;
+  };
+  rows.sort((a: any, b: any) => doneTime(b) - doneTime(a));
 
-  // Se não encontrou entregas com o ID do motorista, traz histórico recente geral
-  if (historyDeliveries.length === 0 && ids.length > 0) {
-    const { data: fallbackData } = await supabase
-      .from("deliveries")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(10);
-    
-    if (fallbackData && fallbackData.length > 0) {
-      const resolvedFallbackData = await resolveDeliveryCompanies(fallbackData);
-      return resolvedFallbackData
-        .filter((d: any) => ["completed", "delivered", "cancelled", "returned"].includes(d.status))
-        .slice(0, 10)
-        .map((d: any) => ({
-          ...d,
-          status: toAppStatus(d.status),
-          address: cleanAddressForDriver(d.address || d.dropoff_address || d.delivery_address),
-        }));
-    }
-  }
-
-  const resolvedHistory = await resolveDeliveryCompanies(historyDeliveries);
-  return resolvedHistory.slice(0, 10).map((d: any) => ({
+  const resolvedHistory = await resolveDeliveryCompanies(rows);
+  return resolvedHistory.map((d: any) => ({
     ...d,
     status: toAppStatus(d.status),
     address: cleanAddressForDriver(d.address || d.dropoff_address || d.delivery_address),
