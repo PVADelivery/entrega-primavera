@@ -823,7 +823,21 @@ const nextStatus: Record<string, string> = {
 };
 
 function describeDbError(err: any) {
-  return err ? String(err.message || "Erro desconhecido") : "Erro desconhecido";
+  if (!err) return "Erro desconhecido";
+  const msg = String(err.message || "Erro desconhecido");
+  const lower = msg.toLowerCase();
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("network request failed") ||
+    lower.includes("fetch failed") ||
+    lower.includes("load failed") ||
+    lower.includes("timeout") ||
+    lower.includes("timed out")
+  ) {
+    return "Sem conexão com o servidor. Verifique sua internet e tente novamente.";
+  }
+  return msg;
 }
 
 function statusCandidates(status: string): string[] {
