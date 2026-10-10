@@ -161,7 +161,7 @@ export function triggerDeviceVibration(pattern: number[] = [500, 200, 500, 200, 
  */
 export function requestNotificationPermission() {
   if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("LocalNotifications")) {
-    LocalNotifications.requestPermissions().then((res) => {
+    LocalNotifications.requestPermissions().then((res: any) => {
       if (res.display === "granted" && Capacitor.getPlatform() === "android") {
         // Limpa canais obsoletos para evitar canais travados sem som no Android
         LocalNotifications.deleteChannel({ id: "default" }).catch(() => {});
@@ -217,7 +217,7 @@ export function sendNativeDeviceNotification(
             }
           }
         ]
-      }).catch((e) => {
+      }).catch((e: any) => {
         console.warn("[LocalNotifications] Erro ao agendar notificação nativa:", e);
       });
     } catch (e) {
