@@ -37,6 +37,7 @@ function InvitePage() {
   const [validating, setValidating] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [existingAccount, setExistingAccount] = useState(false);
   const [step, setStep] = useState(0);
 
   const [formData, setFormData] = useState({
@@ -131,55 +132,88 @@ function InvitePage() {
       return;
     }
 
+    const email = formData.email.trim().toLowerCase();
+    const plate = formData.licensePlate.toUpperCase();
+    const isAlreadyRegistered = (m?: string) => {
+      const l = String(m || "").toLowerCase();
+      return l.includes("already been registered") || l.includes("already registered") || l.includes("already exists") || l.includes("já está cadastrado");
+    };
+
+    // Conta existente: tenta entrar com a senha digitada e vincular como entregador
+    const linkExistingAccount = async (): Promise<boolean> => {
+      const { data: sIn, error: sErr } = await supabase.auth.signInWithPassword({ email, password: formData.password });
+      if (sErr || !sIn?.user) return false;
+      const uid = sIn.user.id;
+      try {
+        const { data: existingDrv } = await (supabase as any).from("delivery_drivers").select("id").eq("user_id", uid).maybeSingle();
+        const payload: any = {
+          full_name: formData.fullName,
+          phone: formData.phone || null,
+          cpf: formData.document || null,
+          vehicle: formData.vehicle,
+          license_plate: plate,
+          is_active: true,
+        };
+        if (existingDrv?.id) await (supabase as any).from("delivery_drivers").update(payload).eq("user_id", uid);
+        else await (supabase as any).from("delivery_drivers").insert([{ user_id: uid, ...payload }]);
+        await (supabase as any).from("invitations").update({ status: "accepted" }).eq("token", token);
+      } catch (linkErr) {
+        console.warn("Falha ao vincular conta existente:", linkErr);
+      }
+      return true;
+    };
+
+    const handleExisting = async () => {
+      if (await linkExistingAccount()) {
+        toast.success("Conta vinculada! Bem-vindo à equipe.");
+        navigate({ to: "/driver" });
+        return true;
+      }
+      setExistingAccount(true);
+      setFormError("Este e-mail já tem conta. Entre com sua senha ou recupere o acesso.");
+      setLoading(false);
+      return true;
+    };
+
     try {
-      // 1. Tentar aceitar convite via Edge Function
       const { data: result, error: invokeError } = await supabase.functions.invoke("accept-invitation", {
         body: {
           token,
-          email: formData.email,
+          email,
           password: formData.password,
           fullName: formData.fullName,
           phone: formData.phone,
           document: formData.document,
           vehicle: formData.vehicle,
-          license_plate: formData.licensePlate.toUpperCase(),
+          license_plate: plate,
         },
       });
 
-      let registrationSuccess = false;
-
-      if (!invokeError && result && !result.error) {
-        registrationSuccess = true;
-      } else {
-        // Tentar extrair mensagem amigável de erro
-        let customMessage = "";
-        if (invokeError && (invokeError as any).context) {
+      if (invokeError || !result || result.error) {
+        let customMessage = result?.error ? String(result.error) : "";
+        if (!customMessage && invokeError && (invokeError as any).context) {
           try {
             const body = await (invokeError as any).context.json();
             if (body?.error) customMessage = body.error;
           } catch {}
         }
 
-        if (customMessage) {
-          throw new Error(customMessage);
+        if (isAlreadyRegistered(customMessage)) {
+          await handleExisting();
+          return;
         }
+        if (customMessage) throw new Error(customMessage);
 
-        // Fallback direto via Supabase Auth se Edge Function retornar erro genérico
         const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-          email: formData.email,
+          email,
           password: formData.password,
-          options: {
-            data: {
-              full_name: formData.fullName,
-              phone: formData.phone,
-              role: "driver"
-            }
-          }
+          options: { data: { full_name: formData.fullName, phone: formData.phone, role: "driver" } },
         });
 
         if (signUpErr) {
-          if (signUpErr.message?.toLowerCase().includes("already registered")) {
-            throw new Error("Este e-mail já está cadastrado no sistema.");
+          if (isAlreadyRegistered(signUpErr.message)) {
+            await handleExisting();
+            return;
           }
           throw signUpErr;
         }
@@ -192,28 +226,22 @@ function InvitePage() {
             phone: formData.phone || null,
             cpf: formData.document || null,
             vehicle: formData.vehicle,
-            license_plate: formData.licensePlate.toUpperCase(),
+            license_plate: plate,
             is_active: true,
           }]);
-
           await (supabase as any).from("invitations").update({ status: "accepted" }).eq("token", token);
-          registrationSuccess = true;
         }
       }
 
-      // Log in locally
-      const { data: signInData } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
+      const { data: signInData } = await supabase.auth.signInWithPassword({ email, password: formData.password });
 
       if (signInData?.user) {
         try {
-          await (supabase as any).from("delivery_drivers").update({ 
+          await (supabase as any).from("delivery_drivers").update({
             full_name: formData.fullName,
             phone: formData.phone,
-            vehicle: formData.vehicle, 
-            license_plate: formData.licensePlate.toUpperCase(),
+            vehicle: formData.vehicle,
+            license_plate: plate,
             is_active: true,
           }).eq("user_id", signInData.user.id);
         } catch (drvErr) {
@@ -222,14 +250,18 @@ function InvitePage() {
       }
 
       toast.success("Bem-vindo à equipe! Cadastro de entregador finalizado com sucesso.");
-      
       setTimeout(() => {
-        navigate({ to: "/login" });
+        navigate({ to: signInData?.user ? "/driver" : "/login" });
       }, 1500);
-
     } catch (err: any) {
       console.error("Erro no cadastro:", err);
-      const errorMessage = err.message || "Erro ao realizar cadastro. Tente novamente.";
+      const raw = String(err?.message || "");
+      const l = raw.toLowerCase();
+      const errorMessage =
+        l.includes("password") && l.includes("6") ? "A senha precisa ter pelo menos 6 caracteres." :
+        l.includes("invalid email") || l.includes("unable to validate email") ? "E-mail inválido." :
+        l.includes("rate limit") || l.includes("too many") ? "Muitas tentativas. Aguarde alguns instantes." :
+        raw || "Erro ao realizar cadastro. Tente novamente.";
       setFormError(errorMessage);
       toast.error(errorMessage);
       setLoading(false);
@@ -238,15 +270,32 @@ function InvitePage() {
 
   const steps = ["Credenciais", "Dados Pessoais", "Veículo"];
 
+  const handleResetPassword = async () => {
+    const email = formData.email.trim().toLowerCase();
+    if (!email) return;
+    const { error: rErr } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    });
+    if (rErr) toast.error("Não foi possível enviar o e-mail de recuperação. Tente novamente.");
+    else toast.success("Enviamos um link de recuperação para o seu e-mail.");
+  };
+
   const nextStep = () => {
-    if (step === 0 && (!formData.email || formData.password.length < 6 || formData.password !== formData.confirmPassword)) {
-      toast.error("Preencha o email e uma senha válida de pelo menos 6 caracteres.");
-      return;
+    const showErr = (msg: string) => { setFormError(msg); toast.error(msg); };
+    if (step === 0) {
+      const email = formData.email.trim().toLowerCase();
+      if (email !== formData.email) setFormData(prev => ({ ...prev, email }));
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showErr("Informe seu e-mail corretamente.");
+      if (formData.password.length < 6) return showErr("A senha precisa ter pelo menos 6 caracteres.");
+      if (formData.password !== formData.confirmPassword) return showErr("As senhas não coincidem.");
     }
-    if (step === 1 && (!formData.fullName || !formData.phone || !formData.document)) {
-      toast.error("Preencha todos os seus dados pessoais.");
-      return;
+    if (step === 1) {
+      if (!formData.fullName.trim()) return showErr("Informe seu nome completo.");
+      if (!formData.phone.trim()) return showErr("Informe seu telefone.");
+      if (!formData.document.trim()) return showErr("Informe seu CPF.");
     }
+    setFormError(null);
+    setExistingAccount(false);
     setStep(s => Math.min(s + 1, 2));
   };
 
@@ -327,9 +376,21 @@ function InvitePage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {formError && (
-              <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-                <AlertCircle className="h-5 w-5 shrink-0" />
-                <p>{formError}</p>
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium p-4 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
+                  <p>{formError}</p>
+                </div>
+                {existingAccount && (
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" className="flex-1" onClick={() => navigate({ to: "/login" })}>
+                      Entrar
+                    </Button>
+                    <Button type="button" size="sm" variant="secondary" className="flex-1" onClick={handleResetPassword}>
+                      Esqueci minha senha
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
