@@ -23,6 +23,7 @@ import {
   getDriverIdFromUser,
 } from "@/services/deliveries";
 import { toast } from "sonner";
+import { notifyConnectionError } from "@/lib/connectionError";
 import { TrendingUp, Package2, CalendarDays, Sparkles, Navigation, User, MapPin, ArrowRight, Loader2 } from "lucide-react";
 import { useWorkMode } from "@/hooks/useWorkMode";
 import { WorkModeSwitch } from "@/components/driver/WorkModeSwitch";
@@ -136,6 +137,7 @@ function DriverHome() {
         return raw ?? [];
       } catch (err) {
         console.error("[available] Erro na consulta:", err);
+        notifyConnectionError(err, "as entregas disponíveis", "available");
         return [];
       }
     },
@@ -223,6 +225,7 @@ function DriverHome() {
         return idToUse ? await fetchMyActiveDeliveries(idToUse, user?.id) : [];
       } catch (err) {
         console.error("[active] Erro na consulta:", err);
+        notifyConnectionError(err, "suas entregas em andamento", "active");
         return [];
       }
     },
@@ -278,6 +281,7 @@ function DriverHome() {
 
         if (error) {
           console.error("[availableRides] Erro ao buscar corridas:", error);
+          notifyConnectionError(error, "as corridas disponíveis", "availableRides");
           return [];
         }
         const rides = (data ?? []) as any[];
@@ -324,6 +328,7 @@ function DriverHome() {
 
         if (error) {
           console.error("[activeRides] Erro ao buscar corridas atribuídas:", error);
+          notifyConnectionError(error, "suas corridas em andamento", "activeRides");
           return [];
         }
         const rides = (data ?? []) as any[];
