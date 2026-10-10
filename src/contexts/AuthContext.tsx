@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       // Adiciona role se constar em profiles ou delivery_drivers
-      if (prof?.role === "driver" && !rolesList.includes("driver")) {
+      if ((prof as any)?.role === "driver" && !rolesList.includes("driver")) {
         rolesList.push("driver");
       }
       if (drv && !rolesList.includes("driver")) {

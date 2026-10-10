@@ -159,12 +159,12 @@ function DriverHome() {
     };
 
     if (Capacitor.isNativePlatform()) {
-      import("@capacitor/app").then(({ App }) => {
-        App.addListener("appStateChange", ({ isActive }) => {
+      import(/* @vite-ignore */ "@capacitor/app" as string).then(({ App }: any) => {
+        App.addListener("appStateChange", ({ isActive }: any) => {
           if (isActive) {
             throttledRefetch();
           }
-        }).then((handle) => { sub = handle; });
+        }).then((handle: any) => { sub = handle; });
       }).catch(() => {});
     }
 
