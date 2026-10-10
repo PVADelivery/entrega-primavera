@@ -159,7 +159,7 @@ function DriverHome() {
     };
 
     if (Capacitor.isNativePlatform()) {
-      import(/* @vite-ignore */ "@capacitor/app" as string).then(({ App }: any) => {
+      import("@capacitor/app" as any).then(({ App }: any) => {
         App.addListener("appStateChange", ({ isActive }: any) => {
           if (isActive) {
             throttledRefetch();
