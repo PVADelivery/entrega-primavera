@@ -314,7 +314,17 @@ export function initializeGlobalErrorHandlers(appName: string) {
             msgStr.includes("not found") ||
             lower.includes("failed to fetch") ||
             lower.includes("networkerror") ||
-            lower.includes("network request failed");
+            lower.includes("network request failed") ||
+            // Erros de preenchimento de formulário não são falhas do sistema
+            lower.includes("preencha") ||
+            lower.includes("informe seu") ||
+            lower.includes("pelo menos 6 caracteres") ||
+            lower.includes("senhas não coincidem") ||
+            lower.includes("already been registered") ||
+            lower.includes("already registered") ||
+            lower.includes("já está cadastrado") ||
+            lower.includes("já tem conta") ||
+            lower.includes("e-mail ou senha incorretos");
 
           if (typeof msgStr === "string" && !isRaceCondition) {
             reportErrorToTelegram({
