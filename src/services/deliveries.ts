@@ -746,30 +746,42 @@ export async function acceptDelivery(deliveryId: string, _driverId?: string) {
   if (existing) return existing;
 
   const run = (async () => {
-    const { data, error } = await supabase.rpc("accept_delivery" as any, {
-      p_delivery_id: deliveryId,
-    });
+    let result: any = null;
 
-    if (error) {
-      console.error("[acceptDelivery] RPC error:", error);
-      throw new Error(error.message || "Não foi possível aceitar a entrega.");
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data, error } = await supabase.rpc("accept_delivery" as any, {
+        p_delivery_id: deliveryId,
+      });
+
+      if (error) {
+        console.error("[acceptDelivery] RPC error:", error);
+        throw new Error(error.message || "Não foi possível aceitar a entrega.");
+      }
+
+      result = data as any;
+      if (result?.success) return;
+
+      // Cadastro de entregador ausente (conta criada sem o gatilho automático):
+      // cria a linha em delivery_drivers e tenta o aceite de novo uma única vez.
+      if (result?.error === "DRIVER_NOT_FOUND" && attempt === 0) {
+        const created = await createOwnDriverRow();
+        if (created) continue;
+      }
+      break;
     }
 
-    const result = data as any;
-    if (!result?.success) {
-      console.error("[acceptDelivery] RPC rejected:", result);
-      const messages: Record<string, string> = {
-        NOT_AUTHENTICATED: "Sessão expirada. Faça login novamente.",
-        DRIVER_NOT_FOUND: "Entregador não encontrado.",
-        DELIVERY_NOT_FOUND: "Entrega não encontrada.",
-        DELIVERY_NOT_AVAILABLE: "Esta entrega já foi aceita por outro entregador.",
-      };
-      throw new Error(
-        messages[result?.error] ||
-          result?.message ||
-          "Não foi possível aceitar a entrega."
-      );
-    }
+    console.error("[acceptDelivery] RPC rejected:", result);
+    const messages: Record<string, string> = {
+      NOT_AUTHENTICATED: "Sessão expirada. Faça login novamente.",
+      DRIVER_NOT_FOUND: "Entregador não encontrado.",
+      DELIVERY_NOT_FOUND: "Entrega não encontrada.",
+      DELIVERY_NOT_AVAILABLE: "Esta entrega já foi aceita por outro entregador.",
+    };
+    throw new Error(
+      messages[result?.error] ||
+        result?.message ||
+        "Não foi possível aceitar a entrega."
+    );
   })();
 
   inFlightAccepts.set(deliveryId, run);
@@ -777,6 +789,47 @@ export async function acceptDelivery(deliveryId: string, _driverId?: string) {
     await run;
   } finally {
     inFlightAccepts.delete(deliveryId);
+  }
+}
+
+// Cria a linha do próprio entregador quando ela não existe (ex.: conta criada
+// antes do gatilho automático ou por outro fluxo). Retorna true se a linha
+// passou a existir.
+async function createOwnDriverRow(): Promise<boolean> {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id;
+    if (!userId) return false;
+
+    const { data: existing } = await supabase
+      .from("delivery_drivers")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (existing?.id) return true;
+
+    const { data: region } = await supabase
+      .from("regions")
+      .select("id")
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+
+    const { error } = await supabase.from("delivery_drivers").insert({
+      user_id: userId,
+      region_id: region?.id ?? null,
+      vehicle: "Moto",
+      vehicle_type: "motorcycle",
+    } as any);
+
+    if (error) {
+      console.error("[createOwnDriverRow] insert error:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[createOwnDriverRow] erro:", err);
+    return false;
   }
 }
 
