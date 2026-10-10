@@ -110,6 +110,9 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
     msg.includes("removechild") ||
     msg.includes("failed to fetch dynamically imported module") ||
     msg.includes("importing a module script failed") ||
+    msg.includes("sem conexão com o servidor") ||
+    msg.includes("sem conexao com o servidor") ||
+    msg.includes("verifique sua internet") ||
     msg.includes("categoria não habilitada") ||
     msg.includes("não habilitada pelo administrador") ||
     msg.includes("categoria nao habilitada") ||
