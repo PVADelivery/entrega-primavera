@@ -119,36 +119,35 @@ function DeliveriesPage() {
 
   const history = useQuery({
     queryKey: ["deliveries", "history", driverId, user?.id],
-    queryFn: () => fetchMyHistory(driverId || user?.id || "", user?.id),
-    enabled: true,
+    queryFn: () => fetchMyHistory(driverId, user?.id),
+    enabled: !!(driverId || user?.id),
   });
 
   const historyRides = useQuery({
     queryKey: ["rides", "history", driverId, user?.id],
+    enabled: !!(driverId || user?.id),
     queryFn: async () => {
       try {
         const myIds = await getAllMyDriverIds();
+        if (!myIds.length) return [];
         const { data, error } = await (supabase as any)
           .from("ride_requests")
           .select("*")
+          .in("driver_id", myIds)
           .in("status", ["completed", "cancelled", "concluida", "cancelada", "finished"])
           .order("created_at", { ascending: false })
-          .limit(10);
+          .limit(50);
         if (error) return [];
         const rides = (data ?? []) as any[];
 
         return rides.filter((r: any) => {
-          const statusLower = String(r.status || "").toLowerCase();
-          const isFinished = ["completed", "cancelled", "concluida", "cancelada", "finished"].includes(statusLower);
-          if (!isFinished) return false;
           if (!r.driver_id) return false;
           return myIds.some(id => String(r.driver_id).toLowerCase() === String(id).toLowerCase());
-        }).slice(0, 10);
+        });
       } catch (e) {
         return [];
       }
     },
-    enabled: true,
   });
 
   useEffect(() => {
