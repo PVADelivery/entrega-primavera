@@ -159,7 +159,8 @@ function DriverHome() {
     };
 
     if (Capacitor.isNativePlatform()) {
-      import("@capacitor/app" as any).then(({ App }: any) => {
+      // @ts-ignore - tipos do pacote nativo podem não estar disponíveis
+      import("@capacitor/app").then(({ App }: any) => {
         App.addListener("appStateChange", ({ isActive }: any) => {
           if (isActive) {
             throttledRefetch();
