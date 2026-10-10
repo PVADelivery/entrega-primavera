@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Send, MessageCircle, Phone, CheckCheck, Headphones, AlertCircle, Sparkles } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/WhatsappIcon";
 import { toast } from "sonner";
+import { isConnectionError, notifyConnectionError } from "@/lib/connectionError";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/driver/chat")({
@@ -78,6 +79,7 @@ function ChatPage() {
             return;
           }
           console.warn("[DriverChat] Aviso ao carregar histórico:", error.message);
+          notifyConnectionError(error, "as mensagens do chat", "chat.history");
           return;
         }
 
@@ -90,6 +92,7 @@ function ChatPage() {
         }
       } catch (err) {
         console.warn("[DriverChat] Erro resiliente ao consultar chat_messages:", err);
+        notifyConnectionError(err, "as mensagens do chat", "chat.history");
       }
     })();
 
@@ -168,6 +171,9 @@ function ChatPage() {
 
       if (error) {
         console.warn("[DriverChat] Tabela remota pendente, mensagem salva localmente:", error.message);
+        if (isConnectionError(error)) {
+          toast.error("Sem conexão: sua mensagem foi salva no aparelho e será enviada quando a internet voltar.");
+        }
       } else if (data) {
         // Substitui o id local pelo id real do banco
         setMessages((prev) =>
@@ -176,6 +182,9 @@ function ChatPage() {
       }
     } catch (e) {
       console.warn("[DriverChat] Mensagem retida localmente:", e);
+      if (isConnectionError(e)) {
+        toast.error("Sem conexão: sua mensagem foi salva no aparelho e será enviada quando a internet voltar.");
+      }
     } finally {
       setSending(false);
     }
