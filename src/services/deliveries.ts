@@ -741,46 +741,114 @@ export async function fetchMyHistory(driverId?: string | null, userId?: string |
 // a promessa existente, então cliques duplicados nunca geram dois POSTs.
 const inFlightAccepts = new Map<string, Promise<void>>();
 
-export async function acceptDelivery(deliveryId: string, _driverId?: string) {
+export async function acceptDelivery(deliveryId: string, driverId?: string) {
+  if (!deliveryId) throw new Error("ID da entrega não informado.");
+
   const existing = inFlightAccepts.get(deliveryId);
   if (existing) return existing;
 
   const run = (async () => {
-    let result: any = null;
+    // 1. Tentar RPC accept_delivery nativa
+    const { data, error } = await supabase.rpc("accept_delivery" as any, {
+      p_delivery_id: deliveryId,
+    });
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const { data, error } = await supabase.rpc("accept_delivery" as any, {
-        p_delivery_id: deliveryId,
-      });
-
-      if (error) {
-        console.error("[acceptDelivery] RPC error:", error);
-        throw new Error(error.message || "Não foi possível aceitar a entrega.");
-      }
-
-      result = data as any;
-      if (result?.success) return;
-
-      // Cadastro de entregador ausente (conta criada sem o gatilho automático):
-      // cria a linha em delivery_drivers e tenta o aceite de novo uma única vez.
-      if (result?.error === "DRIVER_NOT_FOUND" && attempt === 0) {
-        const created = await createOwnDriverRow();
-        if (created) continue;
-      }
-      break;
+    const result = data as any;
+    if (!error && result?.success) {
+      return;
     }
 
-    console.error("[acceptDelivery] RPC rejected:", result);
+    console.warn("[acceptDelivery] RPC inicial retornou:", { error, result });
+
+    // 2. Se o erro for de entregador ausente (DRIVER_NOT_FOUND) ou similar, sincronizar/criar o registro do entregador
+    let effectiveDriverId = driverId;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id || (driverId && driverId.includes("-") ? driverId : null);
+      if (currentUserId) {
+        effectiveDriverId = await ensureDriverRow(currentUserId);
+      }
+    } catch {}
+
+    // 3. Se foi DRIVER_NOT_FOUND, tentar o RPC novamente após auto-provisionar em delivery_drivers
+    if (result?.error === "DRIVER_NOT_FOUND" || (error && error.message?.includes("DRIVER_NOT_FOUND"))) {
+      const { data: retryData, error: retryError } = await supabase.rpc("accept_delivery" as any, {
+        p_delivery_id: deliveryId,
+      });
+      const retryResult = retryData as any;
+      if (!retryError && retryResult?.success) {
+        return;
+      }
+    }
+
+    // 4. Se a entrega já foi aceita por outro entregador, interromper com mensagem amigável
+    if (
+      result?.error === "DELIVERY_NOT_AVAILABLE" ||
+      (result?.message && (result.message.includes("já foi aceita") || result.message.includes("não está mais disponível")))
+    ) {
+      throw new Error("Esta entrega já foi aceita por outro entregador.");
+    }
+
+    // 5. Fallback 1: Procedure update_delivery_status_safe
+    try {
+      const { data: safeData, error: safeErr } = await supabase.rpc("update_delivery_status_safe" as any, {
+        p_delivery_id: deliveryId,
+        p_status: "accepted",
+        p_driver_id: effectiveDriverId && effectiveDriverId.includes("-") ? effectiveDriverId : null,
+      });
+      if (!safeErr && (safeData as any)?.success) {
+        return;
+      }
+    } catch (safeEx) {
+      console.warn("[acceptDelivery] Fallback update_delivery_status_safe falhou:", safeEx);
+    }
+
+    // 6. Fallback 2: Atualização REST direta em deliveries (atômica com verificação de status pendente)
+    const now = new Date().toISOString();
+    const updatePayload: Record<string, any> = {
+      status: "accepted",
+      accepted_at: now,
+      updated_at: now,
+    };
+    if (effectiveDriverId && effectiveDriverId.includes("-")) {
+      updatePayload.driver_id = effectiveDriverId;
+    }
+
+    const { data: updateData, error: updateErr } = await supabase
+      .from("deliveries")
+      .update(updatePayload)
+      .eq("id", deliveryId)
+      .in("status", ["pending", "broadcasted"])
+      .select("id");
+
+    if (!updateErr && updateData && updateData.length > 0) {
+      return;
+    }
+
+    // 7. Se nada funcionou, conferir se a entrega foi pega por outro entregador
+    const { data: currentDel } = await supabase
+      .from("deliveries")
+      .select("status, driver_id")
+      .eq("id", deliveryId)
+      .maybeSingle();
+
+    if (currentDel && currentDel.status !== "pending" && currentDel.status !== "broadcasted") {
+      throw new Error("Esta entrega já foi aceita por outro entregador.");
+    }
+
     const messages: Record<string, string> = {
       NOT_AUTHENTICATED: "Sessão expirada. Faça login novamente.",
       DRIVER_NOT_FOUND: "Entregador não encontrado.",
       DELIVERY_NOT_FOUND: "Entrega não encontrada.",
       DELIVERY_NOT_AVAILABLE: "Esta entrega já foi aceita por outro entregador.",
     };
+
     throw new Error(
       messages[result?.error] ||
         result?.message ||
-        "Não foi possível aceitar a entrega."
+        error?.message ||
+        updateErr?.message ||
+        "Não foi possível aceitar a entrega no momento."
     );
   })();
 
@@ -1060,11 +1128,14 @@ export async function getDriverIdFromUser(userId: string): Promise<string | null
 export async function ensureDriverRow(userId: string, regionId?: string | null): Promise<string> {
   if (!userId) return "";
   if (driverRowCache.has(userId)) {
-    return driverRowCache.get(userId)!;
+    const cachedMem = driverRowCache.get(userId)!;
+    if (cachedMem && cachedMem !== userId) {
+      return cachedMem;
+    }
   }
   try {
     const cached = localStorage.getItem(`pva_drv_row_${userId}`);
-    if (cached) {
+    if (cached && cached !== userId && cached.includes("-")) {
       driverRowCache.set(userId, cached);
       return cached;
     }
@@ -1078,9 +1149,10 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
       return fixed;
     }
 
+    // 1. Busca por user_id na tabela delivery_drivers
     const { data } = await supabase
       .from("delivery_drivers")
-      .select("id")
+      .select("id, status, is_active")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -1090,26 +1162,51 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
       return data.id;
     }
 
+    // 2. Busca por id direto (quando o id do driver é igual ao user_id)
     const { data: dataById } = await supabase
       .from("delivery_drivers")
-      .select("id")
+      .select("id, user_id")
       .eq("id", userId)
       .maybeSingle();
 
     if (dataById?.id) {
+      if (dataById.user_id !== userId) {
+        supabase.from("delivery_drivers").update({ user_id: userId } as any).eq("id", dataById.id).catch(() => {});
+      }
       driverRowCache.set(userId, dataById.id);
       try { localStorage.setItem(`pva_drv_row_${userId}`, dataById.id); } catch {}
       return dataById.id;
     }
 
+    // 3. Busca por telefone ou nome vinculado no perfil
+    let userFullName = "Entregador";
+    let userPhone: string | null = null;
+    let isDeleted = false;
+
     try {
-      const { data: prof } = await supabase.from("profiles").select("phone, full_name").eq("user_id", userId).maybeSingle();
-      if (prof?.phone) {
-        const clean = String(prof.phone).replace(/\D/g, "");
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("phone, full_name, status, role")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (prof?.status === "deleted") {
+        isDeleted = true;
+      }
+      if (prof?.full_name) userFullName = prof.full_name;
+      if (prof?.phone) userPhone = prof.phone;
+
+      if (!isDeleted && userPhone) {
+        const clean = String(userPhone).replace(/\D/g, "");
         if (clean.length >= 8) {
-          const { data: byPhone } = await supabase.from("delivery_drivers").select("id").ilike("phone", `%${clean.slice(-8)}%`).maybeSingle();
+          const { data: byPhone } = await supabase
+            .from("delivery_drivers")
+            .select("id")
+            .ilike("phone", `%${clean.slice(-8)}%`)
+            .maybeSingle();
+
           if (byPhone?.id) {
-            supabase.from("delivery_drivers").update({ user_id: userId } as any).eq("id", byPhone.id).catch(() => {});
+            await supabase.from("delivery_drivers").update({ user_id: userId } as any).eq("id", byPhone.id).catch(() => {});
             driverRowCache.set(userId, byPhone.id);
             try { localStorage.setItem(`pva_drv_row_${userId}`, byPhone.id); } catch {}
             return byPhone.id;
@@ -1118,10 +1215,64 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
       }
     } catch {}
 
-    // Não recria automaticamente entregadores excluídos pelo admin
+    if (isDeleted) {
+      return userId;
+    }
+
+    // 4. Se o entregador não possui cadastro na tabela delivery_drivers, provisiona automaticamente
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser?.user_metadata?.full_name) userFullName = authUser.user_metadata.full_name;
+      if (authUser?.phone) userPhone = authUser.phone;
+      if (!userFullName || userFullName === "Entregador") {
+        const prefix = authUser?.email?.split("@")[0];
+        if (prefix) userFullName = prefix;
+      }
+
+      const newDriverRow: any = {
+        user_id: userId,
+        full_name: userFullName,
+        phone: userPhone,
+        is_active: true,
+        is_online: true,
+        online: true,
+        status: "active",
+        vehicle_type: "moto",
+        commission_rate: 0.75,
+      };
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from("delivery_drivers")
+        .insert(newDriverRow)
+        .select("id")
+        .maybeSingle();
+
+      if (inserted?.id) {
+        driverRowCache.set(userId, inserted.id);
+        try { localStorage.setItem(`pva_drv_row_${userId}`, inserted.id); } catch {}
+        return inserted.id;
+      }
+
+      if (insertErr) {
+        console.warn("[ensureDriverRow] Aviso ao auto-criar delivery_driver:", insertErr.message);
+        const { data: retryCheck } = await supabase
+          .from("delivery_drivers")
+          .select("id")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (retryCheck?.id) {
+          driverRowCache.set(userId, retryCheck.id);
+          try { localStorage.setItem(`pva_drv_row_${userId}`, retryCheck.id); } catch {}
+          return retryCheck.id;
+        }
+      }
+    } catch (createErr) {
+      console.warn("[ensureDriverRow] Erro na auto-criação:", createErr);
+    }
+
     return userId;
   } catch (err) {
-    console.error("[ensureDriverRow] erro:", err);
+    console.error("[ensureDriverRow] erro geral:", err);
   }
 
   return userId;

@@ -387,14 +387,19 @@ function DriverHome() {
   }, [driverId, qc]);
 
   async function getEffectiveDriverId(): Promise<string> {
-    if (driverId && driverId.includes("-")) return driverId;
+    if (driverId && driverId.includes("-") && driverId !== user?.id) return driverId;
     if (user?.id) {
       try {
         const id = await ensureDriverRow(user.id);
-        if (id) return id;
+        if (id && id.includes("-")) {
+          if (id !== driverId) {
+            setDriverId(id);
+          }
+          return id;
+        }
       } catch (e) {}
     }
-    return user?.id || "";
+    return driverId || user?.id || "";
   }
 
   async function handleAccept(id: string) {
@@ -409,7 +414,7 @@ function DriverHome() {
     } catch (err: any) {
       await qc.invalidateQueries({ queryKey: ["deliveries"] });
       const msg = err?.message || "";
-      if (msg.includes("aceita por outro") || msg.includes("RLS") || msg.includes("DELIVERY_NOT_AVAILABLE") || msg.includes("Row level security") || msg.includes("blocked")) {
+      if (msg.includes("aceita por outro") || msg.includes("não está mais disponível") || msg.includes("RLS") || msg.includes("DELIVERY_NOT_AVAILABLE") || msg.includes("Row level security") || msg.includes("blocked")) {
         toast.info("Esta entrega já foi aceita por outro entregador.");
       } else {
         toast.error(`Erro ao aceitar entrega: ${msg}`);
