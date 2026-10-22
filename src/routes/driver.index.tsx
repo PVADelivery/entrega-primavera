@@ -774,9 +774,7 @@ function DriverHome() {
 
 
       {/* ── BONASOFT Watermark ── */}
-      <div className="mt-16 pb-8 text-center opacity-40 select-none pointer-events-none">
-        <p className="text-[11px] font-black uppercase tracking-[0.6em] text-muted-foreground ml-2">BONASOFT</p>
-      </div>
+      <div className="mt-16 pb-8 text-center opacity-40 select-none "> <a href="https://wa.me/5566992734632?text=Ol%C3%A1!%20Conheci%20a%20BonaSoft%20atrav%C3%A9s%20do%20aplicativo%20MT%2024%20Horas%20e%20gostaria%20de%20conhecer%20melhor%20os%20servi%C3%A7os%20de%20desenvolvimento%20de%20aplicativos%20e%20sistemas.%20Podemos%20conversar%3F" target="_blank" rel="noopener noreferrer" className="text-[11px] font-black uppercase tracking-[0.6em] text-muted-foreground ml-2 cursor-pointer inline-block">BONASOFT</a> </div>
     </DriverShell>
   );
 }
