@@ -400,6 +400,7 @@ function InvitePage() {
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-primary transition-colors" />
                       <Input 
                         type="email"
+                        autoComplete="email"
                         className="pl-12 h-14 rounded-2xl bg-black/40 border-white/5 text-white text-base focus:bg-black/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-slate-600" 
                         placeholder="seu@email.com"
                         value={formData.email}
@@ -417,6 +418,7 @@ function InvitePage() {
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-primary transition-colors" />
                         <Input 
                           type={showPassword ? "text" : "password"}
+                          autoComplete="new-password"
                           className="pl-12 pr-12 h-14 rounded-2xl bg-black/40 border-white/5 text-white text-base focus:bg-black/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-slate-600" 
                           placeholder="••••••••"
                           value={formData.password}
@@ -441,6 +443,7 @@ function InvitePage() {
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-primary transition-colors" />
                         <Input 
                           type={showConfirmPassword ? "text" : "password"}
+                          autoComplete="new-password"
                           className="pl-12 pr-12 h-14 rounded-2xl bg-black/40 border-white/5 text-white text-base focus:bg-black/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-slate-600" 
                           placeholder="••••••••"
                           value={formData.confirmPassword}
@@ -469,6 +472,7 @@ function InvitePage() {
                     <div className="relative group">
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-primary transition-colors" />
                       <Input 
+                        autoComplete="name"
                         className="pl-12 h-14 rounded-2xl bg-black/40 border-white/5 text-white text-base focus:bg-black/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-slate-600" 
                         placeholder="João da Silva"
                         value={formData.fullName}
@@ -485,6 +489,7 @@ function InvitePage() {
                       <div className="relative group">
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-primary transition-colors" />
                         <Input 
+                          autoComplete="tel"
                           className="pl-12 h-14 rounded-2xl bg-black/40 border-white/5 text-white text-base focus:bg-black/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-slate-600" 
                           placeholder="(00) 90000-0000"
                           value={formData.phone}
@@ -500,6 +505,7 @@ function InvitePage() {
                       <div className="relative group">
                         <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-primary transition-colors" />
                         <Input 
+                          autoComplete="off"
                           className="pl-12 h-14 rounded-2xl bg-black/40 border-white/5 text-white text-base focus:bg-black/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-slate-600" 
                           placeholder="000.000.000-00"
                           value={formData.document}

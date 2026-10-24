@@ -115,16 +115,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
       if (event === "SIGNED_OUT") {
-        if (typeof window !== "undefined" && sessionStorage.getItem("mt24_explicit_sign_out") === "true") {
-          setSession(null);
-          setUser(null);
-          setRoles([]);
-          setLoading(false);
+        setSession(null);
+        setUser(null);
+        setRoles([]);
+        setLoading(false);
+        if (typeof window !== "undefined") {
           sessionStorage.removeItem("mt24_explicit_sign_out");
-          return;
+          try {
+            Object.keys(localStorage).forEach((k) => {
+              if (k.includes("supabase") || k.includes("sb-") || k.includes("auth")) {
+                localStorage.removeItem(k);
+              }
+            });
+            localStorage.removeItem("pva_cached_driver_roles");
+          } catch {}
         }
-        // Se NÃO foi um sign out explícito (ex: oscilação de 4G), não desloga
-        console.warn("[Auth] Evento SIGNED_OUT ignorado para manter sessão persistente do entregador");
         return;
       }
       if (newSession) {
@@ -137,8 +142,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     supabase.auth.getSession()
-      .then(async ({ data: { session: s } }) => {
+      .then(async ({ data: { session: s }, error: sessErr }) => {
         if (!isMounted) return;
+        if (sessErr) {
+          const errStr = (sessErr.message || "").toLowerCase();
+          if (errStr.includes("invalid refresh token") || errStr.includes("not found")) {
+            if (typeof window !== "undefined") {
+              try {
+                Object.keys(localStorage).forEach((k) => {
+                  if (k.includes("supabase") || k.includes("sb-") || k.includes("auth")) {
+                    localStorage.removeItem(k);
+                  }
+                });
+              } catch {}
+            }
+          }
+        }
         if (s) {
           setSession(s);
           setUser(s.user);
@@ -151,8 +170,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               (k) => (k.includes("supabase") || k.includes("sb-") || k.includes("auth")) && Boolean(localStorage.getItem(k)?.includes("refresh_token"))
             );
             if (hasStoredSession) {
-              const { data: refData } = await supabase.auth.refreshSession();
-              if (refData?.session && isMounted) {
+              const { data: refData, error: refErr } = await supabase.auth.refreshSession();
+              if (refErr) {
+                const errStr = (refErr.message || "").toLowerCase();
+                if (errStr.includes("invalid refresh token") || errStr.includes("not found") || errStr.includes("invalid_grant")) {
+                  if (typeof window !== "undefined") {
+                    try {
+                      Object.keys(localStorage).forEach((k) => {
+                        if (k.includes("supabase") || k.includes("sb-") || k.includes("auth")) {
+                          localStorage.removeItem(k);
+                        }
+                      });
+                    } catch {}
+                  }
+                }
+              } else if (refData?.session && isMounted) {
                 setSession(refData.session);
                 setUser(refData.session.user);
                 setLoading(false);
