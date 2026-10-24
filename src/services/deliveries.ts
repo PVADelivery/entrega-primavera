@@ -1136,19 +1136,16 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
   try {
     const cached = localStorage.getItem(`pva_drv_row_${userId}`);
     if (cached && cached !== userId && cached.includes("-")) {
-      driverRowCache.set(userId, cached);
-      return cached;
+      if (cached === "26047901-b04b-4276-81ad-5133b83c7ef5") {
+        try { localStorage.removeItem(`pva_drv_row_${userId}`); } catch {}
+      } else {
+        driverRowCache.set(userId, cached);
+        return cached;
+      }
     }
   } catch {}
 
   try {
-    if (userId === "b5756a82-d1ab-4adf-9fe4-e283a175e37e") {
-      const fixed = "26047901-b04b-4276-81ad-5133b83c7ef5";
-      driverRowCache.set(userId, fixed);
-      try { localStorage.setItem(`pva_drv_row_${userId}`, fixed); } catch {}
-      return fixed;
-    }
-
     // 1. Busca por user_id na tabela delivery_drivers
     const { data } = await supabase
       .from("delivery_drivers")
@@ -1211,6 +1208,21 @@ export async function ensureDriverRow(userId: string, regionId?: string | null):
             try { localStorage.setItem(`pva_drv_row_${userId}`, byPhone.id); } catch {}
             return byPhone.id;
           }
+        }
+      }
+
+      if (!isDeleted && userFullName && userFullName !== "Entregador") {
+        const { data: byName } = await supabase
+          .from("delivery_drivers")
+          .select("id")
+          .ilike("full_name", `%${userFullName.trim()}%`)
+          .maybeSingle();
+
+        if (byName?.id) {
+          await supabase.from("delivery_drivers").update({ user_id: userId } as any).eq("id", byName.id).catch(() => {});
+          driverRowCache.set(userId, byName.id);
+          try { localStorage.setItem(`pva_drv_row_${userId}`, byName.id); } catch {}
+          return byName.id;
         }
       }
     } catch {}
@@ -1411,15 +1423,9 @@ export async function fetchEarnings(driverId: string) {
   const { data: sessionData } = await supabase.auth.getSession();
   const sessionUser = sessionData?.session?.user;
 
-  const fallbackDriverId = (sessionUser?.id === "b5756a82-d1ab-4adf-9fe4-e283a175e37e" || driverId === "b5756a82-d1ab-4adf-9fe4-e283a175e37e")
-    ? "26047901-b04b-4276-81ad-5133b83c7ef5"
-    : null;
-
   const ids = Array.from(new Set([
     driverId,
     sessionUser?.id,
-    fallbackDriverId,
-    driverId === "26047901-b04b-4276-81ad-5133b83c7ef5" ? "b5756a82-d1ab-4adf-9fe4-e283a175e37e" : null
   ].filter(Boolean))) as string[];
 
   // Busca taxa de comissão personalizada do entregador

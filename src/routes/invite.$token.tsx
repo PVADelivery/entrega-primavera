@@ -153,7 +153,9 @@ function InvitePage() {
         };
         if (existingDrv?.id) await (supabase as any).from("delivery_drivers").update(payload).eq("user_id", uid);
         else await (supabase as any).from("delivery_drivers").insert([{ user_id: uid, ...payload }]);
-        await (supabase as any).from("invitations").update({ status: "accepted" }).eq("token", token);
+        try {
+          await (supabase as any).from("invitations").update({ status: "accepted" }).eq("token", token);
+        } catch {}
       } catch (linkErr) {
         console.warn("Falha ao vincular conta existente:", linkErr);
       }
@@ -226,7 +228,9 @@ function InvitePage() {
             license_plate: plate,
             is_active: true,
           }]);
-          await (supabase as any).from("invitations").update({ status: "accepted" }).eq("token", token);
+          try {
+            await (supabase as any).from("invitations").update({ status: "accepted" }).eq("token", token);
+          } catch {}
         }
       }
 

@@ -166,6 +166,10 @@ export async function fetchDrivers(): Promise<DriverWithProfile[]> {
     }
   }
 
+  resultDrivers.sort((a, b) =>
+    (a.full_name || "").trim().localeCompare((b.full_name || "").trim(), "pt-BR", { sensitivity: "base" })
+  );
+
   return resultDrivers;
 }
 
