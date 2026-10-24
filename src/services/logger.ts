@@ -100,6 +100,10 @@ export async function reportErrorToTelegram(payload: ErrorPayload, appName = "Ap
 
   const msg = (payload.error_message || "").toLowerCase();
   const isIgnored = 
+    msg.includes("failed to fetch") ||
+    msg.includes("load failed") ||
+    msg.includes("networkerror") ||
+    msg.includes("network request failed") ||
     msg.includes("aceita por outro") ||
     msg.includes("delivery_not_available") ||
     msg.includes("row level security") ||
@@ -316,6 +320,7 @@ export function initializeGlobalErrorHandlers(appName: string) {
             msgStr.includes("blocked the action") ||
             msgStr.includes("not found") ||
             lower.includes("failed to fetch") ||
+            lower.includes("load failed") ||
             lower.includes("networkerror") ||
             lower.includes("network request failed") ||
             // Avisos de falta de conexão mostrados ao entregador não são falhas do sistema
