@@ -95,11 +95,8 @@ function InvitePage() {
           if (expiresAt && expiresAt < new Date()) {
             setError("Este link de convite expirou.");
           } else {
-            if (inv.email && !String(inv.email).toLowerCase().startsWith("convite_") && !String(inv.email).includes("@mt24horasexpress.com")) {
-              setFormData(prev => ({ ...prev, email: inv.email }));
-            } else {
-              setFormData(prev => ({ ...prev, email: "" }));
-            }
+            // O campo de e-mail NUNCA deve ser pré-preenchido, deve SEMPRE iniciar 100% em branco para o usuário digitar
+            setFormData(prev => ({ ...prev, email: "", password: "", confirmPassword: "" }));
           }
         }
       } catch (err: any) {
