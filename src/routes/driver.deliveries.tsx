@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { notifyConnectionError } from "@/lib/connectionError";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useWorkMode } from "@/hooks/useWorkMode";
-import { Navigation, Phone } from "lucide-react";
+import { Navigation, Phone, Loader2 } from "lucide-react";
 import { createPickupPinElement, createDropoffPinElement, createVehicleMarkerElement, registerMapEmojis } from "@/lib/map-markers";
 
 const PVA_CENTER: [number, number] = [-54.3075, -15.5606];
@@ -288,6 +288,7 @@ function DeliveriesPage() {
       in_route: "delivered",
     };
     const nextSt = nextStatusMap[d.status] || "collecting";
+    const appNextSt = nextSt === "in_transit" ? "in_route" : nextSt;
 
     // 1. Atualização otimista instantânea no cache local
     qc.setQueriesData({ queryKey: ["deliveries"] }, (old: any) => {
@@ -295,7 +296,7 @@ function DeliveriesPage() {
       if (nextSt === "delivered") {
         return old.filter((item: any) => item.id !== d.id);
       }
-      return old.map((item: any) => item.id === d.id ? { ...item, status: nextSt } : item);
+      return old.map((item: any) => item.id === d.id ? { ...item, status: appNextSt } : item);
     });
 
     setPending(d.id);
@@ -308,9 +309,10 @@ function DeliveriesPage() {
         ? "Falha de conexão com a rede. Tente novamente."
         : (err?.message || "Erro desconhecido");
       toast.error(`Falha ao atualizar: ${userMsg}`);
-    } finally {
       qc.invalidateQueries({ queryKey: ["deliveries"] });
+    } finally {
       setPending(null);
+      qc.invalidateQueries({ queryKey: ["deliveries"] });
     }
   }
 
@@ -463,9 +465,16 @@ function DeliveriesPage() {
                       <button
                         onClick={() => handleAdvanceRideStatus(r.id, r.status)}
                         disabled={pending === r.id}
-                        className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all cursor-pointer"
+                        className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-slate-950 text-xs font-bold shadow-md hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70"
                       >
-                        {pending === r.id ? "Atualizando..." : r.status === "accepted" ? "Iniciar Corrida" : "Finalizar Corrida"}
+                        {pending === r.id ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-950" />
+                            <span>Atualizando...</span>
+                          </>
+                        ) : (
+                          r.status === "accepted" ? "Iniciar Corrida" : "Finalizar Corrida"
+                        )}
                       </button>
                       <button
                         onClick={() => handleCancelRide(r.id)}

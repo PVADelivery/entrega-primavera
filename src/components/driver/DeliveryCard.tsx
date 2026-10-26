@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Wallet, ArrowRight, Phone, MessageSquare, AlertCircle, Navigation } from "lucide-react";
+import { MapPin, Wallet, ArrowRight, Phone, MessageSquare, AlertCircle, Navigation, Loader2 } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { formatDateTime } from "@/lib/utils";
 import { extractDeliveryFee, cleanAddressForDriver, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
@@ -316,28 +316,43 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
             )}
             {onAccept && (
               <Button
-                className="group/btn h-11 flex-1 rounded-xl font-bold shadow-md"
+                className="group/btn h-11 flex-1 rounded-xl font-bold shadow-md bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-slate-950 hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-70"
                 disabled={pending}
                 onClick={() => {
                   if (pending) return;
                   onAccept();
                 }}
               >
-                {pending ? <span>Aceitando...</span> : (
-                  <>
+                {pending ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+                    <span>Aceitando...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-1.5">
                     <span>Aceitar entrega</span>
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
-                  </>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5 text-slate-950" />
+                  </div>
                 )}
               </Button>
             )}
             {next && onAdvance && (
               <Button
-                className="h-11 flex-1 rounded-xl font-semibold"
+                className="h-11 flex-1 rounded-xl font-bold bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-slate-950 shadow-md hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                 disabled={pending}
                 onClick={onAdvance}
               >
-                <span>{next}</span>
+                {pending ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+                    <span>Atualizando...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>{next}</span>
+                    <ArrowRight className="h-4 w-4 text-slate-950" />
+                  </div>
+                )}
               </Button>
             )}
 

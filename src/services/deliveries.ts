@@ -993,7 +993,16 @@ export async function advanceDelivery(delivery: any) {
     return;
   }
 
-  // 2. Se falhar por RLS ou ambiguidade, chamar a RPC segura
+  // 2. Se for finalização e falhar, tentar imediatamente com enum alternativo 'completed'
+  if (next === "delivered") {
+    const { error: compErr } = await supabase
+      .from("deliveries")
+      .update({ status: "completed", completed_at: now, updated_at: now })
+      .eq("id", delivery.id);
+    if (!compErr) return;
+  }
+
+  // 3. Fallback para RPC update_delivery_status_safe (com 3 parâmetros explícitos para evitar PGRST203)
   try {
     const { data: rpcData, error: rpcError } = await supabase.rpc("update_delivery_status_safe", {
       p_delivery_id: delivery.id,
@@ -1004,25 +1013,6 @@ export async function advanceDelivery(delivery: any) {
       return;
     }
   } catch {}
-
-  try {
-    const { data: rpcData2, error: rpcError2 } = await supabase.rpc("update_delivery_status_safe", {
-      p_delivery_id: delivery.id,
-      p_status: next,
-    });
-    if (!rpcError2 && rpcData2 && (rpcData2 as any).success) {
-      return;
-    }
-  } catch {}
-
-  // 3. Fallback adicional com 'completed' se o enum do banco usar completed
-  if (next === "delivered") {
-    const { error: compErr } = await supabase
-      .from("deliveries")
-      .update({ status: "completed", completed_at: now, updated_at: now })
-      .eq("id", delivery.id);
-    if (!compErr) return;
-  }
 
   throw new Error(directErr?.message || "Falha ao atualizar status da entrega no banco.");
 }
