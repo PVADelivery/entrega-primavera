@@ -202,20 +202,37 @@ export function DriverHeader() {
     }
 
     try {
-      const p1 = supabase
-        .from("delivery_drivers")
-        .update({ is_online: value, online: value } as any)
-        .eq("user_id", user.id);
-      const p2 = supabase
-        .from("delivery_drivers")
-        .update({ is_online: value, online: value } as any)
-        .eq("id", user.id);
+      const attempt = async (payload: Record<string, boolean>) => {
+        const r = await supabase
+          .from("delivery_drivers")
+          .update(payload as any)
+          .eq("user_id", user.id)
+          .select("id");
+        return r;
+      };
 
-      const [r1, r2] = await Promise.allSettled([p1, p2]);
-      const err = (r1.status === "fulfilled" ? r1.value.error : null) && (r2.status === "fulfilled" ? r2.value.error : null);
+      let res = await attempt({ is_online: value, online: value });
+      // Coluna "online" pode não existir neste banco
+      if (res.error && (res.error as any).code === "42703") {
+        res = await attempt({ is_online: value });
+      }
+      // Sessão expirada: renova e tenta de novo uma vez
+      if (res.error && /jwt|401|expired|auth/i.test(res.error.message || "")) {
+        await supabase.auth.refreshSession().catch(() => {});
+        res = await attempt({ is_online: value });
+      }
+      // Cadastro antigo onde o id do motorista é o próprio user id
+      if (!res.error && (!res.data || res.data.length === 0)) {
+        const r2 = await supabase
+          .from("delivery_drivers")
+          .update({ is_online: value } as any)
+          .eq("id", user.id);
+        if (r2.error) res = r2 as any;
+      }
 
-      if (err) {
-        throw err;
+      if (res.error) {
+        console.warn("[Header] status sync error:", (res.error as any).code, res.error.message);
+        throw res.error;
       }
     } catch (err: any) {
       const msg = err?.message || String(err);
