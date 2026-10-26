@@ -142,9 +142,8 @@ function DriverHome() {
       }
     },
     enabled: mode === "delivery",
-    staleTime: 4000,
+    staleTime: 10000,
     gcTime: 300000,
-    refetchInterval: 5000,
     refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
@@ -230,9 +229,8 @@ function DriverHome() {
       }
     },
     enabled: !!(driverId || user?.id) && mode === "delivery",
-    staleTime: 4000,
+    staleTime: 10000,
     gcTime: 300000,
-    refetchInterval: 5000,
     refetchOnWindowFocus: true,
   });
 
@@ -305,9 +303,8 @@ function DriverHome() {
       }
     },
     enabled: mode === "ride",
-    staleTime: 4000,
+    staleTime: 10000,
     gcTime: 300000,
-    refetchInterval: 5000,
     refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   });
@@ -343,9 +340,8 @@ function DriverHome() {
       }
     },
     enabled: mode === "ride" && (!!driverId || !!user?.id),
-    staleTime: 4000,
+    staleTime: 10000,
     gcTime: 300000,
-    refetchInterval: 5000,
     refetchOnWindowFocus: true,
   });
 
