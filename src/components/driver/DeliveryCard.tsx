@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Wallet, ArrowRight, Phone, MessageSquare, AlertCircle } from "lucide-react";
+import { MapPin, Wallet, ArrowRight, Phone, MessageSquare, AlertCircle, Navigation } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { formatDateTime } from "@/lib/utils";
 import { extractDeliveryFee, cleanAddressForDriver, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
@@ -46,6 +46,16 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
     ? `https://wa.me/55${customerPhoneClean}?text=${encodeURIComponent(`Olá ${delivery.customer_name || ""}, sou o entregador do seu pedido #${delivery.short_id || ""} da ${displayStoreName}!`)}`
     : null;
 
+  const destinationAddress = cleanAddressForDriver(delivery.address);
+  const destinationMapsUrl = destinationAddress && destinationAddress !== "Endereço não informado"
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destinationAddress)}`
+    : null;
+
+  const pickupAddressText = delivery.pickup_address?.trim() || (isCustomerErrand ? "" : displayStoreName);
+  const pickupMapsUrl = pickupAddressText
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pickupAddressText)}`
+    : null;
+
   return (
     <Card className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-0 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-elegant)]">
       {/* gold/purple accent line */}
@@ -67,16 +77,16 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
                 ENTREGA DE CARRO
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <p className="truncate font-display text-base font-bold tracking-tight text-amber-400">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-display text-base font-bold tracking-tight text-amber-400 break-words leading-tight flex-1 min-w-0">
                 {displayStoreName}
               </p>
               {delivery.short_id && <span className="bg-primary/10 text-primary font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">{delivery.short_id}</span>}
             </div>
 
             {/* Nome do cliente, Telefone e Horário */}
-            <div className="flex items-center justify-between text-xs text-muted-foreground mt-1 font-medium">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground mt-1.5 font-medium flex-wrap gap-1">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span><span>Cliente: </span><strong className="text-foreground font-semibold">{delivery.customer_name || "Cliente"}</strong></span>
                 {customerPhoneClean && (
                   <span className="text-[11px] text-muted-foreground/80 font-mono">
@@ -91,33 +101,149 @@ export function DeliveryCard({ delivery, onAccept, onAdvance, onCancel, onDeclin
               )}
             </div>
 
+            {/* Região dos Endereços Completa e Sem Cortes */}
             {isBuscaCondicional ? (
-              <div className="space-y-1 mt-1.5 bg-purple-500/5 p-2 rounded-xl border border-purple-500/20">
-                <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-                  <span className="line-clamp-2"><strong className="text-amber-300 font-bold">1º Buscar em (Cliente):</strong> <span>{cleanAddressForDriver(delivery.address)}</span></span>
-                </p>
-                <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                  <span className="line-clamp-2"><strong className="text-emerald-300 font-bold">2º Levar para (Loja):</strong> <span>{delivery.pickup_address || displayStoreName}</span></span>
-                </p>
+              <div className="space-y-2 mt-2.5 bg-purple-500/10 p-3 rounded-xl border border-purple-500/30">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                    <div className="min-w-0 flex-1">
+                      <strong className="text-[10px] font-black uppercase tracking-wider text-amber-300 block">
+                        1º Buscar em (Cliente):
+                      </strong>
+                      <p className="text-xs font-bold text-foreground leading-relaxed break-words select-all mt-0.5">
+                        {destinationAddress}
+                      </p>
+                    </div>
+                  </div>
+                  {destinationMapsUrl && (
+                    <a
+                      href={destinationMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Abrir rota no Google Maps"
+                      className="inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold hover:bg-amber-500/30 active:scale-95 transition-all mt-0.5"
+                    >
+                      <Navigation className="h-3 w-3" />
+                      <span>GPS</span>
+                    </a>
+                  )}
+                </div>
+
+                <div className="h-px bg-purple-500/20" />
+
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    <div className="min-w-0 flex-1">
+                      <strong className="text-[10px] font-black uppercase tracking-wider text-emerald-300 block">
+                        2º Levar para (Loja):
+                      </strong>
+                      <p className="text-xs font-semibold text-foreground/90 leading-relaxed break-words select-all mt-0.5">
+                        {delivery.pickup_address || displayStoreName}
+                      </p>
+                    </div>
+                  </div>
+                  {pickupMapsUrl && (
+                    <a
+                      href={pickupMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Abrir rota no Google Maps"
+                      className="inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold hover:bg-emerald-500/30 active:scale-95 transition-all mt-0.5"
+                    >
+                      <Navigation className="h-3 w-3" />
+                      <span>GPS</span>
+                    </a>
+                  )}
+                </div>
               </div>
             ) : delivery.pickup_address ? (
-              <div className="space-y-1 mt-1.5">
-                <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-                  <span className="line-clamp-2"><strong className="text-foreground">Retirada (Loja):</strong> <span>{delivery.pickup_address}</span></span>
-                </p>
-                <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                  <span className="line-clamp-2"><strong className="text-foreground">Entrega (Cliente):</strong> <span>{cleanAddressForDriver(delivery.address)}</span></span>
-                </p>
+              <div className="space-y-2.5 mt-2.5 bg-secondary/35 p-3 rounded-xl border border-border/50">
+                {/* Retirada (Loja) */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                    <div className="min-w-0 flex-1">
+                      <strong className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+                        Retirada (Loja):
+                      </strong>
+                      <p className="text-xs font-medium text-foreground/90 leading-relaxed break-words select-all mt-0.5">
+                        {delivery.pickup_address}
+                      </p>
+                    </div>
+                  </div>
+                  {pickupMapsUrl && (
+                    <a
+                      href={pickupMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Abrir rota no Google Maps"
+                      className="inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold hover:bg-amber-500/25 active:scale-95 transition-all mt-0.5"
+                    >
+                      <Navigation className="h-3 w-3" />
+                      <span>GPS</span>
+                    </a>
+                  )}
+                </div>
+
+                <div className="h-px bg-border/40" />
+
+                {/* Entrega (Cliente) */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    <div className="min-w-0 flex-1">
+                      <strong className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">
+                        Entrega (Cliente):
+                      </strong>
+                      <p className="text-xs font-bold text-foreground leading-relaxed break-words select-all mt-0.5">
+                        {destinationAddress}
+                      </p>
+                    </div>
+                  </div>
+                  {destinationMapsUrl && (
+                    <a
+                      href={destinationMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Abrir rota no Google Maps"
+                      className="inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold hover:bg-emerald-500/25 active:scale-95 transition-all mt-0.5"
+                    >
+                      <Navigation className="h-3 w-3" />
+                      <span>GPS</span>
+                    </a>
+                  )}
+                </div>
               </div>
             ) : (
-              <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/70" />
-                <span className="line-clamp-2">{cleanAddressForDriver(delivery.address)}</span>
-              </p>
+              <div className="mt-2.5 bg-secondary/35 p-3 rounded-xl border border-border/50">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    <div className="min-w-0 flex-1">
+                      <strong className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">
+                        Entrega (Cliente):
+                      </strong>
+                      <p className="text-xs font-bold text-foreground leading-relaxed break-words select-all mt-0.5">
+                        {destinationAddress}
+                      </p>
+                    </div>
+                  </div>
+                  {destinationMapsUrl && (
+                    <a
+                      href={destinationMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Abrir rota no Google Maps"
+                      className="inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold hover:bg-emerald-500/25 active:scale-95 transition-all mt-0.5"
+                    >
+                      <Navigation className="h-3 w-3" />
+                      <span>GPS</span>
+                    </a>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* Observações preenchidas pelo lojista */}

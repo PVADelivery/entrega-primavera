@@ -639,7 +639,7 @@ function DriverHome() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Origem</p>
-                          <p className="text-xs font-semibold text-foreground truncate">{r.pickup_address || "Endereço de origem"}</p>
+                          <p className="text-xs font-semibold text-foreground break-words leading-relaxed select-all">{r.pickup_address || "Endereço de origem"}</p>
                         </div>
                       </div>
 
@@ -649,7 +649,7 @@ function DriverHome() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Destino</p>
-                          <p className="text-xs font-semibold text-foreground truncate">{r.dropoff_address || "Endereço de destino"}</p>
+                          <p className="text-xs font-semibold text-foreground break-words leading-relaxed select-all">{r.dropoff_address || "Endereço de destino"}</p>
                         </div>
                       </div>
                     </div>

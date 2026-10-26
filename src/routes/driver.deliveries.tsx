@@ -455,8 +455,8 @@ function DeliveriesPage() {
                           </a>
                         )}
                       </div>
-                      <p className="text-muted-foreground">Origem: <strong className="text-foreground/90">{pickup}</strong></p>
-                      <p className="text-muted-foreground">Destino: <strong className="text-foreground/90">{dropoff}</strong></p>
+                      <p className="text-muted-foreground">Origem: <strong className="text-foreground/90 break-words select-all">{pickup}</strong></p>
+                      <p className="text-muted-foreground">Destino: <strong className="text-foreground/90 break-words select-all">{dropoff}</strong></p>
                     </div>
 
                     <div className="flex gap-2 pt-2 border-t border-border/40">
@@ -525,7 +525,7 @@ function DeliveriesPage() {
                       <span className="text-xs font-bold text-foreground">R$ {safePrice}</span>
                     </div>
                     <p className="text-xs text-muted-foreground">Passageiro: {cleanCustomer}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">Destino: {dropoff}</p>
+                    <p className="text-[11px] text-muted-foreground break-words select-all">Destino: {dropoff}</p>
                   </Card>
                 );
               })}

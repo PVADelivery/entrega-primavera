@@ -61,7 +61,7 @@ export function BatchDeliveryCard({ batchId, deliveries, onAcceptBatch, pending 
               {displayStoreName}
             </strong>
             {first.pickup_address && (
-              <span className="text-xs text-muted-foreground line-clamp-1">
+              <span className="text-xs text-muted-foreground break-words block mt-0.5 select-all">
                 {first.pickup_address}
               </span>
             )}
@@ -87,16 +87,16 @@ export function BatchDeliveryCard({ batchId, deliveries, onAcceptBatch, pending 
                       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-black text-primary">
                         {idx + 1}
                       </span>
-                      <strong className="truncate text-xs font-bold text-foreground">
+                      <strong className="text-xs font-bold text-foreground break-words">
                         {item.customer_name || `Cliente #${idx + 1}`}
                       </strong>
                       {item.short_id && (
-                        <span className="text-[9px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        <span className="text-[9px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
                           {item.short_id}
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 pl-5.5 text-[11px] text-muted-foreground truncate">
+                    <p className="mt-1 pl-5.5 text-xs text-foreground/90 font-medium break-words leading-relaxed select-all">
                       📍 {cleanAddressForDriver(item.address)}
                     </p>
                   </div>
