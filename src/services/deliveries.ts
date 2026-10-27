@@ -1345,13 +1345,13 @@ export function getDriverShareFactor(rate: number | null | undefined): number {
 /** Calcula o repasse líquido e bruto de uma entrega para o entregador */
 export function getDriverDeliveryEarnings(row: any, driverShareFactor: number): { net: number; gross: number } {
   const gross = extractDeliveryFee(row);
-  if (row?.driver_fee != null && Number(row.driver_fee) > 0) {
-    return { net: Number(row.driver_fee), gross };
+  // Repasse explícito só é aceito se não ultrapassar a taxa da entrega
+  // (o campo "commission" pode conter valores de outra natureza e inflava os ganhos).
+  const driverFee = Number(row?.driver_fee);
+  if (Number.isFinite(driverFee) && driverFee > 0 && driverFee <= gross) {
+    return { net: driverFee, gross };
   }
-  if (row?.commission != null && Number(row.commission) > 0) {
-    return { net: Number(row.commission), gross };
-  }
-  return { net: gross * driverShareFactor, gross };
+  return { net: Math.round(gross * driverShareFactor * 100) / 100, gross };
 }
 
 // Fuso padrão oficial da plataforma (Mato Grosso / Primavera do Leste: UTC-4)
