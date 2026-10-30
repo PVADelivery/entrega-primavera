@@ -93,8 +93,12 @@ export function useDriverNotifications() {
   const { playAlert, startLoop, stopLoop, stopAlert, unlockAudio } = useAudioAlert();
   const qc = useQueryClient();
 
+  const lastInvalidateRef = useRef<number>(0);
   const invalidateDeliveries = () => {
     try {
+      const now = Date.now();
+      if (now - lastInvalidateRef.current < 3000) return;
+      lastInvalidateRef.current = now;
       qc.invalidateQueries({ queryKey: ["deliveries"] });
       qc.invalidateQueries({ queryKey: ["rides"] });
     } catch (e) {
@@ -1172,11 +1176,12 @@ export function useDriverNotifications() {
       }
 
       // Intervalo resiliente de polling a cada 12s para garantir recebimento mesmo com instabilidade de rede ou Realtime
+      // Intervalo de polling reduzido a cada 30s (o Realtime WebSocket já entrega atualizações instantâneas sem gastar bateria/CPU)
       const syncInterval = setInterval(() => {
         if (!cancelled && checkDriverOnline()) {
           pollDeliveries();
         }
-      }, 12000);
+      }, 30000);
 
       return () => {
         clearInterval(syncInterval);

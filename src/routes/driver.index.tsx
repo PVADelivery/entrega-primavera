@@ -358,16 +358,24 @@ function DriverHome() {
   useEffect(() => {
     if (!effectiveId) return;
     let channel: any = null;
+    let lastDeliveriesRefresh = 0;
+    let lastRidesRefresh = 0;
     try {
       const channelName = `deliveries-home-${Math.random().toString(36).slice(2, 7)}`;
       channel = supabase
         .channel(channelName)
         .on("postgres_changes", { event: "*", schema: "public", table: "deliveries" }, () => {
+          const now = Date.now();
+          if (now - lastDeliveriesRefresh < 2000) return;
+          lastDeliveriesRefresh = now;
           qc.invalidateQueries({ queryKey: ["deliveries", "available"] });
           qc.invalidateQueries({ queryKey: ["deliveries", "active"] });
           qc.invalidateQueries({ queryKey: ["earnings"] });
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "ride_requests" }, () => {
+          const now = Date.now();
+          if (now - lastRidesRefresh < 2000) return;
+          lastRidesRefresh = now;
           qc.invalidateQueries({ queryKey: ["rides"] });
           qc.invalidateQueries({ queryKey: ["earnings"] });
         })
@@ -380,7 +388,7 @@ function DriverHome() {
         try { supabase.removeChannel(channel); } catch {}
       }
     };
-  }, [driverId, qc]);
+  }, [effectiveId, qc]);
 
   async function getEffectiveDriverId(): Promise<string> {
     if (driverId && driverId.includes("-") && driverId !== user?.id) return driverId;

@@ -732,9 +732,12 @@ function DriverRideMap({ ride }: { ride: any }) {
           updateRouteSource(initialGeojson);
 
           const url = `https://router.project-osrm.org/route/v1/driving/${pickupLng},${pickupLat};${dropoffLng},${dropoffLat}?overview=full&geometries=geojson`;
-          fetch(url)
+          const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+          const tid = ctrl ? setTimeout(() => ctrl.abort(), 3500) : null;
+          fetch(url, { signal: ctrl?.signal })
             .then((res) => res.json())
             .then((data) => {
+              if (tid) clearTimeout(tid);
               if (data && data.routes && data.routes.length > 0) {
                 const routeGeojson = {
                   type: "Feature",
@@ -744,7 +747,9 @@ function DriverRideMap({ ride }: { ride: any }) {
                 updateRouteSource(routeGeojson);
               }
             })
-            .catch(() => {});
+            .catch(() => {
+              if (tid) clearTimeout(tid);
+            });
         };
 
         registerMapEmojis(m);
