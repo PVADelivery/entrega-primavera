@@ -127,7 +127,7 @@ function ProfilePage() {
     }
 
     if (d && (!d.user_id || d.user_id !== user.id)) {
-      supabase.from("delivery_drivers").update({ user_id: user.id } as any).eq("id", d.id).catch(() => {});
+      supabase.from("delivery_drivers").update({ user_id: user.id } as any).eq("id", d.id).then(() => {}, () => {});
       d.user_id = user.id;
     }
 
@@ -217,11 +217,11 @@ function ProfilePage() {
       }
 
       if (driverRow && (!driverRow.user_id || driverRow.user_id !== user.id)) {
-        supabase.from("delivery_drivers").update({ user_id: user.id } as any).eq("id", driverRow.id).catch(() => {});
+        supabase.from("delivery_drivers").update({ user_id: user.id } as any).eq("id", driverRow.id).then(() => {}, () => {});
         driverRow.user_id = user.id;
       }
 
-      const driver: any = driverRow ?? { id: fallbackDriverId || user.id };
+      const driver: any = driverRow ?? { id: user.id };
       if (driver.service_types) setServiceTypes(driver.service_types);
       const driverShareFactor = getDriverShareFactor(driver.commission_rate);
 
@@ -230,7 +230,6 @@ function ProfilePage() {
         driver.id,
         driverRow?.id,
         driverRow?.user_id,
-        fallbackDriverId,
         user.id
       ].filter(Boolean))) as string[];
 
