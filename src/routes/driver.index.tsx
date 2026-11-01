@@ -780,7 +780,7 @@ function DriverHome() {
 
       {/* ── BONASOFT Watermark ── */}
       <div className="mt-16 pb-8 flex justify-center select-none">
-        <BonaSoftLogo showSubtitle />
+        <BonaSoftLogo />
       </div>
     </DriverShell>
   );

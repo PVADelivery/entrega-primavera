@@ -1504,7 +1504,7 @@ export interface BonaSoftLogoProps {
   showSubtitle?: boolean;
 }
 
-export function BonaSoftLogo({ className = "", showSubtitle = false }: BonaSoftLogoProps) {
+export function BonaSoftLogo({ className = "" }: BonaSoftLogoProps) {
   return (
     <div className={`w-full sm:w-auto flex items-center justify-center text-center select-none ${className}`}>
       <a
@@ -1515,16 +1515,9 @@ export function BonaSoftLogo({ className = "", showSubtitle = false }: BonaSoftL
         aria-label="Acessar site oficial da BonaSoft"
       >
         <BonaParticleAtom className="h-6 w-6 text-emerald-400 shrink-0 transition-transform duration-300 group-hover:scale-110 group-active:scale-95" />
-        <div className="flex flex-col text-left">
-          <span className="font-sans font-light tracking-[0.24em] text-base sm:text-lg leading-none text-zinc-300 uppercase transition-colors duration-200 group-hover:text-white group-active:text-white pl-[0.24em]">
-            BONASOFT
-          </span>
-          {showSubtitle && (
-            <span className="font-sans font-normal tracking-[0.18em] text-[8px] sm:text-[9px] text-zinc-400 uppercase leading-tight mt-0.5 transition-colors duration-200 group-hover:text-zinc-200 pl-[0.18em]">
-              Desenvolvimento de Sistemas
-            </span>
-          )}
-        </div>
+        <span className="font-sans font-light tracking-[0.24em] text-base sm:text-lg leading-none text-zinc-300 uppercase transition-colors duration-200 group-hover:text-white group-active:text-white pl-[0.24em]">
+          BONASOFT
+        </span>
       </a>
     </div>
   );
