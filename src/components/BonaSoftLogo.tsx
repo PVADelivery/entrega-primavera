@@ -1515,7 +1515,7 @@ export function BonaSoftLogo({ className = "" }: BonaSoftLogoProps) {
         aria-label="Acessar site oficial da BonaSoft"
       >
         <BonaParticleAtom className="h-6 w-6 text-emerald-400 shrink-0 transition-transform duration-300 group-hover:scale-110 group-active:scale-95" />
-        <span className="font-sans font-light tracking-[0.24em] text-base sm:text-lg leading-none text-zinc-300 uppercase transition-colors duration-200 group-hover:text-white group-active:text-white pl-[0.24em]">
+        <span className="font-sans font-light tracking-[0.26em] text-[10px] sm:text-[11px] leading-none text-zinc-300 uppercase transition-colors duration-200 group-hover:text-white group-active:text-white pl-[0.26em]">
           BONASOFT
         </span>
       </a>
