@@ -5,7 +5,7 @@ import { DriverShell } from "@/components/driver/DriverShell";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, MessageCircle, Phone, CheckCheck, Headphones, AlertCircle, Sparkles } from "lucide-react";
+import { Send, MessageCircle, Phone, CheckCheck, Headphones, AlertCircle } from "lucide-react";
 import { WhatsappIcon } from "@/components/icons/WhatsappIcon";
 import { toast } from "sonner";
 import { isConnectionError, notifyConnectionError } from "@/lib/connectionError";
@@ -266,7 +266,7 @@ function ChatPage() {
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-tl-xs bg-slate-900 border border-white/10 p-3 text-xs text-slate-200 shadow-sm leading-relaxed">
                 <p className="font-bold text-amber-400 mb-1 flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5" /> Central de Operações
+                  <Headphones className="h-3.5 w-3.5" /> Central de Operações
                 </p>
                 <p>
                   Olá! Como podemos te ajudar hoje? Envie sua dúvida abaixo ou clique no botão verde no topo para falar diretamente no WhatsApp da Central:{" "}

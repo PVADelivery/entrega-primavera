@@ -25,7 +25,7 @@ import {
 } from "@/services/deliveries";
 import { toast } from "sonner";
 import { notifyConnectionError } from "@/lib/connectionError";
-import { TrendingUp, Package2, CalendarDays, Sparkles, Navigation, User, MapPin, ArrowRight, Loader2 } from "lucide-react";
+import { TrendingUp, Package2, CalendarDays, Wallet, Navigation, User, MapPin, ArrowRight, Loader2 } from "lucide-react";
 import { useWorkMode } from "@/hooks/useWorkMode";
 import { WorkModeSwitch } from "@/components/driver/WorkModeSwitch";
 import { getElapsedSeconds } from "@/utils/time";
@@ -548,7 +548,7 @@ function DriverHome() {
               style={{ background: "var(--gradient-gold)" }}
               aria-hidden
             >
-              <Sparkles className="h-5 w-5" />
+              <Wallet className="h-5 w-5" />
             </span>
           </div>
 
