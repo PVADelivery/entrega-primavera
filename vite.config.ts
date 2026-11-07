@@ -33,6 +33,7 @@ export default defineConfig(({ command }) => {
     ].filter(Boolean),
     resolve: {
       alias: {
+        "@": path.resolve(__dirname, "./src"),
         "@capacitor/push-notifications": path.resolve(__dirname, "./src/lib/pushNotifications.ts"),
         "@capacitor/local-notifications": path.resolve(__dirname, "./src/lib/localNotifications.ts"),
         "@capacitor/app": path.resolve(__dirname, "./src/lib/capacitorApp.ts"),
