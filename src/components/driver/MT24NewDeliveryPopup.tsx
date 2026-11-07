@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Store, MapPin, Navigation, CheckCircle2, X, Loader2, Sparkles, Bike } from "lucide-react";
+import { Store, MapPin, Navigation, CheckCircle2, X, Loader2, Bike } from "lucide-react";
 import iconPrimavera from "@/assets/primavera-icon-v3.png";
 import { extractDeliveryFee, type DeliveryWithRelations as Delivery } from "@/services/deliveries";
 import { useAudioAlert } from "@/hooks/useAudioAlert";
@@ -102,7 +102,7 @@ export function MT24NewDeliveryPopup({ delivery, open, onAccept, onDecline, pend
           </div>
 
           <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-0.5 text-[11px] font-black uppercase tracking-wider text-amber-300">
-            <Sparkles className="h-3 w-3" />
+            <Bike className="h-3 w-3" />
             <span>MT 24 HORAS EXPRESS</span>
           </div>
 

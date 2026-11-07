@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, PackageCheck, Layers, Sparkles, CheckCircle2 } from "lucide-react";
+import { MapPin, PackageCheck, Layers, CheckCircle2 } from "lucide-react";
 import type { DeliveryWithRelations as Delivery } from "@/services/deliveries";
 
 import { cleanAddressForDriver } from "@/services/deliveries";
