@@ -7,11 +7,17 @@ import type { DeliveryStatus } from "@/types/models";
 
 export function cleanAddressForDriver(address: string | null | undefined): string {
   if (!address) return "Endereço não informado";
-  let cleaned = String(address)
-    .replace(/\s*-\s*(\*|Região:)[^\n]+/gi, "")
-    .replace(/\s*-\s*\*[^\n]+/g, "")
-    .trim();
-  return cleaned || "Endereço não informado";
+  let s = String(address).trim();
+  if (!s) return "Endereço não informado";
+
+  const firstDash = s.indexOf(" - ");
+  let streetPart = firstDash === -1 ? s : s.slice(0, firstDash);
+
+  const numMatch = streetPart.match(/,\s*(\d+[A-Za-z]?|S\/N)/i);
+  const streetName = streetPart.replace(/,\s*(?:\d+[A-Za-z]?|S\/N).*$/i, "").replace(/[\s,]+$/, "").trim();
+  const num = numMatch ? numMatch[1] : "";
+
+  return (streetName + (num ? `, ${num}` : "")).trim() || "Endereço não informado";
 }
 
 function toDbStatus(status: string) {
